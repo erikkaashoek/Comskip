@@ -24,7 +24,7 @@
 
 //#include "config.h"
 
-
+#include "resource.h"
 
 
 
@@ -39,7 +39,7 @@ typedef struct {
 
 
 int key;
-
+char osname[1024];
 
 
 #ifdef LIBVO_DX
@@ -76,6 +76,10 @@ DEFINE_GUID (IID_IDirectDrawSurface2, 0x57805885,0x6eec,0x11cf,0x94,0x41,0xa8,0x
 
 #define FOURCC_YV12 0x32315659
 
+HINSTANCE hInst;
+HWND hWind;
+
+
 typedef struct {
 //    vo_instance_t vo;
     int width;
@@ -101,6 +105,86 @@ static void * surface_addr (LPDIRECTDRAWSURFACE2 surface, int * stride);
 static LPDIRECTDRAWSURFACE2 alloc_overlay (dx_instance_t * instance);
 static void dx_draw_frame (vo_instance_t * _instance, uint8_t * const * buf, void * id);
 
+#define OPEN_INPUT	1
+#define OPEN_INI	2
+#define SAVE_DMP	3
+#define SAVE_INI	4
+
+int PopFileDlg(HWND hWind, PTSTR pstrFileName, int Status)
+{
+	static OPENFILENAME ofn;
+	static char *szFilter, *ext;
+
+	switch (Status)
+	{
+		case OPEN_INPUT:
+			ofn.nFilterIndex = 1;
+			szFilter = \
+				TEXT ("mpg, mpeg, m2v, mpv\0*.mpg;*.mpeg;*.m2v;*.mpv\0") \
+				TEXT ("tp, ts\0*.tp;*.ts\0") \
+				TEXT ("dvr-ms\0*.dvr-ms\0") \
+				TEXT ("All MPEG Files\0*.vob;*.mpg;*.mpeg;*.m1v;*.m2v;*.mpv;*.tp;*.ts;*.trp;*.pva;*.vro\0") \
+				TEXT ("All Files (*.*)\0*.*\0");
+			break;
+
+		case SAVE_DMP:
+			szFilter = TEXT ("DMP File (*.dmp)\0*.dmp\0")  \
+				TEXT ("All Files (*.*)\0*.*\0");
+			break;
+
+		case OPEN_INI:
+		case SAVE_INI:
+			szFilter = TEXT ("Comskip INI File (*.d2v)\0*.d2v\0")  \
+				TEXT ("All Files (*.*)\0*.*\0");
+			break;
+
+	}
+
+	ofn.lStructSize       = sizeof (OPENFILENAME) ;
+	ofn.hwndOwner         = hWind;
+	ofn.hInstance         = hInst ;
+	ofn.lpstrFilter       = szFilter ;
+	ofn.nMaxFile          = 1024 ;
+	ofn.nMaxFileTitle     = 1024 ;
+	ofn.lpstrFile         = pstrFileName ;
+	ofn.lpstrInitialDir   = TEXT(".");
+
+	switch (Status)
+	{
+		case OPEN_INPUT:
+		case OPEN_INI:
+			*ofn.lpstrFile = 0;
+			ofn.Flags = OFN_HIDEREADONLY | OFN_FILEMUSTEXIST | OFN_EXPLORER;
+			return GetOpenFileName(&ofn);
+
+		case SAVE_DMP:
+			*ofn.lpstrFile = 0;
+			ofn.Flags = OFN_HIDEREADONLY | OFN_EXPLORER;
+			if (GetSaveFileName(&ofn))
+			{
+				ext = strrchr(pstrFileName, '.');
+				if (ext!=NULL && !_strnicmp(ext, ".dmp", 4))
+					*ext = 0;
+				return 1;
+			}
+			break;
+
+		case SAVE_INI:
+			*ofn.lpstrFile = 0;
+			ofn.Flags = OFN_HIDEREADONLY | OFN_EXPLORER;
+			if (GetSaveFileName(&ofn))
+			{
+				ext = strrchr(pstrFileName, '.');
+				if (ext!=NULL && !_strnicmp(ext, ".ini", 4))
+					*ext = 0;
+				return 1;
+			}
+			break;
+	}
+	return 0;
+}
+
+
 
 
 static void update_overlay (dx_instance_t * instance)
@@ -118,6 +202,12 @@ static void update_overlay (dx_instance_t * instance)
 }
 
 static int drag = 0;
+
+
+static HANDLE hThread;
+static DWORD threadId;
+
+
 
 static long FAR PASCAL event_procedure (HWND hwnd, UINT message,
 					WPARAM wParam, LPARAM lParam)
@@ -142,8 +232,8 @@ static long FAR PASCAL event_procedure (HWND hwnd, UINT message,
 	instance->window_coords.bottom = rect_window.bottom + point_window.y;
 
 	/* update the overlay */
-	if (instance->overlay && instance->display)
-	    update_overlay (instance);
+//	if (instance->overlay && instance->display)
+//	    update_overlay (instance);
 
 	return 0;
 	
@@ -223,11 +313,20 @@ static long FAR PASCAL event_procedure (HWND hwnd, UINT message,
 			key = 6;						
 			break;
 		}
-		if (wParam != 0) 
+		if (wParam != 0) {
 			key = wParam;
+			if (key == 'C')
+				if(PopFileDlg(hwnd, osname, SAVE_DMP) == 0)
+					key = 0;
+		}
 		break;
 	}
-	
+/*
+	if (key || lMouseDown) {
+		if (!threadId || WaitForSingleObject(hThread, INFINITE)==WAIT_OBJECT_0)
+			  hThread = CreateThread(NULL, 0, MPEG2Dec, 0, 0, &threadId);
+	}
+*/
     return DefWindowProc (hwnd, message, wParam, lParam);
 }
 
@@ -236,6 +335,18 @@ static void check_events (dx_instance_t * instance)
     MSG msg;
 
     while (PeekMessage (&msg, instance->window, 0, 0, PM_REMOVE)) {
+//    while (GetMessage (&msg, instance->window, 0, 0, PM_REMOVE)) {
+	TranslateMessage (&msg);
+	DispatchMessage (&msg);
+    }
+}
+
+static void wait_events (dx_instance_t * instance)
+{
+    MSG msg;
+	
+//    while (PeekMessage (&msg, instance->window, 0, 0, PM_REMOVE)) {
+    while (!key && !lMouseDown && GetMessage (&msg, NULL,0,0)) {
 	TranslateMessage (&msg);
 	DispatchMessage (&msg);
     }
@@ -252,9 +363,11 @@ static int create_window (dx_instance_t * instance)
     wc.cbClsExtra    = 0;
     wc.cbWndExtra    = 0;
     wc.hInstance     = GetModuleHandle (NULL);
+	hInst = wc.hInstance;
     wc.hIcon         = NULL;
     wc.hCursor       = LoadCursor (NULL, IDC_ARROW);
     wc.hbrBackground = CreateSolidBrush (RGB (0, 0, 0));
+//    wc.lpszMenuName  = (LPCSTR)IDC_GUI;
     wc.lpszMenuName  = NULL;
     wc.lpszClassName = "libvo_dx";
     wc.hIconSm       = NULL;
@@ -675,6 +788,7 @@ void vo_init(int width, int height, char *title) {
 
 #ifdef RGB
 	instance = vo_dxrgb_open();
+	hWind = instance;
 	strcpy(instance->title, title);
 	dxrgb_setup( instance, width, height, width, height, &result);
 //	dx_setup_fbuf ( instance, buffer, &result);
@@ -705,6 +819,13 @@ void vo_refresh()
 	if (instance)
 		check_events (instance);
 }
+
+void vo_wait()
+{
+	if (instance)
+		wait_events (instance);
+}
+
 
 
 void vo_close()
