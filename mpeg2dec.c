@@ -1,5 +1,5 @@
 /*
- * mpeg2dec.c 
+ * mpeg2dec.c
  * Copyright (C) 2000-2003 Michel Lespinasse <walken@zoy.org>
  * Copyright (C) 1999-2000 Aaron Holtzman <aholtzma@ess.engr.uvic.ca>
  *
@@ -51,6 +51,8 @@ static int buffer_size = 4096;
 static FILE * in_file;
 static FILE * sample_file;
 static FILE * timing_file = 0;
+static uint8_t *	buffer; // = (uint8_t *) malloc (buffer_size);
+
 
 static int video_track = 0xe0;  // changed to true
 static int audio_track = 0xc0;	//
@@ -67,13 +69,20 @@ int last_pid;
 int pids[PIDS];
 int pid_type[PIDS];
 int pid_pcr[PIDS];
+int pid_pid[PIDS];
+int top_pid_count[256];
+int top_pid_pid[256];
 int pid;
 int selected_video_pid=0;
 int selected_audio_pid=0;
+int found_pids=0;
 
-uint32_t new_pts,pts, dts;
-uint32_t apts, adts,initial_apts;
-static 	uint32_t initial_pts;
+#define uint64_t unsigned __int64
+__int64 new_pts,pts, dts;
+__int64 apts, adts,initial_apts;
+static int initial_apts_set = 0;
+__int64 initial_pts;
+int initial_pts_set = 0;
 
 int bitrate,muxrate,byterate=10000;
 //#define PTS_FRAME 3004
@@ -90,11 +99,21 @@ int bitrate,muxrate,byterate=10000;
 extern int  _fseeki64(FILE *, __int64, int);
 extern __int64 _ftelli64(FILE *);
 
-#define DUMP_HEADER if (timing_file) fprintf(timing_file, "type;pos;fno;new_pts;pts;apts \n");
-#define DUMP_TIMING(T)  \
-if (timing_file && !csSeeking && !csSkipping && !csSeek) \
-	fprintf(timing_file, "%s;%6i;%6i;%6i;%6i;%6i \n", T, (int)headerpos, \
- framenum, (int) new_pts/PTS_FRAME, (int) pts/PTS_FRAME,(int)apts/PTS_FRAME); 
+int soft_seeking=0;
+extern char	basename[];
+static char tempstring[512];
+char field_t;
+#define DUMP_OPEN if (output_timing) { sprintf(tempstring, "%s.timing.csv", basename); timing_file = fopen(tempstring, "w"); DUMP_HEADER }
+#define DUMP_HEADER if (timing_file) fprintf(timing_file, \
+"type      ,pos       ,framenum  ,framen_inf,exp_frame ,PTS frame ,PTS       ,DTS       ,APTS      ,oframe-PTS,initialPTS,field\n");
+#define DUMP_TIMING(T, P, D, A)  \
+if (timing_file && !csStepping && !csJumping && !csStartJump) \
+	fprintf(timing_file, "%s,%10u,%10u,%10u,%10u,%10u,%10u,%10u,%10u,%10u,%6.6f, %c \n", T, (int)headerpos, \
+ framenum, framenum_infer, expected_frame_count, (int)((pts-initial_pts)/PTS_FRAME) , (int) ((P)/PTS_FRAME), \
+(int) ((D)/PTS_FRAME),(int)((A)/PTS_FRAME), framenum - (uint32_t)(pts-initial_pts)/PTS_FRAME, \
+(double)(initial_pts/90000), field_t); 
+#define DUMP_CLOSE if (timing_file) { fclose(timing_file); timing_file = NULL; }
+
 
 
 static mpeg2dec_t * mpeg2dec;
@@ -102,6 +121,11 @@ static int sigint = 0;
 static int total_offset = 0;
 static int verbose = 0;
 
+#ifdef _DEBUG
+static int dump_seek = 1;		// Set to 1 to dump the seeking process
+#else
+static int dump_seek = 0;		// Set to 1 to dump the seeking process
+#endif
 
 #include <sys/stat.h>
 //#include <unistd.h>
@@ -111,14 +135,18 @@ struct stat instat;
 #define filesize instat.st_size
 
 extern int frame_count;
+int						framenum;
 
 fpos_t		filepos;
 fpos_t		fileendpos;
+extern int		standoff;
 __int64			goppos,infopos,packpos,ptspos,headerpos,frompos,SeekPos;
 
 extern int max_repair_size;
 int max_internal_repair_size = 40;
 int framenum_infer;
+int expected_frame_count = 0;
+;
 int count=0;
 int currentSecond=0;
 int cur_hour = 0;
@@ -129,9 +157,9 @@ extern char HomeDir[256];
 int processCC;
 //int live_tv;
 int csRestart;
-int csSeek;
-int csSeeking;
-int csSkipping;
+int csStartJump;
+int csStepping;
+int csJumping;
 int csFound;
 int	seekIter = 0;
 int	seekDirection = 0;
@@ -238,22 +266,22 @@ static int old_is_AC3 = -2;
 		if (sound_frame_counter == 44)
 			sound_frame_counter = sound_frame_counter;
 		
-		delta = (int)(apts/PTS_FRAME) - (int)(expected_apts/PTS_FRAME);
+		delta = (__int64)(apts/PTS_FRAME) - (__int64)(expected_apts/PTS_FRAME);
 		if (expected_apts != 0 && delta != 0 && ! demux_asf) {
-			if (delta < max_internal_repair_size && delta > 0) {
+			if (delta < max_repair_size && delta > 0) {
 				Debug(1, "Audio PTS jumped %d frames at frame %d, repairing timeline\n", delta, sound_frame_counter);
 				while (delta-- > 0) {
 					set_frame_volume((demux_asf?ms_audio_delay:0)+sound_frame_counter++, volume);
-//					DUMP_TIMING("a");
+//					DUMP_TIMING("a         ", (__int64)0,(__int64)0,apts);
 				}									
 			} else
 				Debug(1, "Audio PTS jumped %d frames at frame %d, audio may get out of sync\n", delta, sound_frame_counter);
 		}
 		
-//		DUMP_TIMING("a");
+//		DUMP_TIMING("a         ", (__int64)0,(__int64)0,apts);
 
 
-		delta = (int)(apts/PTS_FRAME) - (int)(pts/PTS_FRAME);
+		delta = (__int64)(apts/PTS_FRAME) - (__int64)(pts/PTS_FRAME);
 		if (-max_internal_repair_size < delta && delta < max_internal_repair_size && sound_frame_counter != delta + framenum) {
 			sound_frame_counter = delta + framenum;
 		}
@@ -287,6 +315,8 @@ static int min_buffer = 1800;
 	short *sum_ptr;
 	int sum;
 
+	if (bytes <= 0)
+		return;
 	if (input_buf[0] == 0x0b && input_buf[1] == 0x77)
 		is_AC3 = 1;
 #ifdef SINGLE_BUFFERING
@@ -301,8 +331,10 @@ static int min_buffer = 1800;
 
 #else
 	if (&write_buf[bytes] - storage_buf > STORAGE_SIZE)
-		printf("Panic, unknown audio format\n");
+			printf("Panic, unknown audio format\n");
 	else {
+		if (&write_buf[bytes] - storage_buf > STORAGE_SIZE*2/3)
+			is_AC3 = ! is_AC3;
 		memcpy(write_buf, input_buf, bytes);
 		write_buf = &write_buf[bytes];
 	}
@@ -364,7 +396,7 @@ void decode_mpeg2_audio_reset()
 
 void decode_mpeg2_audio(char *buf, char *end)
 {
-	if (!csSeeking && !csSkipping && !csSeek) {
+	if (!csStepping && !csJumping && !csStartJump) {
 		dump_audio(buf, end);
 		decode_audio(buf, end - buf);
 
@@ -385,7 +417,7 @@ static int last_count = 0;
     if (verbose)
 		return;
 	
-	if(csSeeking)
+	if(csStepping)
 		return;
 
 	if(final < 0) {
@@ -437,65 +469,109 @@ static int last_count = 0;
 }
 
 
-static uint32_t prev_new_pts = 0;
-void set_pts(uint32_t new_pts)
+void asf_tag_picture(__int64 new_pts)
 {
-	if (demux_asf)
-		mpeg2_tag_picture (mpeg2dec, new_pts, new_pts);
+//	int nf = (int)(new_pts/PTS_FRAME);
 
-	if (((int)prev_new_pts/PTS_FRAME) != ((int)new_pts/PTS_FRAME)) {
+	DUMP_TIMING("settag    ", new_pts,(__int64)0, (__int64)0);
+
+	mpeg2_tag_picture (mpeg2dec, new_pts, new_pts);
+}
+
+static __int64 prev_new_pts = 0;
+void set_pts(__int64 new_pts)
+{
+	int f,nf,i;
+//	if (demux_asf)
+//		mpeg2_tag_picture (mpeg2dec, new_pts, new_pts);
+
+	if (!csStepping && !csJumping) {
+
+		if (!initial_pts_set) {
+			initial_pts = new_pts - (framenum) * PTS_FRAME;
+			initial_pts_set = 1;
+		}
+	} else {
+		if (!initial_pts_set) {
+			initial_pts = new_pts;
+			initial_pts_set = 1;
+		}
+	}			
+
+	
+	if ( prev_new_pts/PTS_FRAME !=  new_pts/PTS_FRAME) {
 		prev_new_pts = new_pts;
-		
-		if ((int)(pts/PTS_FRAME) < (int)(new_pts/PTS_FRAME) || 
-			(int)(pts/PTS_FRAME) > (int)(new_pts/PTS_FRAME) + max_internal_repair_size ) {
-			pts = new_pts;
-			if (initial_pts == 0) {
-				initial_pts = new_pts;
-				//		Debug(1, "Initial Video Frame time is %d\n", (int)(initial_pts / PTS_FRAME)); 
-				//		if (initial_apts != 0) {
-				//			Debug(1, "Video - Audio Initial Frame time is %d frames\n", 
-				//				  (int)(initial_pts / PTS_FRAME)- (int)(initial_apts / PTS_FRAME));
-				//		}
+		f = (int)(pts/PTS_FRAME);
+		nf = (int)(new_pts/PTS_FRAME);
+/*
+		Debug(10, "PTS delta %d\n", nf - f);
+*/		
+		if (csStepping || csJumping) {
+			if ((nf > f + 15 || nf < f) || csJumping) {
+				pts = new_pts;
+				if (pts > initial_pts)
+					framenum_infer = (int)((pts-initial_pts)/PTS_FRAME  + 0.2);
+				else
+					framenum_infer = 0;
+				i = framenum_infer - (int)(headerpos/byterate);
+				if (abs(i) > 1000) {
+					framenum_infer = (int)(headerpos/byterate);
+					soft_seeking=1;
+				}
+				if (dump_seek)  printf("[%6d] set_pts, headerpos = %6d\n",framenum_infer, (int)(headerpos/byterate));
 			}
+			return;
+		}				
+		
+		if (max_repair_size == 0) {
+			if (f < nf || 
+				f > nf + max_internal_repair_size ) {
+				pts = new_pts;
+			}
+			return;
+		}
+		if (f < nf || 
+			f > nf + max_internal_repair_size ) {
+			pts = new_pts;
+
+			framenum_infer = (int)((pts-initial_pts)/PTS_FRAME  + 0.2);
+//			if (framenum_infer < 1)
+//				framenum_infer = 1;
 			
-			framenum_infer = (int)((pts-initial_pts)/PTS_FRAME  + 0.2)+1;
-			if (framenum_infer < 1)
-				framenum_infer = 1;
-			
-			if (!csSeeking && !csSkipping && abs(framenum_infer - framenum) > max_internal_repair_size) {
-				Debug(1, "Video PTS jumped %d frames, frame numbers may be incorrect\n", framenum_infer - framenum);
+			if (abs( framenum_infer - framenum) > max_repair_size) {
 				// Oops, probably the initial_pts is wrong!!!!!
 				framenum_infer = framenum_infer;
-				initial_pts = pts - (framenum-1) * PTS_FRAME;
-				framenum_infer = (int)((pts-initial_pts)/PTS_FRAME  + 0.2)+1;
-				if (framenum_infer < 1)
-					framenum_infer = 1;
+				Debug(1, "Video PTS jumped %d frames at frame %d, frame numbers may be incorrect\n", framenum_infer - framenum, framenum);
+				initial_pts = pts - (framenum) * PTS_FRAME;
+				framenum_infer = (int)((pts-initial_pts)/PTS_FRAME  + 0.2);
+		//		if (framenum_infer < 0)
+		//			framenum_infer = 0;
 			}
-			
+
+			DUMP_TIMING("change pts", new_pts,(__int64)0, (__int64)0);
+
 		}
 	}
 
 }
 
 __int64 prev_new_apts = 0;
-void set_apts(uint32_t new_apts)
+void set_apts(__int64 new_apts)
 {
+//			DUMP_TIMING("pa        ", (__int64)0,(__int64)0,new_apts);
 	if (((int)prev_new_apts/PTS_FRAME) != ((int)new_apts/PTS_FRAME)) {
 		prev_new_apts = new_apts;
 
 		if ((int)(apts/PTS_FRAME) < (int)(new_apts/PTS_FRAME) || 
 			(int)(apts/PTS_FRAME) > (int)(new_apts/PTS_FRAME) + max_internal_repair_size ) {
 			apts = new_apts;
-//			DUMP_TIMING("pa");
 		}
 	}
-	if (initial_apts == 0) {
+
+	if (!initial_apts_set) {
 		initial_apts = new_apts;
+		initial_apts_set = 1;
 //		Debug(1, "Initial Audio Frame time is %d\n", (int)(initial_apts / PTS_FRAME)); 
-//		if (initial_pts != 0) {
-//			Debug(1, "Video - Audio Initial Frame time is %d frames\n", 
-//				  (int)(initial_pts / PTS_FRAME) - (int)(initial_apts / PTS_FRAME));
-//		}
 	}
 }
 
@@ -528,15 +604,23 @@ static void * malloc_hook (unsigned size, mpeg2_alloc_t reason)
     return buf;
 }
 
+
+char field_t;
+void SetField(char t)
+{
+	field_t = t;
+//	printf(" %c", t);
+}
+
 static int is32 = 0;
 
 int SubmitFrame(int frame_count)
 {	
-	static int expected_frame_count = 0;
+	static int last_back_frame=0;
 	int res=0;
 	int missing_frames;
 	if (is32 >= 2) {
-		DUMP_TIMING("v32");
+		DUMP_TIMING("v32       ", pts,(__int64)0,apts);
 		res = DetectCommercials(framenum); // 3/2 pulldown
 		framenum++;
 		pts += PTS_FRAME;
@@ -545,27 +629,40 @@ int SubmitFrame(int frame_count)
 		is32 -= 2;
 //		Debug(1, "Video pulldown\n");
 	}
-	if (expected_frame_count != 0 && framenum_infer  != expected_frame_count && ! demux_asf) {
+	if (expected_frame_count != 0 && framenum_infer  != expected_frame_count /* && ! demux_asf */ ) {
 		missing_frames = framenum_infer - expected_frame_count;
-		if (missing_frames > 0 && missing_frames < max_repair_size) {
-			if (missing_frames > 0)
-				Debug(1, "Video PTS jumped %d frames, repairing timeline\n", missing_frames);
+		if (missing_frames != 0)
+			missing_frames = missing_frames;
+		if (0 < missing_frames && missing_frames < max_repair_size) {
+			Debug(1, "Video PTS jumped %d frames at frame %d, repairing timeline\n", missing_frames, framenum);
 			while (missing_frames-- > 0 && res == 0) {
-				DUMP_TIMING("vf");
+				DUMP_TIMING("v fill    ",pts,(__int64)0,apts);
 				res = DetectCommercials(framenum);
 				framenum++;
 //				pts += PTS_FRAME;
 //				framenum_infer++;
 			}
-		} else 
-			Debug(1, "Video PTS jumped %d frames, frame numbers may be incorrect\n", missing_frames);
+		} 
+//		else 
+//			Debug(1, "Video PTS jumped %d frames at frame %d, frame numbers may be incorrect\n", missing_frames, framenum);
 	}
-	DUMP_TIMING("v");
-	if (res == 0) res = DetectCommercials((int)framenum);
-	framenum++;
-	pts += PTS_FRAME;
-	framenum_infer++;
-	expected_frame_count = framenum_infer;
+	if (framenum_infer < expected_frame_count) {
+		DUMP_TIMING("v skip    ", pts,(__int64)0,apts);
+		if (last_back_frame != framenum) {
+			Debug(1, "Video PTS jumped %d frames at frame %d, repairing timeline\n", framenum_infer - expected_frame_count,framenum);
+			last_back_frame = framenum;
+		}
+		pts += PTS_FRAME;
+		framenum_infer++;
+		expected_frame_count = framenum;
+	} else { 
+		DUMP_TIMING("v         ", pts,(__int64)0,apts);
+		if (res == 0) res = DetectCommercials((int)framenum);
+		framenum++;
+		pts += PTS_FRAME;
+		framenum_infer++;
+		expected_frame_count = framenum_infer;
+	}
 	return (res);
 }
 
@@ -578,7 +675,7 @@ void decode_mpeg2 (uint8_t * current, uint8_t * end)
     const mpeg2_picture_t * pic;
 	mpeg2_state_t state;
 
-	if (csSkipping)
+	if (csJumping)
 		return;
 	dump_video(current, end);
     mpeg2_buffer (mpeg2dec, current, end);
@@ -600,7 +697,7 @@ void decode_mpeg2 (uint8_t * current, uint8_t * end)
 		case STATE_SEQUENCE:
 
 			frame_period = info->sequence->frame_period;
-			if (frame_period == 450450 || frame_period == 900900 || frame_period == 900000 || frame_period == 1080000) {
+			if (frame_period == 450450 || frame_period == 900900 || frame_period == 900000 || frame_period == 1080000 || frame_period == 540000) {
 				height= info->sequence->height;
 				width= info->sequence->width;
 				bitrate = info->sequence->byte_rate*8;
@@ -627,8 +724,6 @@ void decode_mpeg2 (uint8_t * current, uint8_t * end)
 			/* might free frame buffer */			
 
 
-			// printf("Frame[%d]: to %6i \n",framenum_infer,SeekPos);
-
 			if (info->display_fbuf) {
 				frame_ptr = info->display_fbuf->buf[0];
   
@@ -644,9 +739,21 @@ void decode_mpeg2 (uint8_t * current, uint8_t * end)
 				if (pic != NULL) {
 					if (pic->nb_fields == 3)
 						is32++;
-					if (pic->flags & PIC_FLAG_TAGS)
+					if (pic->flags & PIC_FLAG_TAGS) {
 						new_pts = pic->tag;
-/*					
+						set_pts(new_pts);
+					}
+
+					
+					if ((pic->flags & 7) == PIC_FLAG_CODING_TYPE_P)
+						SetField('P');
+					if ((pic->flags & 7) == PIC_FLAG_CODING_TYPE_B) 
+						SetField('B');
+					if ((pic->flags & 7) == PIC_FLAG_CODING_TYPE_I)
+						SetField('I');
+					if ((pic->flags & 7) == PIC_FLAG_CODING_TYPE_D)
+						SetField('D');
+/*
 					if (pic->flags & PIC_FLAG_PROGRESSIVE_FRAME)
 						printf (" PROG");
 					if (pic->flags & PIC_FLAG_SKIP)
@@ -657,11 +764,13 @@ void decode_mpeg2 (uint8_t * current, uint8_t * end)
 					if (pic->flags & PIC_FLAG_TAGS)
 						printf (" pts %08x dts %08x", pic->tag, pic->tag2);
 					printf("\n");
-*/					
+ */
+					
 				}
 				print_fps (0);
 
-				if (csSeeking) {
+				if (csStepping) {
+					if (dump_seek)  printf("[%6d] Stepping to %d, headerpos=%6d\n",framenum_infer, (int)SeekPos, (int)(headerpos/byterate));
 					if (framenum_infer >= SeekPos) {
 //						SubmitFrame((int)framenum_infer);
 //						vo_init(width, height, "Dump");
@@ -669,7 +778,9 @@ void decode_mpeg2 (uint8_t * current, uint8_t * end)
 						framenum = framenum_infer;
 						csFound = 1;
 						return;
-					}
+					} else 
+						frame_ptr = NULL;
+
 					pts += PTS_FRAME;
 					framenum++;
 					framenum_infer++;
@@ -732,14 +843,14 @@ int demux (uint8_t * buf, uint8_t * end, int flags)
     static int was_audio = 0;
     static uint8_t head_buf[264];
 	static uint8_t * start_buf;
-	uint32_t	new_apts;
+	__int64	new_apts;
 
     uint8_t * header;
     int bytes;
     int len;
 	int samples;
 //	int ss;
-	uint32_t new_pts;
+	__int64 new_pts;
 
 	start_buf = buf;
 //Definitions of macros
@@ -798,7 +909,7 @@ int demux (uint8_t * buf, uint8_t * end, int flags)
 				decode_mpeg2_audio(buf, end);
 			else {
 				decode_mpeg2 (buf, end);
-				if (csFound || csSeek) return 0;
+				if (csFound || csStartJump) return 0;
 			}
 			state_bytes -= (int)(end - buf);
 			return 0;
@@ -807,7 +918,7 @@ int demux (uint8_t * buf, uint8_t * end, int flags)
 			decode_mpeg2_audio(buf, buf + state_bytes);
 		} else {
 			decode_mpeg2 (buf, buf + state_bytes);
-			if (csFound || csSeek) return 0;
+			if (csFound || csStartJump) return 0;
 		}
 		was_audio = 0;
 		buf += state_bytes;
@@ -852,7 +963,8 @@ continue_header:
 			}
 		}
 
-		headerpos = filepos - (int)(end - header);
+		headerpos = filepos + (int)(buf - buffer);
+//		headerpos = filepos - (int)(end - header);
 	if (demux_pid) {
 //	    if ((header[3] >= 0xe0) && (header[3] <= 0xef))
 		goto pes_video;
@@ -891,6 +1003,8 @@ continue_header:
 			DONEBYTES (5);
 			}
 			packpos = headerpos;
+//			DUMP_TIMING("pack head ", 0, 0, 0);
+
 			break;
 
 		default:
@@ -904,20 +1018,25 @@ continue_header:
 					/* header points to the mpeg2 pes header */
 					if (header[7] & 0x80) {
 						ptspos = headerpos;						
-						new_pts = (((header[9] >> 1) << 30) |
+						new_pts = (((__int64)((header[9] >> 1) & 0x07) << 30) |
 							(header[10] << 22) | ((header[11] >> 1) << 15) |
 							(header[12] << 7) | (header[13] >> 1));
-						new_pts = 
+//						new_pts = 
 							dts	= (!(header[7] & 0x40) ? new_pts :
-						(((header[14] >> 1) << 30) |
+						(((__int64)((header[14] >> 1)  & 0x07) << 30) |
 							(header[15] << 22) |
 							((header[16] >> 1) << 15) |
 							(header[17] << 7) | (header[18] >> 1)));
-						set_pts(new_pts);
+						if (csJumping) 
+							set_pts(new_pts);
+//						if (csStepping || csJumping) set_pts(new_pts);
+						DUMP_TIMING("settag    ", new_pts, dts, (__int64)0);
 						mpeg2_tag_picture (mpeg2dec, new_pts, dts);
 #define SEEKWINDOW	20
 #define SEEKBEFORE	40
-						if (csSkipping) {
+#define SEEKOFFSET  10
+
+						if (csJumping) {
 							if (framenum_infer < SeekPos - SEEKBEFORE) {
 								seekIter++;
 								seekDirection++;
@@ -930,12 +1049,12 @@ continue_header:
 									seekIter -= 4;
 								}
  */
-								frompos += abs(SeekPos - framenum_infer - SEEKBEFORE + SEEKWINDOW*2/3) * (__int64) byterate;
+								frompos += (abs(SeekPos - framenum_infer - SEEKBEFORE + SEEKWINDOW*2/3) - SEEKOFFSET) * (__int64) byterate;
 								if (seekIter < 20)
 								{
-									// printf("Frame[%d]: Seek forward from %6i to %6i\n",framenum_infer, (int)(frompos/byterate),SeekPos);
-									csSeek = 1;
-									csSkipping = 0;
+									if (dump_seek)  printf("[%6d] Jumping: Jump forward to %6i\n",framenum_infer, (int)(frompos/byterate),SeekPos);
+									csStartJump = 1;
+									csJumping = 0;
 									return 0;
 								}
 							}
@@ -951,17 +1070,18 @@ continue_header:
 									seekIter -= 4;
 								}
  */
-								frompos -= abs(SeekPos - framenum_infer  - SEEKBEFORE + SEEKWINDOW*2/3) * (__int64)byterate;
+								frompos -= (abs(SeekPos - framenum_infer  - SEEKBEFORE + SEEKWINDOW*2/3) + SEEKOFFSET) * (__int64)byterate;
 								if (seekIter < 20)
 								{
-									// printf("Frame[%d]: Seek backward from %6i to %6i\n",framenum_infer, (int)(frompos/byterate),SeekPos);
-									csSeek = 1;
-									csSkipping = 0;
+									if (dump_seek)  printf("[%6d] Jumping: Jump backward to %6i\n",framenum_infer, (int)(frompos/byterate),SeekPos);
+									csStartJump = 1;
+									csJumping = 0;
 									return 0;
 								}
 							}
-							csSkipping = 0;
-							csSeeking = 1;
+							csJumping = 0;
+							csStepping = 1;
+							if (dump_seek)  printf("[%6d] Jumping: To Stepping, headerpos=%6d\n",framenum_infer, (int)(frompos/byterate),(int)(headerpos/byterate),SeekPos);
 						}
 					}
 				} else {	/* mpeg1 */
@@ -988,15 +1108,16 @@ continue_header:
 					ptsbuf = header + len_skip;
 					if ((ptsbuf[-1] & 0xe0) == 0x20) {
 
-					pts = (((ptsbuf[-1] >> 1) << 30) |
+					pts = (((__int64)((ptsbuf[-1] >> 1)  & 0x07)<< 30) |
 						   (ptsbuf[0] << 22) | ((ptsbuf[1] >> 1) << 15) |
 						   (ptsbuf[2] << 7) | (ptsbuf[3] >> 1));
 //					pts = 
 					dts = (((ptsbuf[-1] & 0xf0) != 0x30) ? pts :
-						   (((ptsbuf[4] >> 1) << 30) |
+						   (((__int64)((ptsbuf[4] >> 1) & 0x07) << 30) |
 						(ptsbuf[5] << 22) | ((ptsbuf[6] >> 1) << 15) |
 						(ptsbuf[7] << 7) | (ptsbuf[18] >> 1)));
-					mpeg2_tag_picture (mpeg2dec, pts, dts);
+						DUMP_TIMING("pv1       ", pts, dts, (__int64)0);
+						mpeg2_tag_picture (mpeg2dec, pts, dts);
 					}
 				}
 				DONEBYTES (len);
@@ -1004,13 +1125,13 @@ continue_header:
 				dump_video_start();
 				if (demux_pid || (bytes > end - buf)) {
 					decode_mpeg2 (buf, end);
-					if (csFound || csSeek) return 0;
+					if (csFound || csStartJump) return 0;
 					state = DEMUX_DATA;
 					state_bytes = bytes - (int)(end - buf);
 					return 0;
 				} else if (bytes > 0) {
 					decode_mpeg2 (buf, buf + bytes);
-					if (csFound || csSeek) return 0;
+					if (csFound || csStartJump) return 0;
 					buf += bytes;
 				}
 			} else if (header[3] == audio_track || header[3] == 0xbd) {
@@ -1024,12 +1145,12 @@ pes_audio:
 				/* header points to the mpeg2 pes header */
 				if (header[7] & 0x80) {
 					
-					new_apts = (((header[9] >> 1) << 30) |
+					new_apts = (((__int64)((header[9] >> 1)  & 0x07) << 30) |
 						(header[10] << 22) | ((header[11] >> 1) << 15) |
 						(header[12] << 7) | (header[13] >> 1));
 					new_apts = 
 						adts = (!(header[7] & 0x40) ? new_apts :
-					(((header[14] >> 1) << 30) |
+					(((__int64)((header[14] >> 1) & 0x07) << 30) |
 						(header[15] << 22) |
 						((header[16] >> 1) << 15) |
 						(header[17] << 7) | (header[18] >> 1)));
@@ -1047,7 +1168,7 @@ pes_audio:
 				return;
 			dump_audio_start();
 
-			if (bytes > end - buf) {
+			if (bytes > (int)end - (int)buf) {
 				decode_mpeg2_audio(buf, end);
 				state = DEMUX_DATA;
 				state_bytes = bytes - (int)(end - buf);
@@ -1067,6 +1188,7 @@ pes_audio:
 				NEEDBYTES (6);
 				DONEBYTES (6);
 				bytes = (header[4] << 8) + header[5];
+//				DUMP_TIMING("skip      ", bytes, 0, 0);
 				if (bytes > end - buf) {
 					state = DEMUX_SKIP;
 					state_bytes = bytes - (int)(end - buf);
@@ -1114,7 +1236,7 @@ static int demux_audio (uint8_t * buf, uint8_t * end, int flags)
     int len;
 	int samples;
 	int ss;
-	uint32_t new_apts;
+	__int64 new_apts;
 
 	start_buf = buf;
 //Definitions of macros
@@ -1210,7 +1332,7 @@ continue_header:
 		}
 		//		printf("Found MPEG header\n");
 		
-		headerpos = filepos - (int)(end - header);
+		headerpos = filepos + (int)(buf - buffer);
 		is_AC3 = (header[3] == 0xbd);
 		NEEDBYTES (7);
 		if ((header[6] & 0xc0) == 0x80) {	/* mpeg2 */
@@ -1220,12 +1342,12 @@ continue_header:
 			/* header points to the mpeg2 pes header */
 			if (header[7] & 0x80) {
 				
-				new_apts = (((header[9] >> 1) << 30) |
+				new_apts = (((__int64)((header[9] >> 1)  & 0x07) << 30) |
 					(header[10] << 22) | ((header[11] >> 1) << 15) |
 					(header[12] << 7) | (header[13] >> 1));
 				new_apts = 
 					adts = (!(header[7] & 0x40) ? new_apts :
-				(((header[14] >> 1) << 30) |
+				(((__int64)((header[14] >> 1)  & 0x07) << 30) |
 					(header[15] << 22) |
 					((header[16] >> 1) << 15) |
 					(header[17] << 7) | (header[18] >> 1)));
@@ -1259,34 +1381,54 @@ continue_header:
 }
 
 
+static void ResetInputFile()
+{
+	if (demux_asf)
+		ASF_Control(NULL, 1, 0.0); 
+	else {
+		rewind(in_file);
+	}
+	mpeg2_close (mpeg2dec);
+	mpeg2dec = mpeg2_init ();
+	if (mpeg2dec == NULL)
+		exit (2);
+	framenum = 0;	
+	framenum_infer = 0;
+//	frame_count = 0;
+	expected_frame_count = 0;
+	sound_frame_counter = 0;
+	initial_pts = 0;
+	initial_pts_set = 0;
+	initial_apts_set = 0;
+	initial_apts = 0;
+	audio_samples = 0;
+#ifndef _DEBUG
+	DUMP_CLOSE
+	DUMP_OPEN
+#endif
+}
+
+
 static void asf_loop(void)
 {
 
 	do {
 		int demuxparm = 0;
 		if(csRestart) {
+			ResetInputFile();
 			frompos = 0;
-			ASF_Control(NULL, 1, 0.0); 
-//			own_stream_Seek(in_file, frompos);
-//			rewind(in_file);
-			framenum = 0;	
-			framenum_infer = 0;
-			sound_frame_counter = 0;
-			initial_pts = 0;
-			initial_apts = 0;
-			audio_samples = 0;
 			csRestart = 0;
 		}
-		if (csSeek) {
-			csSeeking = 0;
-			csSkipping = 1;
+		if (csStartJump) {
+			csStepping = 0;
+			csJumping = 1;
 			csFound = 0;
-			csSeek = 0;
+			csStartJump = 0;
 			ASF_Control(NULL, 1, ((double) frompos)/fileendpos); 
 //			own_stream_Seek(in_file, frompos);
 		}
 
-		if (csSkipping) {
+		if (csJumping) {
 			ASF_Control(NULL, 1, ((double) frompos)/fileendpos); 
 		}
 /*
@@ -1301,14 +1443,14 @@ static void asf_loop(void)
 */
 more:
 		if (!ASF_Demux()) break;	/* hit program_end_code */
-//		if (!csSkipping && !csFound) goto more;
+//		if (!csJumping && !csFound) goto more;
 
 
-#define SEEKWINDOW	20
-#define SEEKBEFORE	40
+#define SEEKWINDOW	25
+#define SEEKBEFORE	50
 		
 //		mpeg2_tag_picture (mpeg2dec, pts, dts);
-		if (csSkipping) {
+		if (csJumping) {
 			if (framenum_infer < SeekPos - SEEKBEFORE) {
 				seekIter++;
 				seekDirection++;
@@ -1324,9 +1466,9 @@ more:
 				frompos += abs(SeekPos - framenum_infer - SEEKBEFORE + SEEKWINDOW*2/3) * (__int64) byterate / 2;
 				if (seekIter > 20)
 				{
-					// printf("Frame: Seek forward from %6i to %6i\n",framenum_infer,SeekPos);
-					csSeek = 1;
-					csSkipping = 0;
+					if (dump_seek) printf("Jumping: Jump forward from %6i to %6i\n",framenum_infer,SeekPos);
+					csStartJump = 1;
+					csJumping = 0;
 					return 0;
 				}
 			} else
@@ -1345,15 +1487,15 @@ more:
 				frompos -= abs(SeekPos - framenum_infer  - SEEKBEFORE + SEEKWINDOW*2/3) * (__int64)byterate / 2;
 				if (seekIter > 20)
 				{
-					// printf("Frame: Seek backward from %6i to %6i\n",framenum_infer,SeekPos);
-					csSeek = 1;
-					csSkipping = 0;
+					if (dump_seek)  printf("Jumping: Jump backward from %6i to %6i\n",framenum_infer,SeekPos);
+					csStartJump = 1;
+					csJumping = 0;
 					return 0;
 				}
 			}
 			else {
-				csSkipping = 0;
-				csSeeking = 1;
+				csJumping = 0;
+				csStepping = 1;
 			}
 		}
 	} while (!sigint && !csFound);
@@ -1363,9 +1505,10 @@ more:
 
 static void ps_loop (void)
 {
-    uint8_t *	buffer = (uint8_t *) malloc (buffer_size);
+//    uint8_t *	buffer = (uint8_t *) malloc (buffer_size);
     uint8_t *	end;
 	int retries = 0;
+    buffer = (uint8_t *) malloc (buffer_size);
 
     if (buffer == NULL)
 	exit (2);
@@ -1373,36 +1516,45 @@ static void ps_loop (void)
 	do {
 		int demuxparm = 0;
 		if(csRestart) {
-			rewind(in_file);
+			ResetInputFile();
 			demuxparm = DEMUX_PAYLOAD_START;
-			sound_frame_counter = 0;
-			framenum = 0;	
-			framenum_infer = 0;
-			initial_pts = 0;
-			initial_apts = 0;
-			audio_samples = 0;
 			csRestart = 0;
 		}
-		if (csSeek) {
-			csSeeking = 0;
-			csSkipping = 1;
+		if (csStartJump) {
+			csStepping = 0;
+			csJumping = 1;
 			csFound = 0;
-			csSeek = 0;
+			csStartJump = 0;
 			demuxparm = DEMUX_PAYLOAD_START;
 			fsetpos(in_file, &frompos);
 		}
 		fgetpos(in_file, &filepos);
 		retries = 0;
 again:
+		FSEEK(in_file, (__int64)0, SEEK_END);
+		fileendpos = FTELL(in_file);
+		fsetpos(in_file, &filepos);
+
+		if (standoff > 0 && fileendpos < filepos + standoff) {
+			if (retries < live_tv_retries/2) {
+				Debug( 11,"Sleep due to standoff, retries = %d \n", retries);
+				retries++;
+				goto dosleep;
+			} else {
+				standoff = 0;
+			}
+		}
 		end = buffer + fread (buffer, 1, buffer_size, in_file);
 		if (end != buffer + buffer_size && retries++ < live_tv_retries) {
-			Debug( 11,"Read only %d bytes, retries = %d \n", end - buffer, retries);
+			Debug( 11,"%8i:Read only %d bytes, retries = %d \n",(int) filepos, end - buffer, retries);
 			fsetpos(in_file, &filepos);
+dosleep:
 			Sleep(1000L);
 			goto again;
 			end = buffer + fread (buffer, 1, buffer_size, in_file);
 		}
-		filepos += buffer_size;
+		headerpos = filepos;
+//		filepos += buffer_size;
 		if (demux (buffer, end, demuxparm)) break;	/* hit program_end_code */
 	} while (end == buffer + buffer_size && !sigint && !csFound);
 	Debug( 11,"Read only %d bytes, stopping\n", end - buffer, retries);
@@ -1430,7 +1582,7 @@ void GetPAT(uint8_t * buf)
 	if ( ( (length - 9)%4) != 0)
 		return;
 	n = (length - 9)/4;
-	Debug( 11,"PAT[0:%d]\n", n-1);
+	Debug( 11,"%8i:PAT[0:%d]\n", (int)filepos,n-1);
 	if ((buf[6] & 0x01) == 0) {
 		return;
 	}
@@ -1439,7 +1591,7 @@ void GetPAT(uint8_t * buf)
 	for (i=0; i<n; i++) {
 		pnum[i] = (((buf[9+i*4]) << 8) | buf[9+i*4+1]);
 		ppid[i] = ((buf[11+i*4] << 8) | buf[11+i*4+1]) & PID_MASK;
-		Debug( 11,"num[%2d] = %4d, pid[%2d] = %4x\n", i, pnum[i], i, ppid[i]);
+		Debug( 11,"%8i:num[%2d] = %4d, pid[%2d] = %4x\n", (int) filepos, i, pnum[i], i, ppid[i]);
 		if (pnum[i] == 0)
 			ppid[i] = 0;
 	}
@@ -1453,10 +1605,10 @@ int ES_type[MAX_PID];
 int ES_pid[MAX_PID];
 int PMT_failed = 0;
 
-void GetPMT(uint8_t * buf)
+void GetPMT(uint8_t * buf, int pid)
 {
 	int length,i,j,n;
-	int info,pid,type,tag, len;
+	int info, type, tag, len;
 	int doffset,maxoffset;
 	int number, last;
 	int pcr;
@@ -1484,7 +1636,7 @@ void GetPMT(uint8_t * buf)
 
 	pcr = ((buf[9]<< 8) | buf[9+1]) & PID_MASK;
 	info = (((buf[11] & 0x0F) << 8) | buf[11+1]);
-	Debug( 11,"PCR pid = %4x\n", pcr);
+	Debug( 11,"%8i:PCR pid = %4x\n", (int) filepos, pcr);
 	
 /*	if (info > 0) {
 		tag = buf[12];
@@ -1499,11 +1651,11 @@ void GetPMT(uint8_t * buf)
 	maxoffset = length + 4 - 4; //CRC
 
 	i = 0;
-	Debug( 11,"PMT[%d:%d]:\n",doffset, maxoffset );
+	Debug( 11,"%8i:PMT[%d:%d]:\n",(int) filepos, doffset, maxoffset );
 	while (doffset < maxoffset) {
 		ES_type[i] = buf[doffset];
 		ES_pid[i] = ((buf[doffset+1] << 8) | buf[doffset+2]) & PID_MASK;
-		Debug( 11,"ES[%2d] pid = %4x type = %3d pcr = %4x\n", i, ES_pid[i], ES_type[i], pcr);
+		Debug( 11,"%8i:ES[%2d] pid = %4x type = %3d pcr = %4x\n", (int) filepos, i, ES_pid[i], ES_type[i], pcr);
 		doffset += 5 + (((buf[doffset+3] & 0x0F) << 8) | buf[doffset+4]);
 		for (j = 0; j < last_pid; j++) {
 			if (pids[j] == ES_pid[i])
@@ -1512,7 +1664,8 @@ void GetPMT(uint8_t * buf)
 		if (j == last_pid && pids[j] != ES_pid[i]) {
 			pids[last_pid] = ES_pid[i];
 			pid_type[last_pid] = ES_type[i];
-			pid_pcr[last_pid++] = pcr;
+			pid_pcr[last_pid] = pcr;
+			pid_pid[last_pid++] = pid;
 			if (last_pid >= PIDS) {
 				Debug(9,"Too many PID's, discarded\n");
 				last_pid--;
@@ -1531,19 +1684,25 @@ void GetPMT(uint8_t * buf)
 	if (demux_pid != 1) {
 		for (i = 0; i < last_pid; i++) {
 			if (pids[i] == demux_pid) {
-				if (selected_video_pid == 0)
-					Debug( 8,"Found video pid = %4x\n", demux_pid);
-				selected_video_pid = demux_pid;
+				if (selected_video_pid == 0) {
+					Debug( 8,"%8i:Found video pid = %4x\n", (int) filepos, demux_pid);
+					csRestart = 1;
+					selected_video_pid = demux_pid;
+				}
 				pcr = pid_pcr[i];
+				pid = pid_pid[i];
 				for (i = 0; i < last_pid; i++) {
-					if (pid_pcr[i] == pcr && (pid_type[i] == 3 || pid_type[i] == 4 || pid_type[i] == 129)) {
+					if (pid_pid[i] == pid && pid_pcr[i] == pcr && (pid_type[i] == 3 || pid_type[i] == 4 || pid_type[i] == 129)) {
 						if (selected_audio_pid == 0 && selected_audio_pid != pids[i]) {
 							selected_audio_pid = pids[i];
-							Debug( 8,"Selected audio pid = %4x\n", selected_audio_pid);
+							Debug( 1,"%8i: Auto selected audio pid = %4x\n", (int)filepos, selected_audio_pid);
+							found_pids = 1;
+							//							csRestart = 1;
 							return;
 						}
 					}
 				}
+				
 			}
 		}
 	}
@@ -1551,11 +1710,12 @@ void GetPMT(uint8_t * buf)
 
 static void ts_loop (void)
 {
-    uint8_t * buffer = (uint8_t *) malloc (buffer_size);
+//    uint8_t * buffer = (uint8_t *) malloc (buffer_size);
     uint8_t * buf;
     uint8_t * nextbuf;
     uint8_t * data;
     uint8_t * end;
+	int top_pid, top_count;
 	int prev_pid=0;
 	int i;
 	int bad_sync=1;
@@ -1563,7 +1723,9 @@ static void ts_loop (void)
 	int audio_state;
 	int video_state;
 	int retries = 0;
-	
+	buffer = (uint8_t *) malloc (buffer_size);
+
+//	found_pids=1;
 write_buf = storage_buf;
 read_buf = storage_buf;
 
@@ -1583,39 +1745,51 @@ read_buf = storage_buf;
 		
 		
 		if(csRestart) {
-			rewind(in_file);
+			ResetInputFile();
 			demuxparm = DEMUX_PAYLOAD_START;
-			framenum = 0;	
-			framenum_infer = 0;
-			sound_frame_counter = 0;
-			initial_pts = 0;
-			initial_apts = 0;
-			audio_samples = 0;
 			csRestart = 0;
 		}
-		if (csSeek) {
-			csSeeking = 0;
-			csSkipping = 1;
+		if (csStartJump) {
+			csStepping = 0;
+			csJumping = 1;
 			csFound = 0;
-			csSeek = 0;
+			csStartJump = 0;
 			demuxparm = DEMUX_PAYLOAD_START;
 			fsetpos(in_file, &frompos);
 		}
 		fgetpos(in_file, &filepos);
 		retries = 0;
 again:
+
+		FSEEK(in_file, (__int64)0, SEEK_END);
+		fileendpos = FTELL(in_file);
+		fsetpos(in_file, &filepos);
+
+		if (standoff > 0 && fileendpos < filepos + standoff) {
+			if (retries < live_tv_retries/2) {
+				Debug( 11,"Sleep due to standoff, retries = %d \n", retries);
+				retries++;
+				goto dosleep;
+			} else {
+				standoff = 0;
+			}
+		}
+		
 		end = buf + fread (buf, 1, cur_buffer_size, in_file);
 		if (end != buf + cur_buffer_size && retries++ < live_tv_retries) {
-			Debug( 11,"Read only %d bytes, retries = %d \n", end - buf, retries);
+			Debug( 11,"%8i:Read only %d bytes, retries = %d \n", (int) filepos, end - buf, retries);
 			fsetpos(in_file, &filepos);
+dosleep:
 			Sleep(1000L);
 			goto again;
 			end = buf + fread (buf, 1, cur_buffer_size, in_file);
 		}
-		filepos += cur_buffer_size;
+		headerpos = filepos;
+//		filepos += cur_buffer_size;
 		
 		buf = buffer;
 		for (; (nextbuf = buf + 188) <= end; buf = nextbuf) {
+			if (csRestart) break;
 			if (*buf != 0x47) {
 //				if (!bad_sync)
 //					fprintf (stderr, "bad sync byte\n");
@@ -1630,7 +1804,7 @@ again:
 			if (pid == PID_MASK)
 				continue;
 			if (pid != prev_pid)
-				Debug( 11,"pid = %4x\n", pid);
+				Debug( 11,"%8i:pid = %4x\n",(int) filepos, pid);
 			prev_pid = pid;
 
 			
@@ -1647,6 +1821,11 @@ again:
 
 				continue;
 			}
+
+			top_pid_count[pid & 0xff]++;
+			top_pid_pid[pid & 0xff] = pid;
+//			Debug( 11,"%8i:top_pid_count[%4x]= %d\n", (int) filepos, top_pid_pid[pid & 0xff], top_pid_count[pid & 0xff]);
+
 			for (i=0; i<max_pid; i++) {
 				if (pid == ppid[i])
 					break;
@@ -1664,9 +1843,11 @@ again:
 					i = 4;
 				i += buf[i];
 
-				GetPMT(&buf[i]);
+				GetPMT(&buf[i],pid);
 				continue;
 			}
+			if (first_pmt && selected_video_pid == 0 && headerpos > 4000000)
+				PMT_failed = 5;
 			data = buf + 4;
 			if (buf[3] & 0x20) {	/* buf contains an adaptation field */
 				data = buf + 5 + buf[4];
@@ -1675,7 +1856,7 @@ again:
 			}
 			if (buf[3] & 0x10) {
 				
-				if (first_pmt && PMT_failed > 2) {
+				if (first_pmt && PMT_failed > 4) {
 					for (i = 0; i < last_pid; i++) {
 						if (pids[i] == pid)
 							break;
@@ -1689,34 +1870,56 @@ again:
 								pid_type[last_pid++] = 2;
 							if (data[3] == 0xc0)
 								pid_type[last_pid++] = 3;
-							Debug( 11,"Found ES type = %3x, ES pid = %4x\n", data[3], pid);
+							Debug( 11,"%8i:Found ES type = %3x, ES pid = %4x\n", (int) filepos, data[3], pid);
 						}
 					}
 				}				
 				
+				top_pid = 0;
+				top_count = 0;
+				for (i = 0; i < 256; i++) {
+					if (top_count < top_pid_count[i]) {
+						top_pid = top_pid_pid[i];
+						top_count = top_pid_count[i];
+					}
+				}
 				
+				Debug( 12,"%6i:Top pid [%4x]= %d\n", (int) filepos, top_pid, top_count);
 				
+				if (demux_pid == 1 && first_pmt && PMT_failed > 4 && selected_video_pid == 0 && top_pid == pid) {
+					selected_video_pid = pid;
+					demux_pid = pid;
+					Debug( 1,"%8i:Auto selected video pid = %4x\n", (int) filepos, demux_pid);
+					csRestart = 1;
+				} else
 				for (i = 0; i < last_pid; i++) {
-					if (pid == pids[i]) {
-						if (pid_type[i] == 3 || pid_type[i] == 4 || pid_type[i] == 129) {
-//							if (selected_audio_pid == 0)
-//								selected_audio_pid = pid;
-							if (selected_audio_pid == pid) {
-								Debug( 11,"Demux audio pid = %4x\n", pid);
-								demux_audio (data, nextbuf, (buf[1] & 0x40) ? DEMUX_PAYLOAD_START : 0);
-							}
-						}
+					if (pid == pids[i] || selected_video_pid == pid) {
+						if (selected_video_pid != pid && (pid_type[i] == 3 || pid_type[i] == 4 || pid_type[i] == 129)) {
 
-						if (pid_type[i] == 1 || pid_type[i] == 2 ) {
-							if (demux_pid == 1 && selected_video_pid == 0) {
+							if (first_pmt && PMT_failed > 4 && selected_video_pid && selected_audio_pid == 0) {
+								selected_audio_pid = pid;
+								Debug( 1,"%8i:Auto selected audio pid = %4x\n", (int) filepos, pid);
+								found_pids=1;
+//								csRestart = 1;
+							}
+
+							if (found_pids && selected_audio_pid == pid) {
+								Debug( 12,"%8i:Demux audio pid = %4x\n",(int)filepos,  pid);
+								demux_audio (data, nextbuf, (buf[1] & 0x40) ? DEMUX_PAYLOAD_START : 0);
+								break;
+							}
+						} else
+						if (pid_type[i] == 1 || pid_type[i] == 2 || selected_video_pid == pid) {
+							if (demux_pid == 1 && selected_video_pid != pid) {
 								selected_video_pid = pid;
 								demux_pid = pid;
-								Debug( 8,"Auto selected video pid = %4x\n", demux_pid);
-
+								Debug( 1,"%8i:Auto selected video pid = %4x\n", (int) filepos, demux_pid);
+								csRestart = 1;
 							}
 							if (selected_video_pid == pid) {
-								Debug( 11,"Demux video pid = %4x\n", pid);
+								Debug( 12,"%8i:Demux video pid = %4x\n",(int)filepos, pid);
 								demux (data, nextbuf, (buf[1] & 0x40) ? DEMUX_PAYLOAD_START : 0);
+								break;
 							}
 						}
 					}
@@ -1724,7 +1927,7 @@ again:
 			}
 		}
 		if (end != buffer + buffer_size) {
-			Debug( 11,"Read only %d bytes, stopping\n", end - buffer, retries);
+			Debug( 11,"%8i:Read only %d bytes, stopping\n", (int)filepos,end - buffer, retries);
 			break;
 		}
 		memcpy (buffer, buf, end - buf);
@@ -1737,32 +1940,54 @@ again:
 void DetermineType(FILE *in_file)
 {
 	char buf[1024];
+	int test = 0;
 	int i,m;
 	if (demux_pid == 0) {
 		
-		FSEEK(in_file, (__int64)0, SEEK_SET);
+		FSEEK(in_file, (__int64)80000, SEEK_SET);
 		m = fread (buf, 1, 1024, in_file);
 		FSEEK(in_file, (__int64)0, SEEK_SET);
 		i = 0;
+again:
 		while (buf[i] != 0x47 && i < m) i++;
 		if (i >= m - 2 * 0xBC)
-			return;
-		if (buf[i+0xBC] != 0x47 || buf[i + 2 * 0xBC] != 0x47)
-			return;
+			goto not_a_ts;
+		if ((buf[i+0xBC] != 0x47 || buf[i + 2 * 0xBC] != 0x47)) {
+			if (test>8)
+				goto not_a_ts;
+			else {
+				test++;
+				i++;
+				goto again;
+			}
+		}
 		demux_pid = 1;
 	}
 	max_pid=0;				// Initialize TS decoder
 	first_pat = 1;
 	first_pmt = 1;
+not_a_ts:
+	if (dump_seek) printf("Determine Stream: %d\n",demux_pid);
 
 }
 
 void DecodeOnePicture(FILE * f, int fp)
 {
+	static int oldfp=0;
 	__int64 oldfrompos;
 	off_t off_eof;
-//if (demux_asf)
-//	return;
+	if (demux_asf)
+		return;
+#ifdef _DEBUG
+	if (oldfp != fp) {
+		dump_seek = 1;
+		oldfp = fp;
+	} else {
+		dump_seek = 0;
+	}
+#endif
+	if (dump_seek) printf("Starting: Start seek to %d  ------------------------------------------\n",fp);
+
     if (in_file == 0) {
 		in_file = f;
 	    mpeg2dec = mpeg2_init ();
@@ -1777,12 +2002,24 @@ void DecodeOnePicture(FILE * f, int fp)
 		FSEEK(in_file, (__int64)0, SEEK_SET);
 
 //		 decode_init(); // Audio decoder
-		csSeek = 1;
+//		csStartJump = 0;
+/* replaced by */
+		csJumping = 0;
+		csStepping = 1;
+		csStartJump = 0;
+
+
 		seekIter = 0;
 		seekDirection = 0;
 		frompos = 0;
 		SeekPos = 3;
+		framenum = 0;	
+		framenum_infer = 0;
+		expected_frame_count = 0;
+		sound_frame_counter = 0;
 		initial_pts = 0;
+		initial_pts_set = 0;
+		initial_apts_set = 0;
 		if (demux_asf) {
 			ASF_Init(in_file);
 			ASF_Open();
@@ -1813,20 +2050,20 @@ void DecodeOnePicture(FILE * f, int fp)
 	if (filepos == -1)
 		return;
 //	fp = 100;
+
 	frompos = filepos + ((fp-37) - framenum_infer) * (__int64)byterate; 
-	//	printf("Frame: Start  from %6i to %6i \n", frompos,fp);
-	
 	oldfrompos = frompos;
 	//	frompos = (fp-30) * byterate;
 	if (frompos > fileendpos)
 		frompos = fileendpos - 100*byterate;
 	if (frompos < 0) 
 		frompos = 0;
-	csSeek = 1;
+	if (dump_seek) printf("[%6d] Jumping from filepos %d to %6i with bitrate %d \n",framenum_infer,(int)(headerpos/byterate), (int)(frompos/byterate),(int)(byterate*8*get_fps()));
+
+	csStartJump = 1;
 	seekIter = 0;
 	seekDirection = 0;
-	SeekPos = fp+1;
-//	printf("Frame[%d]: Start  from %6i to %6i \n",framenum_infer,frompos, SeekPos);
+	SeekPos = fp;
 	if (demux_asf) {
 //		ASF_Init(in_file);
 //		ASF_Open();
@@ -1859,7 +2096,6 @@ int filter(void)
 }
 
 
-extern char					basename[];
 
 int main (int argc, char ** argv)
 {
@@ -1871,14 +2107,18 @@ int main (int argc, char ** argv)
 	char *ptr;
 	size_t len;
 #ifndef _DEBUG
-	__try
+//	__try
 	{
 		//      raise_exception();
 #endif
-		//added windows specific
-		SetPriorityClass(GetCurrentProcess(), IDLE_PRIORITY_CLASS);
-		SetThreadPriority(GetCurrentThread(), THREAD_PRIORITY_HIGHEST);
-		
+
+		if (strstr(argv[0],"GUI"))
+			output_debugwindow = 1;
+		else {		
+			//added windows specific
+			SetPriorityClass(GetCurrentProcess(), IDLE_PRIORITY_CLASS);
+			SetThreadPriority(GetCurrentThread(), THREAD_PRIORITY_HIGHEST);
+		}
 		//get path to executable
 		ptr = argv[0];
 		if (*ptr == '\"') {
@@ -1918,20 +2158,17 @@ int main (int argc, char ** argv)
 		if (mpeg2dec == NULL)
 			exit (2);
 		mpeg2_malloc_hooks (malloc_hook, NULL);
-		
 		decode_init(); // Audio decoder
 		InitialAC3();
 		
 		//	sample_file = fopen("samples.csv", "w");
-		if (output_timing) {
-			sprintf(temp, "%s.timing.csv", basename);
-			timing_file = fopen(temp, "w");
-			DUMP_HEADER
-		}
+		DUMP_OPEN
 
 		csRestart = 0;
 		framenum = 0;	
 		framenum_infer = 0;
+		expected_frame_count = 0;
+
 		if (demux_asf) {
 			ASF_Init(in_file);
 			ASF_Open();
@@ -1981,6 +2218,12 @@ int main (int argc, char ** argv)
 			if (output_debugwindow) {
 				processCC = 0;
 				printf("Close window when done\n");
+
+				DUMP_CLOSE
+				if (output_timing) {
+					output_timing = 0;
+				}
+
 #ifndef GUI
 				while(1) {
 					ReviewResult();
@@ -1995,11 +2238,11 @@ int main (int argc, char ** argv)
 
 #ifndef _DEBUG
 	}
-	__except(filter()) /* Stage 3 */
-	{
-        printf("Exception raised, terminating\n");/* Stage 5 of terminating exception */
-		exit(result);
-	}
+//	__except(filter()) /* Stage 3 */
+//	{
+//      printf("Exception raised, terminating\n");/* Stage 5 of terminating exception */
+//		exit(result);
+//	}
 #endif
 	exit (result);
 }
