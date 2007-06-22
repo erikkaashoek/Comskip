@@ -93,6 +93,7 @@ struct mpeg2_decoder_s {
     /* predictor for DC coefficients in intra blocks */
     int16_t dc_dct_pred[3];
 
+	char fill[6];
     /* DCT coefficients */
     int16_t DCTblock[64] ATTR_ALIGN(64);
 
@@ -173,7 +174,7 @@ struct mpeg2dec_s {
     uint8_t code;
 
     /* picture tags */
-    uint32_t tag_current, tag2_current, tag_previous, tag2_previous;
+    __int64 tag_current, tag2_current, tag_previous, tag2_previous;
     int num_tags;
     int bytes_since_tag;
 
@@ -263,6 +264,13 @@ void mpeg2_idct_add_mmx (int last, int16_t * block,
 			 uint8_t * dest, int stride);
 void mpeg2_idct_mmx_init (void);
 
+
+/* idct_sse2 */
+void mpeg2_idct_copy_sse2 (int16_t * block, uint8_t * dest, int stride);
+void mpeg2_idct_add_sse2 (int last, int16_t * block,
+			 uint8_t * dest, int stride);
+void mpeg2_idct_init_sse2 (void);
+
 /* idct_altivec.c */
 void mpeg2_idct_copy_altivec (int16_t * block, uint8_t * dest, int stride);
 void mpeg2_idct_add_altivec (int last, int16_t * block,
@@ -300,3 +308,4 @@ extern mpeg2_mc_t mpeg2_mc_3dnow;
 extern mpeg2_mc_t mpeg2_mc_altivec;
 extern mpeg2_mc_t mpeg2_mc_alpha;
 extern mpeg2_mc_t mpeg2_mc_vis;
+extern mpeg2_mc_t mpeg2_mc_sse2;

@@ -366,7 +366,7 @@ void mpeg2_slice_region (mpeg2dec_t * mpeg2dec, int start, int end)
     mpeg2dec->nb_decode_slices = end - start;
 }
 
-void mpeg2_tag_picture (mpeg2dec_t * mpeg2dec, uint32_t tag, uint32_t tag2)
+void mpeg2_tag_picture (mpeg2dec_t * mpeg2dec, __int64 tag, __int64 tag2)
 {
     mpeg2dec->tag_previous = mpeg2dec->tag_current;
     mpeg2dec->tag2_previous = mpeg2dec->tag2_current;
@@ -379,7 +379,9 @@ void mpeg2_tag_picture (mpeg2dec_t * mpeg2dec, uint32_t tag, uint32_t tag2)
 uint32_t mpeg2_accel (uint32_t accel)
 {
     if (!mpeg2_accels) {
-	mpeg2_accels = mpeg2_detect_accel (accel) | MPEG2_ACCEL_DETECT;
+	mpeg2_accels = 
+		mpeg2_detect_accel (accel) | 
+		MPEG2_ACCEL_DETECT;
 	mpeg2_cpu_state_init (mpeg2_accels);
 	mpeg2_idct_init (mpeg2_accels);
 	mpeg2_mc_init (mpeg2_accels);

@@ -21,6 +21,8 @@
  * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
  */
 
+// #/ define NOACCEL
+
 #include "config.h"
 
 #include <stdlib.h>
@@ -71,6 +73,28 @@ static void inline idct_row (int16_t * const block)
     int d0, d1, d2, d3;
     int a0, a1, a2, a3, b0, b1, b2, b3;
     int t0, t1, t2, t3;
+
+
+  int *b = (int *)block;
+
+  if ( !(b[0]|(b[31]&~0x10000)) )
+  {
+    if( b[ 1]|b[ 2]|b[ 3]|b[ 4]|b[ 5]|b[ 6] )
+      goto __normal;
+    if( b[ 7]|b[ 8]|b[ 9]|b[10]|b[11]|b[12] )
+      goto __normal;
+    if( b[13]|b[14]|b[15]|b[16]|b[17]|b[18] )
+      goto __normal;
+    if( b[19]|b[20]|b[21]|b[22]|b[23]|b[24] )
+      goto __normal;
+    if( b[25]|b[26]|b[27]|b[28]|b[29]|b[30] )
+      goto __normal;
+    b[31] = 0;
+    return;
+  }
+
+
+__normal:
 
     /* shortcut */
     if (likely (!(block[1] | ((int32_t *)block)[1] | ((int32_t *)block)[2] |
@@ -164,7 +188,27 @@ static void mpeg2_idct_copy_c (int16_t * block, uint8_t * dest,
 			       const int stride)
 {
     int i;
+#ifdef NOACCELNODCT
+	int16_t v = CLIP (block[0]);
+	i = 8;
+    do {
+	dest[0] =
+	dest[1] =
+	dest[2] =
+	dest[3] =
+	dest[4] =
+	dest[5] =
+	dest[6] =
+	dest[7] = v;
 
+	((int32_t *)block)[0] = 0;	((int32_t *)block)[1] = 0;
+	((int32_t *)block)[2] = 0;	((int32_t *)block)[3] = 0;
+
+	dest += stride;
+	block += 8;
+    } while (--i);
+
+#else
     for (i = 0; i < 8; i++)
 	idct_row (block + 8 * i);
     for (i = 0; i < 8; i++)
@@ -185,6 +229,7 @@ static void mpeg2_idct_copy_c (int16_t * block, uint8_t * dest,
 	dest += stride;
 	block += 8;
     } while (--i);
+#endif
 }
 
 static void mpeg2_idct_add_c (const int last, int16_t * block,
@@ -235,8 +280,18 @@ static void mpeg2_idct_add_c (const int last, int16_t * block,
 
 void mpeg2_idct_init (uint32_t accel)
 {
+#ifndef NOACCEL
 #ifdef ARCH_X86
-    if (accel & MPEG2_ACCEL_X86_MMXEXT) {
+
+	if (accel & MPEG2_ACCEL_X86_SSE2) {
+//	mpeg2_idct_copy = mpeg2_idct_copy_sse2;
+	mpeg2_idct_copy = mpeg2_idct_copy_mmxext;
+//	mpeg2_idct_add = mpeg2_idct_add_sse2;
+	mpeg2_idct_add = mpeg2_idct_add_mmxext;
+//	mpeg2_idct_init_sse2 ();
+	mpeg2_idct_mmx_init ();
+	} else 
+	if (accel & MPEG2_ACCEL_X86_MMXEXT) {
 	mpeg2_idct_copy = mpeg2_idct_copy_mmxext;
 	mpeg2_idct_add = mpeg2_idct_add_mmxext;
 	mpeg2_idct_mmx_init ();
@@ -268,7 +323,8 @@ void mpeg2_idct_init (uint32_t accel)
 	    CLIP(i) = (i < 0) ? 0 : ((i > 255) ? 255 : i);
     } else
 #endif
-    {
+#endif
+   {
 	extern uint8_t mpeg2_scan_norm[64];
 	extern uint8_t mpeg2_scan_alt[64];
 	int i, j;

@@ -74,6 +74,7 @@ uint8_t mpeg2_scan_alt[64] ATTR_ALIGN(16) = {
     53, 61, 22, 30,  7, 15, 23, 31, 38, 46, 54, 62, 39, 47, 55, 63
 };
 
+
 void mpeg2_header_state_init (mpeg2dec_t * mpeg2dec)
 {
     if (mpeg2dec->sequence.width != (unsigned)-1) {
