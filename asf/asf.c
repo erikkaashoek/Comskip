@@ -61,7 +61,7 @@ vlc_module_end();
 
 
 static demux_t asf_demux;
-static char ASF_Buffer[65538];
+static char ASF_Buffer[70000];
 static __int64 ASF_start;
 static __int64 ASF_end;
 static __int64 ASF_cur;
@@ -130,6 +130,8 @@ int own_stream_Peak( stream_t *s, uint8_t **pp_peek, int i_peek )
 			ins = fread(*pp_peek, 1, 65535+1, (FILE *) s);
 		else
 			ins = 0;
+		if (ins == 0)
+			ins = ins;
 		ASF_start = ASF_cur;
 		ASF_end = ASF_cur + ins;
 		return(min(ins,i_peek));
@@ -151,6 +153,16 @@ int own_stream_Read( stream_t *s, void *p_read, int i_read )
 	ASF_cur += i_read;
 	return i_read;
 }
+
+__int64 own_stream_Size( stream_t *s)
+{
+	__int64 old_pos, end_pos;
+	old_pos = _ftelli64(s);
+	_fseeki64(s, (__int64)0, SEEK_END);
+	end_pos = _ftelli64(s);
+	_fseeki64(s, old_pos, SEEK_END);
+	return(end_pos);
+}	
 
 
 __int64 own_stream_Tell( stream_t *s)
@@ -236,7 +248,8 @@ int demux2_vaControlHelper( stream_t *s,
     double  f, *pf;
     int64_t i64, *pi64;
 
-    if( i_end < 0 )    i_end   = stream_Size( s );
+//    if( i_end < 0 )    
+		i_end   = own_stream_Size( s );
     if( i_start < 0 )  i_start = 0;
     if( i_align <= 0 ) i_align = 1;
     i_tell = stream_Tell( s );
@@ -687,6 +700,9 @@ static int DemuxPacket( demux_t *p_demux )
     i_packet_send_time = GetDWLE( p_peek + i_skip ); i_skip += 4;
     i_packet_duration  = GetWLE( p_peek + i_skip ); i_skip += 2;
 
+	asf_tag_picture((mtime_t)i_packet_send_time * PTS_STEP);
+
+
 //        i_packet_size_left = i_packet_length;   // XXX donn�s reellement lu
     /* FIXME I have to do that for some file, I don't known why */
     i_packet_size_left = i_data_packet_min;
@@ -736,6 +752,7 @@ static int DemuxPacket( demux_t *p_demux )
 
         if( i_replicated_data_length > 1 ) // should be at least 8 bytes
         {
+//			i_pts = (mtime_t)GetDWLE( p_peek + i_skip + 4 );
             i_pts = (mtime_t)GetDWLE( p_peek + i_skip + 4 ) * PTS_STEP;
             i_skip += i_replicated_data_length;
             i_pts_delta = 0;
@@ -795,7 +812,7 @@ static int DemuxPacket( demux_t *p_demux )
         }
 
 		if (tk->i_cat == VIDEO_ES) {
-			set_pts((mtime_t)i_pts + i_payload * (mtime_t)i_pts_delta);
+//			asf_tag_picture((mtime_t)i_pts + i_payload * (mtime_t)i_pts_delta);
 		}
 		if (tk->i_cat == AUDIO_ES || tk->i_cat == UNKNOWN_ES) {
 			set_apts((mtime_t)i_pts + i_payload * (mtime_t)i_pts_delta);
@@ -1178,7 +1195,7 @@ static int DemuxInit( demux_t *p_demux )
     if( p_sys->p_fp->i_data_packets_count > 0 )
     {
         int64_t i_count;
-        int64_t i_size;// = stream_Size( p_demux->s );
+        int64_t i_size = own_stream_Size( p_demux->s );
 
  //       if( p_sys->i_data_end > 0 && i_size > p_sys->i_data_end )
  //       {
