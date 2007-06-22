@@ -187,7 +187,6 @@ error:
 void InitialAC3()
 {
 	error_flag = buffer_size = 0;
-
 	ZeroMemory(&syncinfo, sizeof(syncinfo));
 	ZeroMemory(&bsi, sizeof(bsi));
 	ZeroMemory(&audblk, sizeof(audblk));

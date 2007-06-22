@@ -43,7 +43,7 @@ __forceinline short SaturateRound(double flt)
 void drc_init()
 {
 	int i;
-
+	DRC_Flag = 0;
 	for (i=0; i<128; i++)
 		drc[i] = pow(DRCScale[DRC_Flag], i/32.0);
 
