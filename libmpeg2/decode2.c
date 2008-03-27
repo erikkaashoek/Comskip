@@ -137,14 +137,14 @@ static inline mpeg2_state_t seek_chunk (mpeg2dec_t * mpeg2dec)
 mpeg2_state_t mpeg2_seek_header (mpeg2dec_t * mpeg2dec)
 {
     while (!(mpeg2dec->code == 0xb3 ||
-	     ((mpeg2dec->code == 0xb7 || mpeg2dec->code == 0xb8 ||
+		((mpeg2dec->code == 0xb7 || mpeg2dec->code == 0xb8 ||
 	       !mpeg2dec->code) && mpeg2dec->sequence.width != (unsigned)-1)))
-	if (seek_chunk (mpeg2dec) == STATE_BUFFER)
-	    return STATE_BUFFER;
-    mpeg2dec->chunk_start = mpeg2dec->chunk_ptr = mpeg2dec->chunk_buffer;
-    mpeg2dec->user_data_len = 0;
-    return ((mpeg2dec->code == 0xb7) ?
-	    mpeg2_header_end (mpeg2dec) : mpeg2_parse_header (mpeg2dec));
+		   if (seek_chunk (mpeg2dec) == STATE_BUFFER)
+			   return STATE_BUFFER;
+		   mpeg2dec->chunk_start = mpeg2dec->chunk_ptr = mpeg2dec->chunk_buffer;
+		   mpeg2dec->user_data_len = 0;
+		   return ((mpeg2dec->code == 0xb7) ?
+			   mpeg2_header_end (mpeg2dec) : mpeg2_parse_header (mpeg2dec));
 }
 
 #define RECEIVED(code,state) (((state) << 8) + (code))
