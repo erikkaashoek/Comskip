@@ -65,6 +65,7 @@ static char ASF_Buffer[70000];
 static __int64 ASF_start;
 static __int64 ASF_end;
 static __int64 ASF_cur;
+extern __int64 headerpos;
 
 
 void ASF_Init(void *s)
@@ -113,25 +114,58 @@ static void own_Dbg(void *p, char* fmt, ...)
 #define stream_Read own_stream_Read
 
 extern __int64 own_stream_Tell( stream_t *s);
+extern __int64 own_stream_Size( stream_t *s);
 
 
 extern __int64 _ftelli64(FILE *);
 extern int  _fseeki64(FILE *, __int64, int);
+extern int dvrms_live_tv_retries;
+extern int dvrmsstandoff;
+
+
+static int max_packet_size;
+static int max_packet_size_stream;
 
 int own_stream_Peak( stream_t *s, uint8_t **pp_peek, int i_peek )
 {
 	int ins;
+	int retries = 0;
 	*pp_peek = ASF_Buffer;
 	if (ASF_cur + i_peek >= ASF_end || ASF_cur < ASF_start)
 	{
 //		if (ASF_cur == 0)
 //			rewind(s);
+again:
+
+	
+		if (dvrmsstandoff > 0 && own_stream_Size(s) < ASF_cur + dvrmsstandoff * (__int64)1000) {
+			if (retries <= dvrms_live_tv_retries-2) {
+				Debug( 11,"Sleep due to dvrmsstandoff, retries = %d \n", retries);
+			dosleep:
+				retries++;
+				Sleep(1000L);
+				goto again;
+			} else {
+				dvrmsstandoff = 0;
+			}
+		}
+	
+	
 		if (_fseeki64(s, ASF_cur, 0) == 0)
 			ins = fread(*pp_peek, 1, 65535+1, (FILE *) s);
 		else
 			ins = 0;
-		if (ins == 0)
-			ins = ins;
+		if (ins < 65535+1) {
+/*
+			if (retries <= dvrms_live_tv_retries) {
+				Debug( 11,"Sleep on live TV in own_stream_Peak, retries = %i \n", retries);
+				goto dosleep;
+			} else {
+				Debug( 11,"Exceeded retries in own_stream_Peak, retries = %i \n", retries);
+
+			}
+*/
+		}
 		ASF_start = ASF_cur;
 		ASF_end = ASF_cur + ins;
 		return(min(ins,i_peek));
@@ -435,6 +469,7 @@ int ASF_Open( vlc_object_t * p_this )
     demux_sys_t *p_sys;
     guid_t      guid;
     uint8_t     *p_peek;
+	int old_dvrmsstandoff = dvrmsstandoff;
 
     /* A little test to see if it could be a asf stream */
     if( stream_Peek( p_demux->s, &p_peek, 16 ) < 16 ) return VLC_EGENERIC;
@@ -453,6 +488,12 @@ int ASF_Open( vlc_object_t * p_this )
     {
         return VLC_EGENERIC;
     }
+	dvrmsstandoff = old_dvrmsstandoff;
+
+	max_packet_size = 0;
+	max_packet_size_stream = 0;
+
+
     return VLC_SUCCESS;
 }
 
@@ -625,6 +666,8 @@ static mtime_t GetMoviePTS( demux_sys_t *p_sys )
         default: var = def; break;\
     }
 
+extern int csFound;
+
 static int DemuxPacket( demux_t *p_demux )
 {
     demux_sys_t *p_sys = p_demux->p_sys;
@@ -646,11 +689,22 @@ static int DemuxPacket( demux_t *p_demux )
     int         i_payload;
     int         i_payload_count;
     int         i_payload_length_type;
+	int retries = 0;
 
-
+again:
     if( stream_Peek( p_demux->s, &p_peek,i_data_packet_min)<i_data_packet_min )
     {
-        msg_Warn( p_demux, "\ncannot peek while getting new packet, EOF ?" );
+/*
+		if (retries <= dvrms_live_tv_retries) {
+			Debug( 11,"Sleep on live TV in DemuxPacket peek, retries = %i \n", retries);
+			retries++;
+			Sleep(1000L);
+			goto again;
+		} else {
+			Debug( 11,"Exceeded retries in DemuxPacket peek, retries = %i \n", retries);
+		}
+*/
+		msg_Warn( p_demux, "\ncannot peek while getting new packet, EOF ?" );
         return 0;
     }
     i_skip = 0;
@@ -678,6 +732,16 @@ static int DemuxPacket( demux_t *p_demux )
     }
     else
     {
+/*
+		if (retries <= dvrms_live_tv_retries) {
+			Debug( 11,"Sleep on live TV in DemuxPacket error correction, retries = %i \n", retries);
+			retries++;
+			Sleep(1000L);
+			goto again;
+		} else {
+			Debug( 11,"Exceeded retries in DemuxPacket error correction, retries = %i \n", retries);
+		}
+*/
         msg_Warn( p_demux, "p_peek[0]&0x80 != 0x80" );
     }
 
@@ -813,6 +877,8 @@ static int DemuxPacket( demux_t *p_demux )
 
 		if (tk->i_cat == VIDEO_ES) {
 //			asf_tag_picture((mtime_t)i_pts + i_payload * (mtime_t)i_pts_delta);
+			headerpos = ASF_cur;
+
 		}
 		if (tk->i_cat == AUDIO_ES || tk->i_cat == UNKNOWN_ES) {
 			set_apts((mtime_t)i_pts + i_payload * (mtime_t)i_pts_delta);
@@ -870,6 +936,8 @@ if (0)
 //				dump_video(&p_peek[i_skip], &p_peek[i_read]);
 				dump_video_start();
 				decode_mpeg2 (&p_peek[i_skip], &p_peek[i_read]);
+if (csFound)
+	return(0);
 		        i_packet_size_left -= i_read;
 /*
 				if (MPEGbufferIndex + i_read > MPEGbufferSize) {
@@ -886,9 +954,16 @@ if (0)
 			}
 			if (tk->i_cat == AUDIO_ES || tk->i_cat == UNKNOWN_ES) {
 //					dump_audio(&p_peek[i_skip], &p_peek[i_read]);
-				dump_audio_start();
-				decode_mpeg2_audio(&p_peek[i_skip], &p_peek[i_read]);
-	            i_packet_size_left -= i_read;
+
+				if (i_read - i_skip > max_packet_size) {
+					max_packet_size = i_read - i_skip;
+					max_packet_size_stream = i_stream_number;
+				}
+				if ( max_packet_size_stream == i_stream_number) {
+					dump_audio_start();
+					decode_mpeg2_audio(&p_peek[i_skip], &p_peek[i_read]);
+				}
+				i_packet_size_left -= i_read;
 			}
 
 
@@ -945,6 +1020,14 @@ if (0)
     return 1;
 
 loop_error_recovery:
+/*
+	if (retries <= dvrms_live_tv_retries) {
+		Debug( 11,"Sleep on live TV in DemuxPacket loop_error_recovery, retries = %i \n", retries);
+		retries++;
+		Sleep(1000L);
+		goto again;
+	}
+*/
     msg_Warn( p_demux, "unsupported packet header" );
     if( p_sys->p_fp->i_min_data_packet_size != p_sys->p_fp->i_max_data_packet_size )
     {
@@ -964,6 +1047,7 @@ static int DemuxInit( demux_t *p_demux )
     demux_sys_t *p_sys = p_demux->p_sys;
     vlc_bool_t  b_seekable = 1;
     int         i;
+
 
     unsigned int    i_stream;
     asf_object_content_description_t *p_cd;
@@ -1272,6 +1356,8 @@ static int DemuxInit( demux_t *p_demux )
             i_stream++;
         }
     }
+	
+
 
     //es_out_Control( p_demux->out, ES_OUT_RESET_PCR );
     return VLC_SUCCESS;

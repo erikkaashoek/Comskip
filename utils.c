@@ -153,7 +153,7 @@ int avcodec_default_get_buffer(AVCodecContext *s, AVFrame *pic){
         pic->age= pic->coded_picture_number - buf->last_pic_num;
         buf->last_pic_num= pic->coded_picture_number;
     }else{
-        int align, h_chroma_shift, v_chroma_shift;
+        int align, h_chroma_shift=0, v_chroma_shift=0;
         int w, h, pixel_size;
         
 //        avcodec_get_chroma_sub_sample(s->pix_fmt, &h_chroma_shift, &v_chroma_shift);

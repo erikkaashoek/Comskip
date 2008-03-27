@@ -39,7 +39,7 @@
 #define BLACK_FRAME		1
 #define LOGO			2
 #define SCENE_CHANGE	4
-#define FUZZY_LOGIC		8
+#define RESOLUTION_CHANGE		8
 #define CC				16
 #define AR				32
 #define SILENCE			64
@@ -86,6 +86,7 @@ FILE*			ini_file = NULL;
 FILE*			zoomplayer_cutlist_file = NULL;
 FILE*			zoomplayer_chapter_file = NULL;
 FILE*			vcf_file = NULL;
+FILE*			vdr_file = NULL;
 FILE*			projectx_file = NULL;
 FILE*			avisynth_file = NULL;
 FILE*			videoredo_file = NULL;
@@ -100,9 +101,11 @@ FILE*			womble_file = NULL;
 FILE*			mls_file = NULL;
 FILE*			mpgtx_file = NULL;
 FILE*			dvrcut_file = NULL;
+FILE*			dvrmstb_file = NULL;
 FILE*			mpeg2schnitt_file = NULL;
 FILE*			tuning_file = NULL;
 FILE*			training_file = NULL;
+FILE*			aspect_file = NULL;
 FILE*			cutscene_file = NULL;
 extern int		demux_pid;
 extern int		selected_audio_pid;
@@ -236,6 +239,7 @@ long				max_block_count;
 #define		C_a			(1<<5)
 #define		C_u			(1<<3)
 #define		C_b			(1<<4)
+#define		C_r			((long)1<<29)
 
 #define		C_STRICT	(1<<6)
 #define		C_NONSTRICT	(1<<7)
@@ -264,7 +268,7 @@ long				max_block_count;
 #define		C_H7		((long)1<<29)
 
 
-#define C_CUTMASK	(C_c | C_l | C_s | C_a | C_u | C_b | C_t)
+#define C_CUTMASK	(C_c | C_l | C_s | C_a | C_u | C_b | C_t | C_r)
 #define CUTCAUSE(c) ( c & C_CUTMASK)
 
 
@@ -328,6 +332,8 @@ typedef struct
 //	bool	ar;
 	double	ar_ratio;
 	int		volume;
+	int		height, width;
+	int		minX,maxX,minY,maxY;
 } ar_block_info;
 
 ar_block_info*			ar_block = NULL;
@@ -378,16 +384,19 @@ struct
 double	dominant_ar;
 
 
-
+int						skip_B_frames = 0;
 bool					live_tv = false;
-int						live_tv_retries = 2;
+int						live_tv_retries = 4;
+int						dvrms_live_tv_retries = 300;
 int						standoff = 0;
+int						dvrmsstandoff = 120000;
 char					incomingCommandLine[MAX_PATH];
 char					logofilename[MAX_PATH];
 char					logfilename[MAX_PATH];
 char					mpegfilename[MAX_PATH];
 char					exefilename[MAX_PATH];
 char					basename[MAX_PATH];
+char					shortbasename[MAX_PATH];
 char					inifilename[MAX_PATH];
 char					dictfilename[MAX_PATH];
 char					out_filename[MAX_PATH];
@@ -426,8 +435,8 @@ int						max_logo_gap;
 int						max_nonlogo_block_length;
 int						logo_overshoot;
 double					logo_quality;
-int						width;
-int						height;
+int						width, old_width;
+int						height, old_height;
 int						ar_width = 0;
 int						subsample_video = 0x03f;
 //#define MAXWIDTH	800
@@ -464,6 +473,7 @@ int					min_volume=0;
 int					volume_slip = 10;
 extern int ms_audio_delay;
 int					max_repair_size = 40;
+int					variable_bitrate = 1;
 
 														///brightness (scale 0 to 255)
 char				ini_text[40000];
@@ -488,15 +498,15 @@ double				uniform_percentile = 0.0050;
 double				score_percentile = 0.71;
 double				logo_percentile = 0.92;
 double				logo_fraction = 0.40;
-int					commDetectMethod = BLACK_FRAME + LOGO + FUZZY_LOGIC +  AR + SILENCE; // + CC
+int					commDetectMethod = BLACK_FRAME + LOGO + RESOLUTION_CHANGE +  AR + SILENCE; // + CC
 int					giveUpOnLogoSearch = 2000;			// If no logo is identified after x seconds into the show - give up.
 bool				cut_on_ar_change = 1;
-bool				delete_show_after_last_commercial = false;
-bool				delete_show_before_first_commercial = false;
+int					delete_show_after_last_commercial = false;
+int					delete_show_before_first_commercial = false;
 int					delete_block_after_commercial = 0;
 int					min_commercial_break_at_start_or_end = 39;
 bool				connect_blocks_with_logo = true;
-bool				delete_show_before_or_after_current = false;
+int					delete_show_before_or_after_current = false;
 bool				deleteLogoFile = true;
 bool				useExistingLogoFile = true;
 bool				startOverAfterLogoInfoAvail = true;
@@ -526,6 +536,8 @@ bool				output_womble = false;
 bool				output_mls = false;
 bool				output_mpgtx = false;
 bool				output_dvrcut = false;
+bool				output_dvrmstb = false;
+bool				output_vdr = false;
 bool				output_vcf = false;
 bool				output_projectx = false;
 bool				output_avisynth = false;
@@ -534,6 +546,7 @@ int					disable_heuristics = 0;
 char                windowtitle[1024] = "Comskip - %s";
 bool				output_tuning = false;
 bool				output_training = false;
+bool				output_aspect = false;
 int					noise_level=5;
 bool				framearray = true;
 bool				output_framearray = false;
@@ -637,8 +650,8 @@ bool				reverseLogoLogic = false;
 unsigned char **	horiz_edges = NULL;				// rotating storage for detected horizontal edges
 unsigned char **	vert_edges = NULL;					// rotating storage for detected vertical edges
 #else
-unsigned char *		horiz_count = NULL;
-unsigned char *		vert_count = NULL;
+unsigned char horiz_count[MAXHEIGHT*MAXWIDTH];
+unsigned char vert_count[MAXHEIGHT*MAXWIDTH];
 #endif
 double				borderIgnore = .05;					// Percentage of each side to ignore for logo detection
 int					subtitles = 0;
@@ -653,12 +666,13 @@ int					hedge_count = 0;
 int					vedge_count = 0;
 int					newestLogoBuffer = -1;				// Which buffer is the newest? Increments prior to fill so start at -1
 unsigned char **	logoFrameBuffer = NULL;			// rotating storage for frames
+int					logoFrameBufferSize = 0;
+int					lwidth;
+int					lheight;
 int					logoMinX;
 int					logoMaxX;
 int					logoMinY;
 int					logoMaxY;
-unsigned char*		horiz_edgemask = NULL;
-unsigned char*		vert_edgemask = NULL;
 int					play_nice_start = -1;
 int					play_nice_end = -1;
 long				play_nice_sleep = 10L;
@@ -706,6 +720,8 @@ char *helptext[]=
 	"b              Set begin of commercial to this position",
 	"i              Insert a new commercial",
 	"d              Delete the commercial at current location",
+	"s              Jump to Start of the recording",
+	"f              Jump to Finish of the recording",
 	0
 };
 
@@ -719,6 +735,8 @@ unsigned char hor_edgecount[MAXHEIGHT*MAXWIDTH];
 unsigned char ver_edgecount[MAXHEIGHT*MAXWIDTH];
 unsigned char max_br[MAXHEIGHT*MAXWIDTH];
 unsigned char min_br[MAXHEIGHT*MAXWIDTH];
+unsigned char horiz_edgemask[MAXHEIGHT*MAXWIDTH];
+unsigned char vert_edgemask[MAXHEIGHT*MAXWIDTH];
 
 
 #define RGB
@@ -757,6 +775,7 @@ void				BuildSceneChangeCommList2(void);
 #endif
 void				PrintLogoFrameGroups(void);
 void				PrintCCBlocks(void);
+void				ResetLogoBuffers(void);
 void				EdgeDetect(unsigned char* frame_ptr, int maskNumber);
 void				EdgeCount(unsigned char* frame_ptr);
 void				FillLogoBuffer(void);
@@ -854,6 +873,7 @@ char *CauseString(int i)
 	*c++ = (i & 32			? 'a' : ' ');
 	*c++ = (i & 8			? 'u' : ' ');
 	*c++ = (i & 16			? 'b' : ' ');
+	*c++ = (i & C_r			? 'r' : ' ');
 	*c++ = 0;
 	return(rc);
 }
@@ -1003,6 +1023,8 @@ bool BuildBlocks(bool recalc) {
 				count = 0;
 				for (a=i; a<j; a++) {
 					if (frame[a].volume < max_volume) count++;
+					else if (frame[a].volume < max_volume/4) count += volume_slip;
+
 				}
 				if (count > volume_slip/4) {
 					black[k].volume = max_volume /2;
@@ -1120,6 +1142,9 @@ bool BuildBlocks(bool recalc) {
 			if ((black[k].cause & C_t) != 0)
 				continue;
 
+			if ((black[k].cause & C_r) != 0)
+				continue;
+
 			if ((black[k].cause & C_b) && black[k].brightness > max_avg_brightness) {
 /*
 			Debug
@@ -1192,7 +1217,7 @@ bool BuildBlocks(bool recalc) {
 	if (ValidateBlackFrames(C_b, 3.0, false) < 1 / 3.0)
 		Debug(8, "Black Frame cutting too low\n");
 
-	if (validate_scenechange || (logoPercentage < logo_fraction || logoPercentage > logo_percentile))
+	if (validate_scenechange /* || (logoPercentage < logo_fraction || logoPercentage > logo_percentile) */)
 		ValidateBlackFrames(C_s, ((logoPercentage < logo_fraction || logoPercentage > logo_percentile) ? 1.2 : 3.5), true);
 
 	//	ValidateBlackFrames(C_c, 3.0, true);
@@ -1277,7 +1302,7 @@ again:
 					);
 			}
 
-			if ((black[j].cause & (C_b | C_s | C_u)) != 0) {				
+			if ((black[j].cause & (C_b | C_s | C_u | C_r)) != 0) {				
 				b_count++;
 				if (black_start == 0)
 					black_start = black[j].frame;
@@ -1620,6 +1645,7 @@ void OutputDebugWindow(bool showVideo, int frm, int grf)
 	char *tt[3];
 	bool	blackframe, bothtrue, haslogo, uniformframe;
 	int silence=0;
+//	frm++;
 	if (oldfrm == frm)
 		return;
 	oldfrm = frm;
@@ -1685,7 +1711,8 @@ void OutputDebugWindow(bool showVideo, int frm, int grf)
 //					PIXEL(x,oheight - 1 - (y+barh)) = 0;
 //				}
 				for (y = 0+border; y < oheight-border; y++) {
-					PIXEL(x,y+barh) = frame_ptr[(y*divider)*width+(x*divider)] >> (grf?1:0);
+					if (x*divider < width && y*divider < height)
+						PIXEL(x,y+barh) = frame_ptr[(y*divider)*width+(x*divider)] >> (grf?1:0);
 //					PIXEL(x,y+barh) = min_br[(y*divider)*width+(x*divider)];		//MAXMIN Logo search
 										
 //					PIXEL(x,y+barh) = vert_edges[(y*divider)*width+(x*divider)];	//Edge detect
@@ -1875,7 +1902,7 @@ void OutputDebugWindow(bool showVideo, int frm, int grf)
 			if (framearray) {
 			for (i = zstart+(int)((double)x * v /owidth); i < zstart+(int)((double)(x+1) * v /owidth ); i++) {
 				if (i <= frame_count) {
-					if (frame[i].isblack & C_b) {
+					if ((frame[i].isblack & C_b) || (frame[i].isblack & C_r)) {
 						blackframe = true;
 						for (j = 0; j < block_count; j++) {
 							if (cblock[j].f_end == i)
@@ -1889,6 +1916,7 @@ void OutputDebugWindow(bool showVideo, int frm, int grf)
 					if ((frame[i].volume < 50 || frame[i].volume < max_silence) && silence < 2) silence = 2;
 					if ((frame[i].isblack & C_v)) silence = 3;
 					if ((frame[i].isblack & C_b) && frame[i].volume < max_volume) bothtrue = true;
+					if ((frame[i].isblack & C_r)) bothtrue = true;
 					if (frm+1 == frame_count) {						// Show details of logo while scanning
 						if (frame[i].logo_present) haslogo = true;
 					} else {  
@@ -2084,6 +2112,7 @@ bool ReviewResult() {
 	int b = -1;
 	bool beg;
 	char tsfilename[MAX_PATH];
+	if (!framearray) grf = 0;
 	output_demux = 0;
 	if (!review_file && mpegfilename[0])
 		review_file = fopen(mpegfilename, "rb");
@@ -2159,6 +2188,22 @@ bool ReviewResult() {
 							curframe = reffer[i].start_frame-5;
 					}
 					curframe += 5;
+				}
+				if (key == 'S') {
+					if (framearray) {
+						curframe = 0;
+					} else {
+						curframe = 	0;
+
+					}
+				}
+				if (key == 'F') {
+					if (framearray) {
+						curframe = frame_count;
+					} else {
+						curframe = 	frame_count;
+
+					}
 				}
 				if (key == 'E') {	// End key
 					if (framearray) {
@@ -2362,8 +2407,12 @@ int DetectCommercials(int f) {
 	long oldBlack_count;
 
 
-
-	if (!initialized) InitComSkip();
+	if (loadingTXT)
+		return;
+	if (loadingCSV)
+		return;
+	if (!initialized) 
+		InitComSkip();
 //	frame_count++;
 	frame_count = framenum_real = framenum+1;
 
@@ -3116,12 +3165,14 @@ scanagain:
 		for (i = 0; i < ar_block_count; i++) {
 			Debug(
 				9,
-				"Block: %i\tStart: %6i\tEnd: %6i\tAR_R: %.2f\tLength: %s\n",
+				"Block: %i\tStart: %6i\tEnd: %6i\tAR_R: %.2f\tLength: %s, [%4dx%4d] minX=%3d, minY=%3d, maxX=%3d, maxY=%3d\n",
 				i,
 				ar_block[i].start,
 				ar_block[i].end,
 				ar_block[i].ar_ratio,
-				dblSecondsToStrMinutes((ar_block[i].end - ar_block[i].start) / fps)
+				dblSecondsToStrMinutes((ar_block[i].end - ar_block[i].start) / fps),
+				ar_block[i].width, ar_block[i].height,
+				ar_block[i].minX, ar_block[i].minY, ar_block[i].maxX, ar_block[i].maxY
 			);
 		}
 
@@ -3177,9 +3228,12 @@ again:
 				ar_block[i].ar_ratio > ar_block[i - 1].ar_ratio &&
 				CheckFrameForLogo(ar_block[i-1].end) &&
 				CheckFrameForLogo(ar_block[i].start) ) {
-				if (ar_block[i].end - ar_block[i].start > ar_block[i-1].end - ar_block[i-1].start)
-					ar_block[i-1].ar_ratio = ar_block[i].ar_ratio;
-				ar_block[i - 1].end = ar_block[i].end;
+				if (ar_block[i].end - ar_block[i].start > ar_block[i-1].end - ar_block[i-1].start) {
+					j = ar_block[i-1].start;
+					ar_block[i-1] = ar_block[i];
+					ar_block[i-1].start = j;
+				} else
+					ar_block[i - 1].end = ar_block[i].end;
 				ar_block_count--;
 				Debug(
 					6,
@@ -3190,23 +3244,20 @@ again:
 					dblSecondsToStrMinutes(length / fps)
 				);
 				for (j = i; j < ar_block_count; j++) {
-					ar_block[j].start = ar_block[j + 1].start;
-					ar_block[j].end = ar_block[j + 1].end;
-					ar_block[j].ar_ratio = ar_block[j + 1].ar_ratio;
+					ar_block[j] = ar_block[j + 1];
 				}
 				goto again;
 			}
 //
 #endif
 			if ( i == 1 && ar_block[i-1].ar_ratio == AR_UNDEF) {
-				ar_block[i - 1].end = ar_block[i].end;
-				ar_block[i - 1].ar_ratio = ar_block[i].ar_ratio;
+				j = ar_block[i - 1].start;
+				ar_block[i - 1] = ar_block[i];
+				ar_block[i - 1].start = j;
 				ar_block_count--;
 				Debug(6, "Joining AR blocks %i and %i because cblock 0 has an AR ratio of 0.0\n", i - 1, i, ar_block[i-1].ar_ratio);
 				for (j = i; j < ar_block_count; j++) {
-					ar_block[j].start = ar_block[j + 1].start;
-					ar_block[j].end = ar_block[j + 1].end;
-					ar_block[j].ar_ratio = ar_block[j + 1].ar_ratio;
+					ar_block[j] = ar_block[j + 1];
 				}
 				goto again;
 
@@ -3217,9 +3268,7 @@ again:
 				ar_block_count--;
 				Debug(6, "Joining AR blocks %i and %i because both have an AR ratio of %.2f\n", i - 1, i, ar_block[i].ar_ratio);
 				for (j = i; j < ar_block_count; j++) {
-					ar_block[j].start = ar_block[j + 1].start;
-					ar_block[j].end = ar_block[j + 1].end;
-					ar_block[j].ar_ratio = ar_block[j + 1].ar_ratio;
+					ar_block[j] = ar_block[j + 1];
 				}
 				goto again;
 
@@ -3231,9 +3280,7 @@ again:
 				ar_block_count -= 2;
 				Debug(6, "Joining AR blocks %i and %i because they have a dummy cblock inbetween\n", i - 2, i);
 				for (j = i-1; j < ar_block_count; j++) {
-					ar_block[j].start = ar_block[j + 2].start;
-					ar_block[j].end = ar_block[j + 2].end;
-					ar_block[j].ar_ratio = ar_block[j + 2].ar_ratio;
+					ar_block[j] = ar_block[j + 2];
 				}
 				goto again;
 
@@ -3245,12 +3292,14 @@ again:
 		for (i = 0; i < ar_block_count; i++) {
 			Debug(
 				4,
-				"Block: %i\tStart: %6i\tEnd: %6i\tAR_R: %.2f\tLength: %s\n",
+				"Block: %i\tStart: %6i\tEnd: %6i\tAR_R: %.2f\tLength: %s, [%4dx%4d] minX=%3d, minY=%3d, maxX=%3d, maxY=%3d\n",
 				i,
 				ar_block[i].start,
 				ar_block[i].end,
 				ar_block[i].ar_ratio,
-				dblSecondsToStrMinutes((ar_block[i].end - ar_block[i].start) / fps)
+				dblSecondsToStrMinutes((ar_block[i].end - ar_block[i].start) / fps),
+				ar_block[i].width, ar_block[i].height,
+				ar_block[i].minX, ar_block[i].minY, ar_block[i].maxX, ar_block[i].maxY
 			);
 		}
 	}
@@ -3917,6 +3966,16 @@ expand:
 		}
 #endif		
 		// if length > max_commercial_size * fps, score = 10%
+		if (cblock[i].length > 2 * min_show_segment_length) {
+			Debug(2, "Block %i has twice excess length.\n", i);
+			Debug(3, "Block %i score:\tBefore - %.2f\t", i, cblock[i].score);
+			cblock[i].score *= excessive_length_modifier * excessive_length_modifier;
+			cblock[i].score = (cblock[i].score > max_score) ? max_score : cblock[i].score;
+			Debug(3, "After - %.2f\n", cblock[i].score);
+			cblock[i].cause |= C_EXCEEDS;
+			cblock[i].less |= C_EXCEEDS;
+		} else
+
 		if (cblock[i].length > min_show_segment_length) {
 			Debug(2, "Block %i has excess length.\n", i);
 			Debug(3, "Block %i score:\tBefore - %.2f\t", i, cblock[i].score);
@@ -4013,13 +4072,13 @@ expand:
 		}
 	}
 	for (i = 0; i < block_count; i++){
-		OutputStrict(cblock[i].length, (double) cblock[i].strict, 0.0);
+//		OutputStrict(cblock[i].length, (double) cblock[i].strict, 0.0);
 	}
 
 
 	if (!(disable_heuristics & (1 << (2 - 1)))) {
 	for (i = 0; i < block_count-2; i++) {
-		if ( ((cblock[i].cause & C_STRICT) && (cblock[i].cause & (C_b | C_u | C_v)) )  && 
+		if ( ((cblock[i].cause & C_STRICT) && (cblock[i].cause & (C_b | C_u | C_v | C_r)) )  && 
 			 cblock[i+1].score > 1.05 &&  cblock[i+1].length < 4.8 && 
 			 cblock[i+2].score < 1.0  &&  cblock[i+2].length > min_show_segment_length
 			 ) {
@@ -4030,7 +4089,7 @@ expand:
 		}
 	}
 	for (i = 0; i < block_count-2; i++) {
-		if ( (cblock[i].cause & (C_b | C_u))  && (cblock[i+1].cause & C_a)  &&
+		if ( (cblock[i].cause & (C_b | C_u | C_r))  && (cblock[i+1].cause & C_a)  &&
 			 cblock[i+1].score > 1.0 &&  cblock[i+1].length < 4.8 && 
 			 cblock[i+2].score < 1.0  &&  cblock[i+2].length > min_show_segment_length
 			 ) {
@@ -4165,7 +4224,7 @@ expand:
 	if (delete_show_before_or_after_current && 
 		(commDetectMethod & LOGO) && connect_blocks_with_logo &&
 		!reverseLogoLogic && logoPercentage > logo_fraction - 0.05 && logo_block_count < 25) {
-/*
+/*		
 		for (i = 0; i < block_count-1; i++) {
 			if (cblock[i].score < 1.0 && cblock[i].logo > 0.2 && cblock[i+1].score < 1.0 && cblock[i+1].logo > 0.2 ) {
 				if (cblock[i].f_end < cblock[block_count-1].f_end/6) {
@@ -4179,20 +4238,24 @@ expand:
 				}
 			}
 		}
-*/
+	*/
 	if (!(disable_heuristics & (1 << (2 - 1)))) {
 		i = 0;
-		while (i < block_count-1 && cblock[i].score < 1.05 && cblock[i].f_end < cblock[block_count-1].f_end/6) {
+		while (i < block_count-1 && cblock[i].score < 1.05 && 
+				((delete_show_before_or_after_current == 1 && cblock[i].f_end < cblock[block_count-1].f_end/6) ||
+				 (delete_show_before_or_after_current > 1 && delete_show_before_or_after_current > cblock[i].length))) {
 			j = i+1;
 			k = 0;
+			combined_length = 0;
 			while (cblock[j].score > 1.05 && k + cblock[j].length * fps < min_commercialbreak * fps && j < block_count-1) {
+				combined_length += cblock[j].length;
 				k += (int)(cblock[j].length * fps);
 				j++;
 			}
 			if (cblock[j].score < 1.0) {
 				cblock[i].score = 99.99;
-				Debug(3, "H7 Discarding cblock %i because cblock %i has also logo and small non show gap.\n",
-						i, j);
+				Debug(3, "H7 Discarding cblock %i of %i seconds because cblock %i has also logo and small non show gap.\n",
+						i, (int)cblock[i].length, j);
 				cblock[i].cause |= C_H7;
 				cblock[i].more |= C_H7;
 				start_deleted = true;
@@ -4202,17 +4265,21 @@ expand:
 		}
 		
 		i = block_count-1;
-		while (i > 0 && cblock[i].score < 1.0 && cblock[i].f_start > cblock[block_count-1].f_end * 5/6) {
+		while (i > 0 && cblock[i].score < 1.0 && 
+				((delete_show_before_or_after_current == 1 && cblock[i].f_start > cblock[block_count-1].f_end * 5/6) ||
+				 (delete_show_before_or_after_current > 1 && delete_show_before_or_after_current > cblock[i].length))) {
 			j = i-1;
 			k = 0;
+			combined_length = 0;
 			while (cblock[j].score > 1.05 && k + cblock[j].length * fps < min_commercialbreak * fps && j >0) {
+				combined_length += cblock[j].length;
 				k += (int)(cblock[j].length * fps);
 				j--;
 			}
 			if (cblock[j].score < 1.0) {
 				cblock[i].score = 99.99;
-				Debug(3, "H7 Discarding cblock %i because cblock %i has also logo and small non show gap.\n",
-						i, j);
+				Debug(3, "H7 Discarding cblock %i of %i seconds because cblock %i has also logo and small non show gap.\n",
+						i, (int)cblock[i].length, j);
 				cblock[i].cause |= C_H7;
 				cblock[i].more |= C_H7;
 				end_deleted = true;
@@ -4552,6 +4619,24 @@ void OpenOutputFiles()
 		}
 	}
 
+	if (output_vdr) {
+		sprintf(filename, "%s.vdr", basename);
+		vdr_file = fopen(filename, "w");
+		if (vdr_file) {
+			if (mpegfilename[1] == ':' || mpegfilename[0] == '\\') {
+				strcpy(tempstr, basename);
+			} else {
+				_getcwd(cwd, 256);
+				sprintf(tempstr, "%s\\%s", cwd, basename);
+			}
+//			fprintf(vdr_file, "VirtualDub.video.SetMode(0);\nVirtualDub.subset.Clear();\n");
+//			fclose(vdr_file);
+		} else {
+			fprintf(stderr, "%s - could not create file %s\n", strerror(errno), filename);
+			exit(6);
+		}
+	}
+
 	if (output_projectx) {
 		sprintf(filename, "%s.Xcl", mpegfilename);
 		projectx_file = fopen(filename, "w");
@@ -4636,6 +4721,21 @@ void OpenOutputFiles()
 		}
 	}
 
+	if (output_dvrmstb) {
+		if (outputfilename[0])
+			sprintf(filename, "%s\\%s.xml", outputfilename, shortbasename);
+		else
+			sprintf(filename, "%s.xml", basename);
+		dvrmstb_file = fopen(filename, "w");
+		if (dvrmstb_file) {
+//			fclose(dvrmstb_file);
+			fprintf(dvrmstb_file, "<?xml version=\"1.0\" encoding=\"utf-8\" ?>\n<root>\n");
+		} else {
+			fprintf(stderr, "%s - could not create file %s\n", strerror(errno), filename);
+			exit(6);
+		}
+	}
+
 	if (output_mpeg2schnitt) {
 		sprintf(filename, "%s_mpeg2schnitt.bat", basename);
 		mpeg2schnitt_file = fopen(filename, "w");
@@ -4693,8 +4793,9 @@ void OutputCommercialBlock(int i, long prev, long start, long end, bool last) {
 	}
 	CLOSEOUTFILE(zoomplayer_cutlist_file);
 
-	if (zoomplayer_chapter_file && prev < start) {
-		fprintf(zoomplayer_chapter_file, "AddChapterBySecond(%.4f,Commercial Segment)\AddChapterBySecond(%.4f,Show Segment)\n", (start) / fps, (end) / fps);
+	if (zoomplayer_chapter_file && prev < start && end - start > fps ) {
+//		fprintf(zoomplayer_chapter_file, "AddChapterBySecond(%.4f,Commercial Segment)\nAddChapterBySecond(%.4f,Show Segment)\n", (start) / fps, (end) / fps);
+		fprintf(zoomplayer_chapter_file, "AddChapterBySecond(%i,Commercial Segment)\nAddChapterBySecond(%i,Show Segment)\n", (int)((start) / fps), (int)((end) / fps));
 	}
 	CLOSEOUTFILE(zoomplayer_chapter_file);
 
@@ -4702,6 +4803,14 @@ void OutputCommercialBlock(int i, long prev, long start, long end, bool last) {
 		fprintf(vcf_file, "VirtualDub.subset.AddRange(%i,%i);\n", prev+1, start - prev);
 	}
 	CLOSEOUTFILE(vcf_file);
+
+	if (vdr_file && prev < start) {
+		if (start < 5)
+			start = 0;
+		fprintf(vdr_file, "%s start\n",	dblSecondsToStrMinutes(start/fps ));
+		fprintf(vdr_file, "%s end\n", dblSecondsToStrMinutes(end/fps));
+	}
+	CLOSEOUTFILE(vdr_file);
 
 	if (projectx_file && prev < start) {
 		fprintf(projectx_file, "%d\n", prev+1);
@@ -4834,6 +4943,16 @@ void OutputCommercialBlock(int i, long prev, long start, long end, bool last) {
 		}
 	}
 	CLOSEOUTFILE(dvrcut_file);
+
+	if (dvrmstb_file) {
+		if (start - prev > (int)fps && start > 2*fps) {
+			fprintf(dvrmstb_file, "  <commercial start=\"%f\" end=\"%f\" />\n", start/fps, end/fps);
+		}
+		if (last) {
+			fprintf(dvrmstb_file, " </root>\n");
+		}
+	}
+	CLOSEOUTFILE(dvrmstb_file);
 
 	if (mpeg2schnitt_file) {
 			if (start - prev > 0) {
@@ -5016,7 +5135,10 @@ bool OutputBlocks(void) {
 	if (delete_show_after_last_commercial &&
 		commercial_count > -1 && 
 	//	( commercial[commercial_count].end_block == block_count - 2 || commercial[commercial_count].end_block == block_count - 3) && 
-		cblock[commercial[commercial_count].end_block].f_start > cblock[block_count-1].f_end * 8/9 &&
+		((delete_show_after_last_commercial == 1 && cblock[commercial[commercial_count].end_block].f_start > cblock[block_count-1].f_end * 8/9) ||
+		 (delete_show_after_last_commercial * fps > cblock[block_count-1].f_end - cblock[commercial[commercial_count].end_block].f_start) )
+
+		&&
 		commercial[commercial_count].end_block < block_count-1
 		) {
 		i = commercial[commercial_count].end_block + 1;
@@ -5024,8 +5146,8 @@ bool OutputBlocks(void) {
 		commercial[commercial_count].end_frame = cblock[block_count-1].f_end/* + (cblock[i + 1].bframe_count / 2)*/;
 		commercial[commercial_count].length = (commercial[commercial_count].end_frame -	commercial[commercial_count].start_frame) /	fps;
 		while (i < block_count) {
-			Debug(3, "H5 Deleting cblock %i because it comes after the last commercial.\n",
-						i);
+			Debug(3, "H5 Deleting cblock %i of %i seconds because it comes after the last commercial.\n",
+						i, (int)cblock[i].length );
 			cblock[i].cause |= C_H5;
 			cblock[i].score = 99.99;
 			cblock[i].more |= C_H5;
@@ -5039,8 +5161,8 @@ bool OutputBlocks(void) {
 		commercial[commercial_count].end_block = block_count-1;		
 		commercial[commercial_count].end_frame = cblock[block_count-1].f_end/* + (cblock[i + 1].bframe_count / 2)*/;
 		commercial[commercial_count].length = (commercial[commercial_count].end_frame -	commercial[commercial_count].start_frame) /	fps;
-		Debug(3, "H5 Deleting cblock %i because it comes after the last commercial and its too short.\n",
-						block_count-1);
+		Debug(3, "H5 Deleting cblock %i of %i seconds because it comes after the last commercial and its too short.\n",
+						block_count-1, (int)cblock[block_count-1].length);
 		cblock[block_count-1].cause |= C_H5;
 		cblock[block_count-1].score = 99.99;
 		cblock[block_count-1].more |= C_H5;
@@ -5049,12 +5171,14 @@ bool OutputBlocks(void) {
 	if (delete_show_before_first_commercial &&
 		commercial_count > -1 && 
 		commercial[0].start_block == 1 && 
-		cblock[0].f_end < cblock[block_count-1].f_end * 1/8) {
+		((delete_show_before_first_commercial == 1 && cblock[0].f_end < cblock[block_count-1].f_end * 1/8) ||
+		(delete_show_before_first_commercial * fps > cblock[0].f_end))
+		) {
 		commercial[0].start_block = 0;		
 		commercial[0].start_frame = cblock[0].f_start/* + (cblock[i + 1].bframe_count / 2)*/;
 		commercial[0].length = (commercial[0].end_frame -	commercial[0].start_frame) /	fps;
-		Debug(3, "H5 Deleting cblock %i because it comes before the first commercial.\n",
-						0);
+		Debug(3, "H5 Deleting cblock %i of %i seconds because it comes before the first commercial.\n",
+						0, (int)cblock[0].length);
 		cblock[0].score = 99.99;
 		cblock[0].cause |= C_H5;
 		cblock[0].more |= C_H5;
@@ -5067,8 +5191,8 @@ bool OutputBlocks(void) {
 		commercial[0].start_block = 0;		
 		commercial[0].start_frame = cblock[0].f_start/* + (cblock[i + 1].bframe_count / 2)*/;
 		commercial[0].length = (commercial[0].end_frame -	commercial[0].start_frame) /	fps;
-		Debug(3, "H5 Deleting cblock %i because its too short and before first commercial.\n",
-						0);
+		Debug(3, "H5 Deleting cblock %i of %i seconds because its too short and before first commercial.\n",
+						0, (int)cblock[0].length);
 		cblock[0].score = 99.99;
 		cblock[0].cause |= C_H5;
 		cblock[0].more |= C_H5;
@@ -5119,7 +5243,7 @@ bool OutputBlocks(void) {
 		if (commercial_count >= 0 && commercial[k].start_frame < fps &&
 			commercial[k].length < min_commercial_break_at_start_or_end) {
 			for (i = commercial[k].start_block; i <= commercial[k].end_block; i++) {
-				Debug(3, "H6 Deleting block %i because it is part of a too short or too long commercial.\n",
+				Debug(3, "H6 Deleting block %i because it is part of a too short commercial at the start of the recording.\n",
 					i);
 				cblock[i].score = 0;
 				cblock[i].cause |= C_H6;
@@ -5133,10 +5257,10 @@ bool OutputBlocks(void) {
 		}
 		// Delete too short last commercial
 		k = commercial_count;
-		if (commercial_count >= 0 && commercial[k].start_frame < fps &&
+		if (commercial_count >= 0 && (cblock[block_count-1].f_end - commercial[k].end_frame) < fps &&
 			commercial[k].length < min_commercial_break_at_start_or_end) {
 			for (i = commercial[k].start_block; i <= commercial[k].end_block; i++) {
-				Debug(3, "H6 Deleting block %i because it is part of a too short or too long commercial.\n",
+				Debug(3, "H6 Deleting block %i because it is part of a too short commercial at the end of the recording.\n",
 					i);
 				cblock[i].score = 0;
 				cblock[i].cause |= C_H6;
@@ -5271,7 +5395,7 @@ bool OutputBlocks(void) {
 		Debug(1,   "Minimum volume found:       %6i\n", min_volume);
 		Debug(1,   "Average frames with silence:%6i\n", avg_silence);
 		Debug(1,   "Black threshold:            %6i\n", max_avg_brightness);
-		Debug(1,   "Minimum Black level found:  %6i\n", min_brightness_found);
+		Debug(1,   "Minimum brightness found:  %6i\n", min_brightness_found);
 		Debug(1,   "Average brightness:         %6i\n", avg_brightness);
 		Debug(1,   "Uniformity level:           %6i\n", non_uniformity);
 		Debug(1,   "Average non uniformity:     %6i\n", avg_uniform);
@@ -5349,7 +5473,7 @@ bool OutputBlocks(void) {
 			}
 		}
 
-
+		OutputAspect();
 		OutputTraining();
 
 		
@@ -5367,7 +5491,7 @@ bool OutputBlocks(void) {
 
 OutputStrict(double len, double delta, double tol)
 {
-return;
+//return;
 	if (output_training && !training_file) {
 		training_file = fopen("comskip.csv", "a+");
 //		fprintf(training_file, "// score, length, fraction, position,combined, ar error, logo, strict \n");
@@ -5381,7 +5505,7 @@ return;
 
 OutputTraining() {
 	int i,s,e,r;
-	//	return;
+	return;
 	if (!output_training)
 		return;
 	training_file = fopen("comskip.csv", "a+");
@@ -5646,7 +5770,7 @@ bool IsStandardCommercialLength(double length, double tolerance, bool strict) {
 		if ( standard_length[i] < min_show_segment_length - 3)
 			if (LengthWithinTolerance(length, standard_length[i], local_tolerance)) {
 				delta = length - standard_length[i];
-//				OutputStrict(length, delta, tolerance);
+				OutputStrict(length, delta, local_tolerance);
 				return (true);
 			}
 	}
@@ -5778,7 +5902,7 @@ char* intSecondsToStrMinutes(int seconds) {
 	seconds -= hours * 60 * 60;
 	minutes = (int)(seconds / 60);
 	seconds -= minutes * 60;
-	sprintf(tempString, "%i:%i:%i", hours, minutes, seconds);
+	sprintf(tempString, "%i:%.2i:%.2i", hours, minutes, seconds);
 	return (tempString);
 }
 
@@ -5788,7 +5912,7 @@ char* dblSecondsToStrMinutes(double seconds) {
 	seconds -= hours * 60 * 60;
 	minutes = (int)(seconds / 60);
 	seconds -= minutes * 60;
-	sprintf(tempString, "%0i:%0i:%.2f", hours, minutes, seconds);
+	sprintf(tempString, "%0i:%.2i:%.2d.%.2d", hours, minutes, (int)seconds, (int)((seconds - (int)(seconds))*100) );
 
 	return (tempString);
 }
@@ -5820,7 +5944,7 @@ void LoadIniFile() {
 		data[len] = '\0';
 		ini_text[0] = 0;
 		AddIniString("[Main Settings]\n");
-		AddIniString(";the sum of the values for which kind of frames comskip will consider as possible cutpoints: 1=uniform (black or any other color) frame, 2=logo, 4=scene change, 8=fuzzy logic, 16=closed captions, 32=aspect ration, 64=silence, 255=all.\n");
+		AddIniString(";the sum of the values for which kind of frames comskip will consider as possible cutpoints: 1=uniform (black or any other color) frame, 2=logo, 4=scene change, 8=resolution change, 16=closed captions, 32=aspect ration, 64=silence, 255=all.\n");
 		if ((tmp = FindNumber(data, "detect_method=", (double) commDetectMethod)) > -1) commDetectMethod = (int)tmp;
 		AddIniString(";Set to 10 to show a lot of extra info, level 5 is also OK, set to 0 to disable\n");
 		if ((tmp = FindNumber(data, "verbose=", (double) verbose)) > -1) verbose = (int)tmp;
@@ -5863,7 +5987,10 @@ void LoadIniFile() {
 		if ((tmp = FindNumber(data, "max_repair_size=", (double) max_repair_size)) > -1) max_repair_size = (int)tmp;
 		if ((tmp = FindNumber(data, "ms_audio_delay=", (double) ms_audio_delay)) > -1) ms_audio_delay = -(int)tmp;
 		if ((tmp = FindNumber(data, "volume_slip=", (double) volume_slip)) > -1) volume_slip = (int)tmp;
-
+		if ((tmp = FindNumber(data, "variable_bitrate=", (double) variable_bitrate)) > -1) variable_bitrate = (int)tmp;
+#ifdef DONATORS
+		if ((tmp = FindNumber(data, "skip_b_frames=", (double) skip_B_frames)) > -1) skip_B_frames = (int)tmp;
+#endif
 		AddIniString("[Aspect Ratio]\n");
 		if ((tmp = FindNumber(data, "ar_delta=", (double) ar_delta)) > -1) ar_delta = (double)tmp;
 		if ((tmp = FindNumber(data, "cut_on_ar_change=", (double) cut_on_ar_change)) > -1) cut_on_ar_change = (int)tmp;
@@ -5917,6 +6044,7 @@ void LoadIniFile() {
 		if ((tmp = FindNumber(data, "edge_level_threshold=", (double) edge_level_threshold)) > -1) edge_level_threshold = (int)tmp;
 		if ((tmp = FindNumber(data, "edge_radius=", (double) edge_radius)) > -1) edge_radius = (int)tmp;
 		if ((tmp = FindNumber(data, "edge_weight=", (double) edge_weight)) > -1) edge_weight = (int)tmp;
+		if ((tmp = FindNumber(data, "edge_step=", (double) edge_step)) > -1) edge_step = (int)tmp;
 		if ((tmp = FindNumber(data, "num_logo_buffers=", (double) num_logo_buffers)) > -1) num_logo_buffers = (int)tmp;
 		if ((tmp = FindNumber(data, "use_existing_logo_file=", (double) useExistingLogoFile)) > -1) useExistingLogoFile = (int)tmp;
 		if ((tmp = FindNumber(data, "two_pass_logo=", (double) startOverAfterLogoInfoAvail)) > -1) startOverAfterLogoInfoAvail = (bool) tmp;
@@ -5938,7 +6066,9 @@ void LoadIniFile() {
 		AddIniString("[Live TV]\n");
 		if ((tmp = FindNumber(data, "live_tv=", (double) live_tv)) > -1) live_tv = (bool) tmp;
 		if ((tmp = FindNumber(data, "live_tv_retries=", (double) live_tv_retries)) > -1) live_tv_retries = (int) tmp;
+		if ((tmp = FindNumber(data, "dvrms_live_tv_retries=", (double) dvrms_live_tv_retries)) > -1) dvrms_live_tv_retries = (int) tmp;
 		if ((tmp = FindNumber(data, "standoff=", (double) standoff)) > -1) standoff = (int) tmp;
+		if ((tmp = FindNumber(data, "dvrmsstandoff=", (double) dvrmsstandoff)) > -1) dvrmsstandoff = (int) tmp;
 		if ((tmp = FindNumber(data, "require_div5=", (double) require_div5)) > -1) require_div5 = (bool) tmp;
 		if ((tmp = FindNumber(data, "div5_tolerance=", (double) div5_tolerance)) > -1) div5_tolerance = tmp;
 
@@ -5947,6 +6077,7 @@ void LoadIniFile() {
 		if ((tmp = FindNumber(data, "output_zoomplayer_cutlist=", (double) output_zoomplayer_cutlist)) > -1) output_zoomplayer_cutlist = (bool) tmp;
 		if ((tmp = FindNumber(data, "output_zoomplayer_chapter=", (double) output_zoomplayer_chapter)) > -1) output_zoomplayer_chapter = (bool) tmp;
 		if ((tmp = FindNumber(data, "output_vcf=", (double) output_vcf)) > -1) output_vcf = (bool) tmp;
+		if ((tmp = FindNumber(data, "output_vdr=", (double) output_vdr)) > -1) output_vdr = (bool) tmp;
 		if ((tmp = FindNumber(data, "output_projectx=", (double) output_projectx)) > -1) output_projectx = (bool) tmp;
 		if ((tmp = FindNumber(data, "output_avisynth=", (double) output_avisynth)) > -1) output_avisynth = (bool) tmp;
 		if ((tmp = FindNumber(data, "output_videoredo=", (double) output_videoredo)) > -1) output_videoredo = (bool) tmp;
@@ -5961,11 +6092,13 @@ void LoadIniFile() {
 		if ((tmp = FindNumber(data, "output_womble=", (double) output_womble)) > -1) output_womble = (bool) tmp;
 		if ((tmp = FindNumber(data, "output_mls=", (double) output_mls)) > -1) output_mls = (bool) tmp;
 		if ((tmp = FindNumber(data, "output_mpgtx=", (double) output_mpgtx)) > -1) output_mpgtx = (bool) tmp;
+		if ((tmp = FindNumber(data, "output_dvrmstb=", (double) output_dvrmstb)) > -1) output_dvrmstb = (bool) tmp;
 		if ((tmp = FindNumber(data, "output_dvrcut=", (double) output_dvrcut)) > -1) output_dvrcut = (bool) tmp;
 		if ((tmp = FindNumber(data, "output_framearray=", (double) output_framearray)) > -1) output_framearray = (bool) tmp;
 		if ((tmp = FindNumber(data, "output_debugwindow=", (double) output_debugwindow)) > -1) output_debugwindow = (bool) tmp;
 		if ((tmp = FindNumber(data, "output_tuning=", (double) output_tuning)) > -1) output_tuning = (bool) tmp;
 		if ((tmp = FindNumber(data, "output_training=", (double) output_training)) > -1) output_training = (bool) tmp;
+		if ((tmp = FindNumber(data, "output_aspect=", (double) output_aspect)) > -1) output_aspect = (bool) tmp;
 		if ((tmp = FindNumber(data, "output_demux=", (double) output_demux)) > -1) output_demux = (bool) tmp;
 		if ((tmp = FindNumber(data, "output_timing=", (double) output_timing)) > -1) output_timing = (bool) tmp;
 		if ((tmp = FindNumber(data, "delete_logo_file=", (double) deleteLogoFile)) > -1) deleteLogoFile = (int)tmp;
@@ -6013,7 +6146,7 @@ FILE* LoadFile(char *f)
 	char exe[1000];
 	char *cmd[2];
 	_getcwd(cwd, 256);
-	sprintf(exe, "%s\\\%s", cwd, "Comskip.exe");
+	sprintf(exe, "%s\\%s", cwd, "Comskip.exe");
 	cmd[0] = exe;
 	cmd[1] = f;
 	return( LoadSettings( 2, cmd));
@@ -6055,7 +6188,7 @@ FILE* LoadSettings(int argc, char ** argv) {
 	struct arg_file*	cl_logo					= arg_filen(NULL, "logo", NULL, 0, 1, "Logo file to use");
 	struct arg_file*	cl_cut					= arg_filen(NULL, "cut", NULL, 0, 1, "CutScene file to use");
 	struct arg_file*	in						= arg_filen(NULL, NULL, NULL, 1, 1, "Input file");
-	struct arg_file*	out						= arg_filen(NULL, NULL, NULL, 0, 1, "Output file");
+	struct arg_file*	out						= arg_filen(NULL, NULL, NULL, 0, 1, "Output directory");
 	struct arg_end*		end						= arg_end(20);
 	void*				argtable[] =
 	{
@@ -6106,6 +6239,25 @@ FILE* LoadSettings(int argc, char ** argv) {
 		strcpy(argument[i], argv[i]);
 	}
 
+	if (argc <= 1) {
+
+#ifdef COMSKIPGUI
+//			output_debugwindow = true;
+#endif
+			
+			if (strstr(argv[0],"GUI"))
+				output_debugwindow = true;			
+			if (output_debugwindow) {
+// This is a trick to ask for a input filename when no argument has been given.
+//				while (mpegfilename[0] == 0)
+//					ReviewResult();
+//				argc++;
+//				strcpy(argument[1], mpegfilename);
+			}
+	}
+
+
+
 	// verify the argtable[] entries were allocated sucessfully
 	if (arg_nullcheck(argtable) != 0) {
 
@@ -6124,7 +6276,7 @@ FILE* LoadSettings(int argc, char ** argv) {
 		printf("\t%3i - Black Frame\n", BLACK_FRAME);
 		printf("\t%3i - Logo\n", LOGO);
 		printf("\t%3i - Scene Change\n", SCENE_CHANGE);
-		printf("\t%3i - Fuzzy Logic\n", FUZZY_LOGIC);
+		printf("\t%3i - Resolution Change\n", RESOLUTION_CHANGE);
 		printf("\t%3i - Closed Captions\n", CC);
 		printf("\t%3i - Aspect Ratio\n", AR);
 		printf("\t%3i - Silence\n", SILENCE);
@@ -6141,7 +6293,7 @@ FILE* LoadSettings(int argc, char ** argv) {
 		printf("\t%3i - Black Frame\n", BLACK_FRAME);
 		printf("\t%3i - Logo\n", LOGO);
 		printf("\t%3i - Scene Change\n", SCENE_CHANGE);
-		printf("\t%3i - Fuzzy Logic\n", FUZZY_LOGIC);
+		printf("\t%3i - Resolution Change\n", RESOLUTION_CHANGE);
 		printf("\t%3i - Closed Captions\n", CC);
 		printf("\t%3i - Aspect Ratio\n", AR);
 		printf("\t%3i - Silence\n", SILENCE);
@@ -6173,6 +6325,7 @@ FILE* LoadSettings(int argc, char ** argv) {
 		while (i>0 && basename[i-1] != '\\' && basename[i-1] != '/') {
 			i--;
 		}
+		strcpy(shortbasename, &basename[i]);
 		sprintf(inifilename, "%.*scomskip.ini", i, basename);
 	} else if (strcmp(in->extension[0], ".csv") == 0) {
 		loadingCSV = true;
@@ -6215,6 +6368,7 @@ FILE* LoadSettings(int argc, char ** argv) {
 		while (i>0 && basename[i-1] != '\\' && basename[i-1] != '/') {
 			i--;
 		}
+		strcpy(shortbasename, &basename[i]);
 		sprintf(inifilename, "%.*scomskip.ini", i, basename);
 		if (mpegfilename[0] == 0) sprintf(mpegfilename, "%s.mpg", basename);
 	} else if (strcmp(in->extension[0], ".txt") == 0) {
@@ -6252,13 +6406,13 @@ FILE* LoadSettings(int argc, char ** argv) {
 		while (i>0 && basename[i-1] != '\\') {
 			i--;
 		}
+		strcpy(shortbasename, &basename[i]);
 		sprintf(inifilename, "%.*scomskip.ini", i, basename);
 //		sprintf(mpegfilename, "%s.mpg", basename);
 	} else {
 		printf("The input file was not an MPEG file or comskip CSV or TXT file - %s.\n", in->extension[0]);
 		exit(5);
 	}
-
 	if (cl_ini->count) {
 		sprintf(inifilename, cl_ini->filename[0]);
 		printf("Setting ini file to %s as per commandline\n", inifilename);
@@ -6297,6 +6451,9 @@ FILE* LoadSettings(int argc, char ** argv) {
 
 	if (out->count) {
 		sprintf(outputfilename, out->filename[0]);
+		i = strlen(outputfilename);
+		if (outputfilename[i-1] == '\\')
+			outputfilename[i-1] = 0;
 	}
 	else
 		outputfilename[0] = 0;
@@ -6333,7 +6490,7 @@ FILE* LoadSettings(int argc, char ** argv) {
 	
 
 #ifdef COMSKIPGUI
-		output_debugwindow = true;
+//		output_debugwindow = true;
 #endif
 
 	if (strstr(argv[0],"GUI"))
@@ -6441,9 +6598,9 @@ FILE* LoadSettings(int argc, char ** argv) {
 		Debug(1, "\t%i) Scene Change\n", i);
 	}
 
-	if (commDetectMethod & FUZZY_LOGIC) {
+	if (commDetectMethod & RESOLUTION_CHANGE) {
 		i++;
-		Debug(1, "\t%i) Fuzzy Logic\n", i);
+		Debug(1, "\t%i) Resolution Change\n", i);
 	}
 
 	if (commDetectMethod & CC) {
@@ -6497,7 +6654,7 @@ FILE* LoadSettings(int argc, char ** argv) {
 		}
 	}
 
-	out_file = zoomplayer_cutlist_file = zoomplayer_chapter_file = vcf_file = projectx_file = avisynth_file = cuttermaran_file = videoredo_file = btv_file = edl_file = edlp_file = edlx_file = mls_file = womble_file = mpgtx_file = dvrcut_file = tuning_file = training_file = 0L;
+	out_file = zoomplayer_cutlist_file = zoomplayer_chapter_file = vcf_file = vdr_file = projectx_file = avisynth_file = cuttermaran_file = videoredo_file = btv_file = edl_file = edlp_file = edlx_file = mls_file = womble_file = mpgtx_file = dvrcut_file = dvrmstb_file = tuning_file = training_file = 0L;
 
 	if (cl_output_zp_cutlist->count)
 		output_zoomplayer_cutlist = true;
@@ -6506,7 +6663,7 @@ FILE* LoadSettings(int argc, char ** argv) {
 	if (cl_output_vredo->count)
 		output_videoredo = true;
 
-	if (output_default) {
+	if (output_default && ! loadingTXT) {
 		if(!isSecondPass) {
 			out_file = fopen(out_filename, "w");
 			if (!out_file) {
@@ -6786,7 +6943,13 @@ void ProcessARInfoInit(int minY, int maxY, int minX, int maxX)
 {
 	double pictureHeight = maxY - minY;
 	double pictureWidth = maxX - minX;
-/*
+
+	if (minX <= border) minX = 1;
+	if (minY <= border) minY = 1;
+	if (maxY >= height - border) maxY = height;
+	if (maxX >= width - border) maxX = width;
+	
+	/*
 	ar_width = width;
 	if (ar_width < maxY + minY)
 		ar_width = (int)((maxY + minY) * 1.3);
@@ -6800,6 +6963,12 @@ void ProcessARInfoInit(int minY, int maxY, int minX, int maxX)
 //	lastAR = (last_ar_ratio <= ar_split);
 	ar_ratio_start = framenum_real;			
 	ar_block[ar_block_count].start = framenum_real;
+	ar_block[ar_block_count].width = width;
+	ar_block[ar_block_count].height = height;
+	ar_block[ar_block_count].minX = minX;
+	ar_block[ar_block_count].minY = minY;
+	ar_block[ar_block_count].maxX = maxX;
+	ar_block[ar_block_count].maxY = maxY;
 //			ar_block[ar_block_count].ar = lastAR;
 	ar_block[ar_block_count].ar_ratio = last_ar_ratio;
 //	if (framearray) frame[frame_count].ar_ratio = last_ar_ratio;;
@@ -6811,6 +6980,13 @@ void ProcessARInfo(int minY, int maxY, int minX, int maxX)
 	int		pictureHeight, pictureWidth;
 	int		hi,i;
 	double	cur_ar_ratio;
+
+	if (minX <= border) minX = 1;
+	if (minY <= border) minY = 1;
+	if (maxY >= height - border) maxY = height;
+	if (maxX >= width - border) maxX = width;
+	
+	
 	if (ticker_tape > 0 || ( 
 			abs((height - maxY) - (minY)) < 10 + (minY - border)/20  &&  // discard for no simetrical check
 			abs((width  - maxX) - (minX)) < 10 + (minX - border)/20  &&  // discard for no simetrical check
@@ -6851,6 +7027,12 @@ void ProcessARInfo(int minY, int maxY, int minX, int maxX)
 						ar_block[ar_block_count].start = ar_ratio_start;
 						ar_block[ar_block_count].ar_ratio = ar_ratio_trend;
 						ar_block[ar_block_count].volume = 0;
+						ar_block[ar_block_count].width = width;
+						ar_block[ar_block_count].height = height;
+						ar_block[ar_block_count].minX = minX;
+						ar_block[ar_block_count].minY = minY;
+						ar_block[ar_block_count].maxX = maxX;
+						ar_block[ar_block_count].maxY = maxY;
 					}
 					Debug(9, "Frame: %i\tRatio: %.2f\tMinY: %i\tMaxY: %i\tMinX: %i\tMaxX: %i\n", ar_ratio_start, ar_ratio_trend , minY, maxY, minX, maxX);	
 					last_ar_ratio = ar_ratio_trend;
@@ -6905,6 +7087,12 @@ void ProcessARInfo(int minY, int maxY, int minX, int maxX)
 				ar_block[ar_block_count].start = framenum_real - 3*(int)fps;
 				ar_block[ar_block_count].ar_ratio = ar_ratio_trend;
 				ar_block[ar_block_count].volume = 0;
+				ar_block[ar_block_count].width = width;
+				ar_block[ar_block_count].height = height;
+				ar_block[ar_block_count].minX = minX;
+				ar_block[ar_block_count].minY = minY;
+				ar_block[ar_block_count].maxX = maxX;
+				ar_block[ar_block_count].maxY = maxY;
 			}
 			Debug(9, "Frame: %i\tRatio: %.2f\tMinY: %i\tMaxY: %i\n", ar_ratio_start, ar_ratio_trend , minY, maxY);	
 			last_ar_ratio = ar_ratio_trend;
@@ -7290,6 +7478,20 @@ static long prevsimilar = 0;
 			}
 		}	
 	}
+
+	if (commDetectMethod & RESOLUTION_CHANGE) {
+		if ((old_width != 0 && width != old_width) || (old_height != 0 && height != old_height)) {
+			cause |= C_r;
+			Debug(7, "Frame %6i - Resolution change from %d x %d to %d x %d \n", framenum_real, old_width, old_height, width, height);
+			old_width = width;
+			old_height = height;
+			ResetLogoBuffers();
+		}	
+		old_width = width;
+		old_height = height;
+	}
+	
+	
 /*
 	if (abs(brightness - last_brightness) > brightness_jump) {
 		cause |= C_s;
@@ -7922,7 +8124,7 @@ bool ProcessLogoTest(int framenum_real, int curLogoTest, int close)
 			// Logo disappeared
 			lastLogoTest = false;
 			logoTrendCounter = 0;
-			logo_block[logo_block_count].end = framenum_real - 2 * (int)(fps * logoFreq);
+			logo_block[logo_block_count].end = framenum_real - 1 * (int)(fps * logoFreq);
 			if (logo_block[logo_block_count].end - logo_block[logo_block_count].start > 
 				2*(int)(shrink_logo*fps) ) {
 				logo_block[logo_block_count].end -= (int)(shrink_logo*fps); 
@@ -7984,6 +8186,25 @@ bool ProcessLogoTest(int framenum_real, int curLogoTest, int close)
 	return(lastLogoTest);
 }
 
+
+void ResetLogoBuffers(void) {
+	int i;
+	newestLogoBuffer = oldestLogoBuffer = 0;
+	if (newestLogoBuffer == num_logo_buffers) newestLogoBuffer = 0; // rotates buffer
+	logoFrameNum[newestLogoBuffer] = framenum_real;
+	oldestLogoBuffer = 0;
+	for (i = 0; i < num_logo_buffers; i++) {
+		free(logoFrameBuffer[i]);
+	}
+	for (i = 0; i < num_logo_buffers; i++) {
+		logoFrameBuffer[i] = malloc(width * height * sizeof(frame_ptr[0]));
+		if (logoFrameBuffer[i] == NULL) {
+			Debug(0, "Could not allocate memory for logo frame buffer %i\n", i);
+			exit(16);
+		}
+	}
+}
+
 void FillLogoBuffer(void) {
 	int i;
 	int x;
@@ -7996,7 +8217,8 @@ void FillLogoBuffer(void) {
 		if (logoFrameNum[i]  && logoFrameNum[i] < logoFrameNum[oldestLogoBuffer]) oldestLogoBuffer = i;
 	}
 
-	memcpy(logoFrameBuffer[newestLogoBuffer], frame_ptr, width * height * sizeof(frame_ptr[0]));
+	i = min(logoFrameBufferSize, width * height * sizeof(frame_ptr[0]));
+	memcpy(logoFrameBuffer[newestLogoBuffer], frame_ptr, i);
 
 //	for (y = 0; y < height; y++) {
 //		for (x = 0; x < width; x++) {
@@ -8199,10 +8421,10 @@ bool SearchForLogoEdges(void) {
 		free(horiz_edges);
 		horiz_edges = NULL;
 #else
-		free(horiz_count);
-		horiz_count = NULL;
-		free(vert_count);
-		vert_count = NULL;
+//		free(horiz_count);
+//		horiz_count = NULL;
+//		free(vert_count);
+//		vert_count = NULL;
 #endif
 		free(logoFrameBuffer);
 		logoFrameBuffer = NULL;
@@ -8478,12 +8700,14 @@ char CheckFramesForReffer(int start, int end) {
 	if (start >= end )
 		return ('0');						// Too short to decide
 	i = 0;
-	while (i <= reffer_count && start + fps > reffer[i].end_frame)
+	while (i <= reffer_count &&  reffer[i].end_frame < start + fps)
 		i++;
 	if (i <= reffer_count) {			// Now start <= reffer[i].end_frame
-		if (end - fps < reffer[i].start_frame)
+		if (reffer[i].start_frame < start + fps)
+			return('-');
+		if (reffer[i].start_frame > end - fps)
 			return('+');
-		if (start + fps < reffer[i].start_frame)
+		if ( reffer[i].start_frame < end + fps)
 			return('0');
 		return('-');
 	}
@@ -8609,6 +8833,7 @@ void LoadLogoMaskData(void) {
 	}
 
 	logo_file = fopen(logofilename, "r");
+/*
 	horiz_edgemask = malloc(width * height * sizeof(unsigned char));
 	if (horiz_edgemask == NULL) {
 		Debug(0, "Could not allocate memory for horizontal edgemask\n");
@@ -8620,9 +8845,9 @@ void LoadLogoMaskData(void) {
 		Debug(0, "Could not allocate memory for vertical edgemask\n");
 		exit(9);
 	}
-
 	memset(horiz_edgemask, 0, width * height);
 	memset(vert_edgemask, 0, width * height);
+*/
 	do
 	{
 		temp = getc(logo_file);
@@ -8800,7 +9025,7 @@ void InitLogoBuffers(void) {
 		exit(14);
 	}
 	memset(logoFrameNum, 0,num_logo_buffers*sizeof(int));
-
+/*
 	if(!horiz_edgemask) horiz_edgemask = malloc(width * height * sizeof(unsigned char));
 	if (horiz_edgemask == NULL) {
 		Debug(0, "Could not allocate memory for horizontal edgemask\n");
@@ -8812,11 +9037,15 @@ void InitLogoBuffers(void) {
 		Debug(0, "Could not allocate memory for vertical edgemask\n");
 		exit(15);
 	}
-	
+*/	
 	if(!logoFrameBuffer) logoFrameBuffer = malloc(num_logo_buffers * sizeof(unsigned char *));
 	if (!(logoFrameBuffer == NULL)) {
+
+		logoFrameBufferSize = width * height * sizeof(frame_ptr[0]);
+		lheight = height;
+		lwidth = width;
 		for (i = 0; i < num_logo_buffers; i++) {
-			logoFrameBuffer[i] = malloc(width * height * sizeof(unsigned char));
+			logoFrameBuffer[i] = malloc(logoFrameBufferSize);
 			if (logoFrameBuffer[i] == NULL) {
 				Debug(0, "Could not allocate memory for logo frame buffer %i\n", i);
 				exit(16);
@@ -8841,12 +9070,14 @@ void InitLogoBuffers(void) {
 		exit(18);
 	}
 #else
+/*
 	horiz_count = malloc(width * height * sizeof(unsigned char));
 	if (horiz_count == NULL) {
 		Debug(0, "Could not allocate memory for horizontal count buffer\n");
 		exit(17);
 	}
 	memset(horiz_count, 0, width * height * sizeof(unsigned char));
+*/
 #endif
 	
 #if MULTI_EDGE_BUFFER
@@ -8864,12 +9095,14 @@ void InitLogoBuffers(void) {
 		exit(20);
 	}
 #else
+/*
 	vert_count = malloc(width * height * sizeof(unsigned char));
 	if (vert_count == NULL) {
 		Debug(0, "Could not allocate memory for vertical count buffer\n");
 		exit(17);
 	}
 	memset(vert_count, 0, width * height * sizeof(unsigned char));
+*/
 #endif
 }
 
@@ -9154,6 +9387,7 @@ void OutputLogoHistogram(int buckets) {
 	long	max = 0;
 	int		columns = 200;
 	double	divisor;
+	char stars[256];
 	long	counter = 0;
 	
 	for (i = 0; i < buckets; i++) {
@@ -9168,13 +9402,14 @@ void OutputLogoHistogram(int buckets) {
 	
 	for (i = 0; i < buckets; i++) {
 		counter += logoHistogram[i];
-		Debug(8, "%.3f - %6i - %.5f ", (double)i/buckets, logoHistogram[i], (double)counter / (double)frame_count);
+		stars[0] = 0;
 		if (logoHistogram[i] > 0) {
 			for (j = 0; j <= (int)(logoHistogram[i] * divisor); j++) {
-				Debug(8, "*");
+				stars[j] = '*';
 			}
+			stars[j] = 0;
 		}
-		Debug(8, "\n");
+		Debug(8, "%.3f - %6i - %.5f %s\n", (double)i/buckets, logoHistogram[i], (double)counter / (double)frame_count, stars);
 	}
 }
 
@@ -9187,6 +9422,7 @@ void OutputbrightHistogram(void) {
 	int		columns = 200;
 	double	divisor;
 	long	counter = 0;
+	char stars[256];
 	
 	for (i = 0; i < 256; i++) {
 		if (max < brightHistogram[i]) {
@@ -9200,13 +9436,14 @@ void OutputbrightHistogram(void) {
 	
 	for (i = 0; i < 256; i++) {
 		counter += brightHistogram[i];
-		Debug(8, "%3i - %6i - %.5f ", i, brightHistogram[i], (double)counter / (double)framesprocessed);
+		stars[0] = 0;
 		if (brightHistogram[i] > 0) {
 			for (j = 0; j <= (int)(brightHistogram[i] * divisor); j++) {
-				Debug(8, "*");
+				stars[j] = '*';
 			}
+			stars[j] = 0;
 		}
-		Debug(8, "\n");
+		Debug(8, "%3i - %6i - %.5f %s\n", i, brightHistogram[i], (double)counter / (double)framesprocessed, stars);
 	}
 }
 
@@ -9217,6 +9454,7 @@ void OutputuniformHistogram(void) {
 	int		columns = 200;
 	double	divisor;
 	long	counter = 0;
+	char stars[256];
 	
 	for (i = 0; i < 255; i++) {
 		if (max < uniformHistogram[i]) {
@@ -9230,13 +9468,14 @@ void OutputuniformHistogram(void) {
 	
 	for (i = 0; i < 255; i++) {
 		counter += uniformHistogram[i];
-		Debug(8, "%3i - %6i - %.5f ", i*UNIFORMSCALE, uniformHistogram[i], (double)counter / (double)framesprocessed);
+		stars[0] = 0;
 		if (uniformHistogram[i] > 0) {
 			for (j = 0; j <= (int)(uniformHistogram[i] * divisor); j++) {
-				Debug(8, "*");
+				stars[j] = '*';
 			}
+			stars[j] = 0;
 		}
-		Debug(8, "\n");
+		Debug(8, "%3i - %6i - %.5f %s\n", i*UNIFORMSCALE, uniformHistogram[i], (double)counter / (double)framesprocessed,stars);
 	}
 }
 
@@ -9247,6 +9486,7 @@ void OutputHistogram(int *histogram, int scale, char *title, bool truncate) {
 	int		columns = 70;
 	double	divisor;
 	long	counter = 0;
+	char stars[256];
 	
 	for (i = 0; i < (truncate?255:256); i++) {
 		if (max < histogram[i]) {
@@ -9260,14 +9500,14 @@ void OutputHistogram(int *histogram, int scale, char *title, bool truncate) {
 	
 	for (i = 0; i < 256; i++) {
 		counter += histogram[i];
-		Debug(8, "%3i - %6i - %.5f ", i*scale, histogram[i], (double)counter / (double)framesprocessed);
+		stars[0] = 0;
 		if (histogram[i] > 0) {
 			for (j = 0; j <= (int)(histogram[i] * divisor) && j <= columns; j++) {
-				Debug(8, "*");
+				stars[j] = '*';
 			}
+			stars[j] = 0;
 		}
-
-		Debug(8, "\n");
+		Debug(8, "%3i - %6i - %.5f %s\n", i*scale, histogram[i], (double)counter / (double)framesprocessed, stars);
 	}
 }
 
@@ -9485,6 +9725,41 @@ int InputReffer(char *extension) {
 	return(frames);
 }
 
+
+OutputAspect() {
+	int		i;
+//	long	j;
+	char	array[MAX_PATH];
+	FILE*	raw;
+	char	lp[10];
+
+	if (!output_aspect)
+		return;
+	
+	sprintf(array, "%.*s.aspects", strlen(logfilename) - 4, logfilename);
+	raw = fopen(array, "w");
+	if (!raw) {
+		Debug(1, "Could not open aspect output file.\n");
+		return;
+	}
+
+		// Print out ar cblock list
+		for (i = 0; i < ar_block_count; i++) {
+			fprintf(
+				raw,
+				"%s %4dx%4d %.2f minX=%4d, minY=%4d, maxX=%4d, maxY=%4d\n",
+				dblSecondsToStrMinutes((ar_block[i].start) / fps),
+				ar_block[i].width, ar_block[i].height,
+				ar_block[i].ar_ratio,
+				ar_block[i].minX, ar_block[i].minY, ar_block[i].maxX, ar_block[i].maxY
+			);
+		}
+	fclose(raw);
+}
+
+
+
+
 void OutputFrameArray(bool screenOnly) {
 	int		i;
 #ifdef FRAME_WITH_HISTOGRAM
@@ -9669,11 +9944,15 @@ void ProcessCSV(FILE *in_file) {
 //	bool	isDim = false;
 	char	line[2048];
 	char	split[256];
+
+	int		old_height = 0;
+	int		old_width = 0;
 	int		minminY=10000,maxmaxY = 0;
 	int		minminX=10000,maxmaxX = 0;
 	int		hi;
 	int		silence_count = 0;
 	int     schange_found = 0;
+	int		cutscene_nonzero_count = 0;
 	int old_format = true;
 	double  t;
 	int		i,j,k;
@@ -9775,6 +10054,7 @@ again:
 					break;
 				case 11:
 					frame[frame_count].cutscenematch = strtol(split, NULL, 10);
+					if ( frame[frame_count].cutscenematch>0 ) cutscene_nonzero_count++;
 					break;
 				case 12:
 					frame[frame_count].minX = strtol(split, NULL, 10);
@@ -9858,6 +10138,9 @@ again:
 		if (frame[i].isblack & C_b)
 			i = i;
 
+		if (frame[i].isblack & C_r)
+			i = i;
+
 		if (frame[i].brightness > 0) {
 			brightHistogram[frame[i].brightness]++;
 
@@ -9903,6 +10186,22 @@ again:
 		if (frame[i].isblack == 1)
 			i = i;
 
+		if ((commDetectMethod & RESOLUTION_CHANGE)) {
+/* not reliable!!!!!!!!!!!!!!!!!!!!!
+			frame[i].isblack &= ~C_r;
+			width = frame[i].minX + frame[i].maxX;
+			height = frame[i].minY + frame[i].maxY;
+
+			if ((old_width != 0 && abs(width-old_width) > 50) || (old_height != 0 && abs(height - old_height) > 50)) {
+				frame[i].isblack |= C_r;
+			}	
+			old_width = width;
+			old_height = height;
+*/
+		}
+		else
+			frame[i].isblack &= ~C_r;
+
 
 		if (commDetectMethod & BLACK_FRAME) {
 			// if (frame[i].brightness <= max_avg_brightness && (non_uniformity == 0 || frame[i].uniform < non_uniformity)/* && frame[i].volume < max_volume */ && !(frame[i].isblack & C_b))
@@ -9937,7 +10236,7 @@ again:
 		if (frame[i].isblack & C_t)
 			frame[i].isblack &= ~C_t;
 
-		if (commDetectMethod & CUTSCENE) {
+		if (commDetectMethod & CUTSCENE && cutscene_nonzero_count > 0) {
 			if (frame[i].cutscenematch < cutscenedelta)
 				frame[i].isblack |= C_t;
 		}
@@ -10652,6 +10951,7 @@ void BuildCommListAsYouGo(void) {
 	double		remainder;
 	double		added;
 	bool		oldbreak;
+	int local_blacklevel;
 	static int	runs = 0;
 	bool		useLogo;
 	int*		onTheFlyBlackFrame;
@@ -10660,7 +10960,12 @@ void BuildCommListAsYouGo(void) {
 	
 	if (framenum_real - lastFrameCommCalculated <= 15 * fps) return;
 	
-	if ((black[black_count-1].brightness <= min_brightness_found + brightness_buffer) && 
+	local_blacklevel = min_brightness_found + brightness_buffer;
+
+	if (local_blacklevel < max_avg_brightness)
+		local_blacklevel = max_avg_brightness;
+
+	if ((black[black_count-1].brightness <= local_blacklevel) && 
 		/*(black[black_count-1].frame == framenum_real) &&*/
 		(framenum_real > lastFrame)) {
 		
@@ -10672,9 +10977,9 @@ void BuildCommListAsYouGo(void) {
 			exit(8);
 		}
 
-		Debug(7, "Building list of all frames with a brightness less than %i.\n", min_brightness_found + brightness_buffer);
+		Debug(7, "Building list of all frames with a brightness less than %i.\n", local_blacklevel);
 		for (i = 0; i < black_count; i++) {
-			if (black[i].brightness <= min_brightness_found + brightness_buffer) {
+			if (black[i].brightness <= local_blacklevel) {
 				onTheFlyBlackFrame[onTheFlyBlackCount] = black[i].frame;
 				onTheFlyBlackCount++;
 			}
@@ -10767,7 +11072,7 @@ void BuildCommListAsYouGo(void) {
 
 
 		// print out commercial breaks skipping those that are too small or too large
-		if (output_default || output_edl) {
+		if (output_default || output_edl || output_dvrmstb) {
 			if (output_default) {
 				out_file = fopen(out_filename, "w");
 				if (!out_file) {
@@ -10790,6 +11095,21 @@ void BuildCommListAsYouGo(void) {
 						exit(103);
 					}
 				}		
+			}
+			dvrmstb_file = 0;
+			if (output_dvrmstb) {
+				if (outputfilename[0])
+					sprintf(filename, "%s\\%s.xml", outputfilename, shortbasename);
+				else
+					sprintf(filename, "%s.xml", basename);
+				dvrmstb_file = fopen(filename, "w");
+				if (dvrmstb_file) {
+					//			fclose(dvrmstb_file);
+					fprintf(dvrmstb_file, "<?xml version=\"1.0\" encoding=\"utf-8\" ?>\n<root>\n");
+				} else {
+					fprintf(stderr, "%s - could not create file %s\n", strerror(errno), filename);
+					exit(6);
+				}
 			}
 			for (i = 0; i < commercials; i++) {
 				len = c_end[i] - c_start[i];
@@ -10845,11 +11165,13 @@ void BuildCommListAsYouGo(void) {
 						fprintf(out_file, "%i\t%i\n", c_start[i] + padding, c_end[i] - padding);
 					if (edl_file)
 						fprintf(edl_file, "%.2f\t%.2f\t0\n", (double) (c_start[i] + padding) / fps , (double) (c_end[i] - padding) / fps );
-
+					if (dvrmstb_file)
+						fprintf(dvrmstb_file, "  <commercial start=\"%f\" end=\"%f\" />\n", (double) (c_start[i] + padding) / fps , (double) (c_end[i] - padding) / fps);
 				}
 			}
-			if (out_file) fclose(out_file);
-			if (edl_file) fclose(edl_file);
+			if (out_file) fclose(out_file); out_file = 0;
+			if (edl_file) fclose(edl_file); edl_file = 0;
+			if (dvrmstb_file) { fprintf(dvrmstb_file, " </root>\n"); fclose(dvrmstb_file); dvrmstb_file = 0; }
 		}			
 
 		free(onTheFlyBlackFrame);

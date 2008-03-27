@@ -208,6 +208,26 @@ static HANDLE hThread;
 static DWORD threadId;
 
 
+// Mesage handler for about box.
+static long FAR PASCAL About(HWND hDlg, UINT message, WPARAM wParam, LPARAM lParam)
+{
+	switch (message)
+	{
+		case WM_INITDIALOG:
+				return TRUE;
+
+		case WM_COMMAND:
+			if (LOWORD(wParam) == IDOK || LOWORD(wParam) == IDCANCEL) 
+			{
+				EndDialog(hDlg, LOWORD(wParam));
+				return TRUE;
+			}
+			break;
+	}
+    return FALSE;
+}
+
+
 
 static long FAR PASCAL event_procedure (HWND hwnd, UINT message,
 					WPARAM wParam, LPARAM lParam)
@@ -215,129 +235,147 @@ static long FAR PASCAL event_procedure (HWND hwnd, UINT message,
     RECT rect_window;
     POINT point_window;
     dx_instance_t * instance;
+	short wmId, wmEvent;
 
     switch (message) {
-
-    case WM_WINDOWPOSCHANGED:
-	instance = (dx_instance_t *) GetWindowLong (hwnd, GWL_USERDATA);
-
-	/* update the window position and size */
-	point_window.x = 0;
-	point_window.y = 0;
-	ClientToScreen (hwnd, &point_window);
-	instance->window_coords.left = point_window.x;
-	instance->window_coords.top = point_window.y;
-	GetClientRect (hwnd, &rect_window);
-	instance->window_coords.right = rect_window.right + point_window.x;
-	instance->window_coords.bottom = rect_window.bottom + point_window.y;
-
-	/* update the overlay */
-//	if (instance->overlay && instance->display)
-//	    update_overlay (instance);
-
-	return 0;
-	
-	case WM_PAINT:
-		hdc = BeginPaint(hwnd, &ps);
-		EndPaint(hwnd, &ps);
-		ReleaseDC(hwnd, hdc);
-		
+	case WM_COMMAND:
+		wmId    = LOWORD(wParam); 
+		wmEvent = HIWORD(wParam); 
+		// Parse the menu selections:
+		switch (wmId)
+		{
+		case IDM_ABOUT:
+			DialogBox (hInst, (LPCTSTR)IDD_ABOUT, hwnd, (DLGPROC)About);
+			break;
+		case IDM_EXIT:
+			PostQuitMessage(0);
+			exit(1);
+			break;
+		default:
+		    return DefWindowProc (hwnd, message, wParam, lParam);
+		}
 		break;
 		
-
-    case WM_CLOSE:	
-//			ReleaseDC(hWnd, hDC);
-//			DeleteObject(hBrush);
-
+		case WM_WINDOWPOSCHANGED:
+			instance = (dx_instance_t *) GetWindowLong (hwnd, GWL_USERDATA);
+			
+			/* update the window position and size */
+			point_window.x = 0;
+			point_window.y = 0;
+			ClientToScreen (hwnd, &point_window);
+			instance->window_coords.left = point_window.x;
+			instance->window_coords.top = point_window.y;
+			GetClientRect (hwnd, &rect_window);
+			instance->window_coords.right = rect_window.right + point_window.x;
+			instance->window_coords.bottom = rect_window.bottom + point_window.y;
+			
+			/* update the overlay */
+			//	if (instance->overlay && instance->display)
+			//	    update_overlay (instance);
+			
+			//	return 0;
+			
+		case WM_PAINT:
+			hdc = BeginPaint(hwnd, &ps);
+			EndPaint(hwnd, &ps);
+			ReleaseDC(hwnd, hdc);
+			
+			break;
+			
+			
+		case WM_CLOSE:	
+			//			ReleaseDC(hWnd, hDC);
+			//			DeleteObject(hBrush);
+			
 			PostQuitMessage(0);
 			break;
-
-	return 0;
-
-    case WM_DESTROY:	/* just destroy the window */
-	PostQuitMessage (0);
-	return 0;
-
-	case WM_LBUTTONDOWN:
-		if (lParam > -1)
-		{
-			xPos = (int)(LOWORD(lParam));
-			yPos = (int)(HIWORD(lParam));
-			lMouseDown = 1;
-			drag = 1;
-		}
-		break;
-	case WM_MOUSEMOVE:
-		if (lParam > -1 && drag)
-		{
-			xPos = (int)(LOWORD(lParam));
-			yPos = (int)(HIWORD(lParam));
-			lMouseDown = 1;
-
-		}
-		break;
-	case WM_LBUTTONUP:
-		if (lParam > -1)
-		{
-			drag = 0;
-
-		}
-		break;
-
-
-	case WM_KEYDOWN:
-
-		switch (wParam)
-		{
-		case VK_DOWN:
-			key = 1;						
+			
+			return 0;
+			
+		case WM_DESTROY:	/* just destroy the window */
+			PostQuitMessage (0);
+			return 0;
+			
+		case WM_LBUTTONDOWN:
+			if (lParam > -1)
+			{
+				xPos = (int)(LOWORD(lParam));
+				yPos = (int)(HIWORD(lParam));
+				lMouseDown = 1;
+				drag = 1;
+			}
+			break;
+		case WM_MOUSEMOVE:
+			if (lParam > -1 && drag)
+			{
+				xPos = (int)(LOWORD(lParam));
+				yPos = (int)(HIWORD(lParam));
+				lMouseDown = 1;
+				
+			}
+			break;
+		case WM_LBUTTONUP:
+			if (lParam > -1)
+			{
+				drag = 0;
+				
+			}
 			break;
 			
-		case VK_UP:
-			key = 2;						
-			break;
 			
-		case VK_LEFT:
-			key = 3;						
-			break;
+		case WM_KEYDOWN:
 			
-		case VK_RIGHT:
-			key = 4;						
+			switch (wParam)
+			{
+			case VK_DOWN:
+				key = 1;						
+				break;
+				
+			case VK_UP:
+				key = 2;						
+				break;
+				
+			case VK_LEFT:
+				key = 3;						
+				break;
+				
+			case VK_RIGHT:
+				key = 4;						
+				break;
+				
+			case VK_NEXT:
+				key = 5;						
+				break;
+				
+			case VK_PRIOR:
+				key = 6;						
+				break;
+			}
+			if (wParam != 0) {
+				key = wParam;
+				if (key == 'C')
+					if(PopFileDlg(hwnd, osname, SAVE_DMP) == 0)
+						key = 0;
+			}
 			break;
-
-        case VK_NEXT:
-			key = 5;						
-			break;
-
-         case VK_PRIOR:
-			key = 6;						
-			break;
-		}
-		if (wParam != 0) {
-			key = wParam;
-			if (key == 'C')
-				if(PopFileDlg(hwnd, osname, SAVE_DMP) == 0)
-					key = 0;
-		}
-		break;
 	}
-/*
+	/*
 	if (key || lMouseDown) {
-		if (!threadId || WaitForSingleObject(hThread, INFINITE)==WAIT_OBJECT_0)
-			  hThread = CreateThread(NULL, 0, MPEG2Dec, 0, 0, &threadId);
+	if (!threadId || WaitForSingleObject(hThread, INFINITE)==WAIT_OBJECT_0)
+	hThread = CreateThread(NULL, 0, MPEG2Dec, 0, 0, &threadId);
 	}
-*/
+	*/
     return DefWindowProc (hwnd, message, wParam, lParam);
 }
 
 static void check_events (dx_instance_t * instance)
 {
     MSG msg;
-
+	
     while (PeekMessage (&msg, instance->window, 0, 0, PM_REMOVE)) {
-//    while (GetMessage (&msg, instance->window, 0, 0, PM_REMOVE)) {
-	TranslateMessage (&msg);
-	DispatchMessage (&msg);
+		//    while (GetMessage (&msg, instance->window, 0, 0, PM_REMOVE)) {
+		TranslateMessage (&msg);
+		DispatchMessage (&msg);
     }
 }
 
@@ -345,10 +383,10 @@ static void wait_events (dx_instance_t * instance)
 {
     MSG msg;
 	
-//    while (PeekMessage (&msg, instance->window, 0, 0, PM_REMOVE)) {
+	//    while (PeekMessage (&msg, instance->window, 0, 0, PM_REMOVE)) {
     while (!key && !lMouseDown && GetMessage (&msg, NULL,0,0)) {
-	TranslateMessage (&msg);
-	DispatchMessage (&msg);
+		TranslateMessage (&msg);
+		DispatchMessage (&msg);
     }
 }
 

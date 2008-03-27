@@ -1,6 +1,6 @@
 //{{NO_DEPENDENCIES}}
 // Microsoft Developer Studio generated include file.
-// Used by gui.rc
+// Used by comskip.rc
 //
 #define ID_LEFT_BUTTON                  1
 #define ID_LEFT_ARROW                   2
