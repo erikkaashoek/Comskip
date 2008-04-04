@@ -243,7 +243,7 @@ void avcodec_default_release_buffer(AVCodecContext *s, AVFrame *pic){
 //printf("R%X\n", pic->opaque);
 }
 
-enum PixelFormat avcodec_default_get_format(struct AVCodecContext *s, enum PixelFormat * fmt){
+enum PixelFormat avcodec_default_get_format(struct AVCodecContext *s, const enum PixelFormat * fmt){
     return fmt[0];
 }
 
@@ -505,7 +505,7 @@ void avcodec_string(char *buf, int buf_size, AVCodecContext *enc, int encode)
             snprintf(buf + strlen(buf), buf_size - strlen(buf),
                      ", %s"
 //                     ,avcodec_get_pix_fmt_name(enc->pix_fmt)
-					 );
+                     ,"");
         }
         if (enc->width) {
             snprintf(buf + strlen(buf), buf_size - strlen(buf),

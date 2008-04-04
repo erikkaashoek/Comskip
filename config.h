@@ -1,4 +1,11 @@
+#ifndef COMSKIP_CONFIG_H
+#define COMSKIP_CONFIG_H
 /* vc++/config.h - manually adapted from include/config.h.in */
+
+/* Suppress warnings relating to mismatched declarations */
+#ifdef _WIN32
+#pragma warning (disable:4028)
+#endif
 
 /* autodetect accelerations */
 #define ACCEL_DETECT
@@ -25,8 +32,10 @@
 /* debug mode configuration */
 /* #undef DEBUG */
 
+#ifdef __POWERPC__
 /* Define to 1 if you have the <altivec.h> header file. */
-/* #undef HAVE_ALTIVEC_H */
+#define HAVE_ALTIVEC_H
+#endif
 
 /* Define if you have the `__builtin_expect' function. */
 /* #undef HAVE_BUILTIN_EXPECT */
@@ -98,7 +107,7 @@
 /* #undef MPEG2DEC_GPROF */
 
 /* Name of package */
-#define PACKAGE "mpeg2dec"
+#define PACKAGE "comskip"
 
 /* Define to the address where bug reports for this package should be sent. */
 #define PACKAGE_BUGREPORT ""
@@ -140,7 +149,7 @@
 /* #undef TIME_WITH_SYS_TIME */
 
 /* Version number of package */
-#define VERSION "0.4.0"
+#define VERSION "0.4.1-cvs"
 
 #ifdef __POWERPC__
 /* Define to 1 if your processor stores words with the most significant byte
@@ -162,9 +171,11 @@
 
 /* Define to `__inline__' or `__inline' if that's what the C compiler
    calls it, or to nothing if 'inline' is not supported under any name.  */
-// #ifndef __cplusplus
+#ifndef __cplusplus
+#ifndef inline
 #define inline __inline
-// #endif
+#endif
+#endif
 
 /* Define as `__restrict' if that's what the C compiler calls it, or to
    nothing if it is not supported. */
@@ -176,3 +187,63 @@
 /* Define to empty if the keyword `volatile' does not work. Warning: valid
    code using `volatile' can become incorrect without. Disable with care. */
 /* #undef volatile */
+
+#ifndef _WIN32
+
+#include <stdarg.h> /* for va_start, va_end */
+#include <unistd.h> /* for usleep */
+#include <string.h> /* for memset (ZeroMemory macro) */
+
+/* type/function remappings */
+#define LLD_FORMAT "%lld"
+#define __int64 long long
+#define _write write
+#define _close close
+#define _cprintf printf
+#define _getcwd getcwd
+#define _read read
+#define _stat stat
+#define _lseeki64 fseeko
+#define _fseeki64 fseeko
+#define _ftelli64 ftello
+#define _flushall() fflush(0)
+#define Sleep(a) usleep(1000*(a))
+#define vo_wait()
+#define vo_refresh()
+
+#define MAX_PATH 2048
+
+#define UNALIGNED
+#define boolean unsigned char
+#define BYTE unsigned char
+#define BOOL unsigned char
+#define CHAR unsigned char
+#define WORD short /* two bytes */
+#define DWORD unsigned long  /* four bytes */
+
+#ifndef true
+#define true 1
+#endif
+#ifndef false
+#define false 0
+#endif
+
+#define __forceinline inline
+#define max(a,b) ((a)>(b)?(a):(b))
+#define min(a,b) ((a)<(b)?(a):(b))
+#define ZeroMemory(buf,len) memset(buf,0,len)
+
+#define HAVE_LRINTF
+#define HAVE_STRUCT_TIMEVAL 1
+#define HAVE_GETTIMEOFDAY 1
+#define HAVE_STRINGS_H
+#define HAVE_GETOPT_H
+//#define USE_ASF 0
+
+
+#else
+#define LLD_FORMAT "%I64d"
+#define USE_ASF 1
+#endif
+
+#endif /* COMSKIP_CONFIG_H */

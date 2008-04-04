@@ -19,6 +19,8 @@
  *
  */
 
+#include <stdlib.h>
+
 #include "ac3.h"
 #include "bitstream.h"
 

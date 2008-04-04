@@ -12,24 +12,35 @@
 // You should have received a copy of the GNU General Public License
 // along with this program; if not, write to the Free Software
 // Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
+
 #include <stdio.h>
+
+#ifdef _WIN32
 #include <conio.h>
+#include <windows.h>									// needed for sleep command
+#include <direct.h>										// needed for getcwd
+#include <process.h>
+#include <io.h>
+#else
+#include <errno.h>
+#endif
+
 #include <string.h>
 #include <ctype.h>
 #include <stdlib.h>
 #include <memory.h>
 #include <time.h>										// needed for play_nice routines
-#include <windows.h>									// needed for sleep command
-#include <direct.h>										// needed for getcwd
 #include <math.h>
-#include "config.h"
 #include <inttypes.h>
-#include <process.h>
+#include <sys/stat.h>
+#include <fcntl.h>
+
+#include "config.h"
+
 #include "mpeg2.h"
 //#include "mpeg2convert.h"
-#include "argtable2.h"
+#include "argtable2-7/src/argtable2.h"
 #include "comskip.h"
-#include <sys\stat.h>
 
 #define bool	int
 #define true	1
@@ -71,7 +82,6 @@
 #define OPEN_INI	2
 #define SAVE_DMP	3
 #define SAVE_INI	4
-extern int PopFileDlg(PTSTR pstrFileName, int Status);
 
 
 // max number of frames that can be marked
@@ -83,6 +93,7 @@ bool			initialized = false;
 const char*		progname = "ComSkip";
 FILE*			out_file = NULL;
 FILE*			ini_file = NULL;
+FILE*			plist_cutlist_file = NULL;
 FILE*			zoomplayer_cutlist_file = NULL;
 FILE*			zoomplayer_chapter_file = NULL;
 FILE*			vcf_file = NULL;
@@ -285,7 +296,7 @@ logo_block_info*			logo_block = NULL;
 long						logo_block_count = 0;		// How many groups have already been identified. Increment after fill.
 long						max_logo_block_count;
 
-extern bool					processCC = false;
+extern bool					processCC;
 
 typedef struct
 {
@@ -515,6 +526,7 @@ bool				output_default = true;
 bool				sage_framenumber_bug = false;
 bool				sage_minute_bug = false;
 bool				enable_mencoder_pts = false;
+bool				output_plist_cutlist = false;
 bool				output_zoomplayer_cutlist = false;
 bool				output_zoomplayer_chapter = false;
 bool				output_videoredo = false;
@@ -601,7 +613,7 @@ int					lastHistogram[256];
 #define				MAXCUTSCENES	8
 
 
-void LoadCutScene(char *filename);
+void LoadCutScene(const char *filename);
 void RecordCutScene(int frame_count,int brightness);
 
 char cutscenefile[1024];
@@ -756,6 +768,10 @@ int					DetectCommercials(int);
 bool				BuildMasterCommList(void);
 void				WeighBlocks(void);
 bool				OutputBlocks(void);
+void        OutputAspect(void);
+void        OutputTraining(void);
+bool ProcessLogoTest(int framenum_real, int curLogoTest, int close);
+void        OutputStrict(double len, double delta, double tol);
 int					InputReffer(char *ext);
 bool				IsStandardCommercialLength(double length, double tolerance, bool strict);
 bool				LengthWithinTolerance(double test_length, double expected_length, double tolerance);
@@ -819,15 +835,16 @@ void				InitializeBlockArray(long i);
 void				InitializeCCBlockArray(long i);
 void				InitializeCCTextArray(long i);
 void				PrintArgs(void);
+void        close_dump(void);
 void				OutputCommercialBlock(int i, long prev, long start, long end, bool last);
-void				ProcessCSV(void);
+void				ProcessCSV(FILE *);
 void				OutputCCBlock(long i);
 void				ProcessCCData(void);
 bool				CheckOddParity(unsigned char ch);
 void				AddNewCCBlock(long current_frame, int type, bool cc_on_screen, bool cc_in_memory);
 char*				CCTypeToStr(int type);
 int					DetermineCCTypeForBlock(long start, long end);
-double				AverageARForBlock(long start, long end);
+double				AverageARForBlock(int start, int end);
 void				SetARofBlocks(void);
 bool				ProcessCCDict(void);
 int					FindBlock(long frame);
@@ -835,6 +852,9 @@ void				BuildCommListAsYouGo(void);
 void				BuildCommercial(void);
 int					RetreiveVolume (int f);
 void InsertBlackFrame(int f, int b, int u, int v, int c);
+
+extern void DecodeOnePicture(FILE * f, int fp);
+
 
 
 
@@ -856,7 +876,7 @@ char *CauseString(int i)
 	*c++ = (i & C_H2		? '2' : ' ');
 	*c++ = (i & C_H1		? '1' : ' ');
 
-	if (strncmp(cs,"       ",7))
+    if (strncmp((char*)cs,"       ",7))
 		*c++ = '{';
 	else
 		*c++ = ' ';
@@ -1289,8 +1309,8 @@ again:
 		//Find end of next black cblock
 		while(j < black_count && (black[j].frame - b_end < (int)fps)) { //Allow for 2 missing black frames
 			if (black[j].frame - b_end > 2 && 
-				((black[j].cause & (C_v)) != 0 &&  (cause & (C_v)) == 0 ||
-				 (black[j].cause & (C_v)) == 0 &&  (cause & (C_v)) != 0) )
+          (((black[j].cause & (C_v)) != 0 &&  (cause & (C_v)) == 0) ||
+           ((black[j].cause & (C_v)) == 0 &&  (cause & (C_v)) != 0)))
 			{
 
 				Debug
@@ -1547,7 +1567,7 @@ void CleanLogoBlocks()
 		cblock[i].silence = sum_silence / n;
 		cblock[i].uniform = sum_uniform / n;
 
-		if (cblock[i].schange_count = CountSceneChanges(cblock[i].f_start, cblock[i].f_end)) {
+    if ((cblock[i].schange_count = CountSceneChanges(cblock[i].f_start, cblock[i].f_end))) {
 			cblock[i].schange_rate = (double)cblock[i].schange_count / n;
 		}
 		else
@@ -1614,7 +1634,6 @@ void InitHasLogo()
 
 #define DEBUGFRAMES 80000
 
-#define RGB 1
 #ifdef RGB
 #define PIXEL(X,Y) graph[(((oheight+30) -(Y))*owidth+(X))*3+0] = graph[(((oheight+30) -(Y))*owidth+(X))*3+1] = graph[(((oheight+30) -(Y))*owidth+(X))*3+2]
 #define SETPIXEL(X,Y,R,G,B) { graph[(((oheight+30) -(Y))*owidth+(X))*3+0] = (B); graph[(((oheight+30) -(Y))*owidth+(X))*3+1] = (G); graph[(((oheight+30) -(Y))*owidth+(X))*3+2] = (R); }
@@ -1635,6 +1654,7 @@ int zfactor = 1;
 
 void OutputDebugWindow(bool showVideo, int frm, int grf)
 {
+#ifdef _WIN32
 	int i,j,x,y,a,c,r,s,g,gc,lb=0,d,e,f,n,bl;
 	int v,w;
 	int bartop = 0;
@@ -2087,6 +2107,7 @@ void OutputDebugWindow(bool showVideo, int frm, int grf)
 	}
 
 	recalculate = 0;
+#endif
 }
 
 static int shift = 0;
@@ -2408,9 +2429,9 @@ int DetectCommercials(int f) {
 
 
 	if (loadingTXT)
-		return;
+		return 0;
 	if (loadingCSV)
-		return;
+		return 0;
 	if (!initialized) 
 		InitComSkip();
 //	frame_count++;
@@ -3316,7 +3337,7 @@ again:
 					cc_text[j].start_frame = cc_text[j + 1].start_frame;
 					cc_text[j].end_frame = cc_text[j + 1].end_frame;
 					cc_text[j].text_len = cc_text[j + 1].text_len;
-					strcpy(cc_text[j].text, cc_text[j + 1].text);
+          strcpy((char*)cc_text[j].text, (char*)cc_text[j + 1].text);
 				}
 
 				cc_text_count--;
@@ -3467,24 +3488,6 @@ void CalculateFit()
 int beforeblocks[100];
 int afterblocks[100];
 
-int MatchBlocks(int k, char *t)
-{
-	int match = false;
-	char before[80];
-	char after[80];
-	int i;
-	int j;
-
-	i = 0;
-	while (t[i] != 0 && t[i] != 'M')
-		i++;
-	if (t[i] == 0) 
-		return(0);
-	j = 0;
-	while (t[i+j+1] != 0)
-		after[j] = t[i+j+1];
-		j++;
-}
 
 
 void WeighBlocks(void) {
@@ -4449,6 +4452,24 @@ expand:
 */
 
 
+
+
+#ifndef _WIN32
+#include <ctype.h>
+char *_strupr(char *string)
+{
+      char *s;
+
+      if (string)
+      {
+            for (s = string; *s; ++s)
+                  *s = toupper(*s);
+      }
+      return string;
+} 
+#endif
+
+
 void OpenOutputFiles()
 {
 	char	tempstr[MAX_PATH];
@@ -4464,7 +4485,7 @@ void OpenOutputFiles()
 				exit(103);
 			}
 		}
-		fprintf(out_file, "FILE PROCESSING COMPLETE %6i FRAMES AT %4i\n-------------------\n",frame_count-1, (int)(fps*100));
+		fprintf(out_file, "FILE PROCESSING COMPLETE %6li FRAMES AT %4i\n-------------------\n",frame_count-1, (int)(fps*100));
 		fclose(out_file);
 	}
 
@@ -4478,7 +4499,20 @@ void OpenOutputFiles()
 			output_zoomplayer_cutlist = true;
 //			fclose(zoomplayer_cutlist_file);
 		}
-	}
+  }
+	if (output_plist_cutlist) {
+		sprintf(filename, "%s.plist", basename);
+		plist_cutlist_file = fopen(filename, "w");
+		if (!plist_cutlist_file) {
+			fprintf(stderr, "%s - could not create file %s\n", strerror(errno), filename);
+			exit(6);
+		} else {
+			output_plist_cutlist = true;
+      fprintf(plist_cutlist_file, "<array>\n");
+//			fclose(plist_cutlist_file);
+		}
+  }
+
 
 
 	if (output_zoomplayer_chapter) {
@@ -4792,15 +4826,27 @@ void OutputCommercialBlock(int i, long prev, long start, long end, bool last) {
 		fprintf(zoomplayer_cutlist_file, "JumpSegment(\"From=%.4f\",\"To=%.4f\")\n", (start) / fps, (end) / fps);
 	}
 	CLOSEOUTFILE(zoomplayer_cutlist_file);
+	if (plist_cutlist_file) {
+		if (prev < start /* &&!last */) {
+      // NOTE: we could possibly simplify this to just printing start and end without the math
+			fprintf(plist_cutlist_file, "<integer>%lld</integer> <integer>%lld</integer>\n", 
+              (unsigned long long)((start) / fps * 90000), (unsigned long long)((end) / fps * 90000));
+		}
+		if (last) {
+			fprintf(plist_cutlist_file, "</array>\n");
+		}
+	}
+	CLOSEOUTFILE(plist_cutlist_file);
 
-	if (zoomplayer_chapter_file && prev < start && end - start > fps ) {
-//		fprintf(zoomplayer_chapter_file, "AddChapterBySecond(%.4f,Commercial Segment)\nAddChapterBySecond(%.4f,Show Segment)\n", (start) / fps, (end) / fps);
-		fprintf(zoomplayer_chapter_file, "AddChapterBySecond(%i,Commercial Segment)\nAddChapterBySecond(%i,Show Segment)\n", (int)((start) / fps), (int)((end) / fps));
+
+ 	if (zoomplayer_chapter_file && prev < start && end - start > fps ) {
+ //		fprintf(zoomplayer_chapter_file, "AddChapterBySecond(%.4f,Commercial Segment)\nAddChapterBySecond(%.4f,Show Segment)\n", (start) / fps, (end) / fps);
+ 		fprintf(zoomplayer_chapter_file, "AddChapterBySecond(%i,Commercial Segment)\nAddChapterBySecond(%i,Show Segment)\n", (int)((start) / fps), (int)((end) / fps));
 	}
 	CLOSEOUTFILE(zoomplayer_chapter_file);
 
 	if (vcf_file && prev < start) {
-		fprintf(vcf_file, "VirtualDub.subset.AddRange(%i,%i);\n", prev+1, start - prev);
+		fprintf(vcf_file, "VirtualDub.subset.AddRange(%li,%li);\n", prev+1, start - prev);
 	}
 	CLOSEOUTFILE(vcf_file);
 
@@ -4813,14 +4859,14 @@ void OutputCommercialBlock(int i, long prev, long start, long end, bool last) {
 	CLOSEOUTFILE(vdr_file);
 
 	if (projectx_file && prev < start) {
-		fprintf(projectx_file, "%d\n", prev+1);
-		fprintf(projectx_file, "%d\n", start);
+		fprintf(projectx_file, "%ld\n", prev+1);
+		fprintf(projectx_file, "%ld\n", start);
 	}
 	CLOSEOUTFILE(projectx_file);
 
 	if (avisynth_file && prev < start) {
-		fprintf(avisynth_file, "%strim(%d,", (prev < 10 ? "" : " ++ "), prev+1);
-		fprintf(avisynth_file, "%d)", start);
+		fprintf(avisynth_file, "%strim(%ld,", (prev < 10 ? "" : " ++ "), prev+1);
+		fprintf(avisynth_file, "%ld)", start);
 	}
 	if (avisynth_file && last) {
 		fprintf(avisynth_file, "\n");
@@ -4873,7 +4919,7 @@ void OutputCommercialBlock(int i, long prev, long start, long end, bool last) {
 
 	if (edlx_file) {
 		if (prev < start /* &&!last */) {
-			fprintf(edlx_file, "<region start=\"%I64d\" end=\"%I64d\"/> \n", frame[start].goppos, frame[end].goppos);
+			fprintf(edlx_file, "<region start=\""LLD_FORMAT"\" end=\""LLD_FORMAT"\"/> \n", frame[start].goppos, frame[end].goppos);
 		}
 		if (last) {
 			fprintf(edlx_file, "</regionlist>\n");
@@ -4887,16 +4933,16 @@ void OutputCommercialBlock(int i, long prev, long start, long end, bool last) {
 // 6 0 9963  
 		if (!last) {
 			if (start - prev > fps) {
-				fprintf(womble_file, "CLIPLIST: #%i show\nCLIP: %s\n6 %i %i\n", i+1, mpegfilename,prev+1, start-prev);
+				fprintf(womble_file, "CLIPLIST: #%i show\nCLIP: %s\n6 %li %li\n", i+1, mpegfilename,prev+1, start-prev);
 			}
 // CLIPLIST: #2 commercial  
 // CLIP: morse.mpg  
 // 6 9963 5196  
 
-			fprintf(womble_file, "CLIPLIST: #%i commercial\nCLIP: %s\n6 %i %i\n", i+1, mpegfilename, start, end - start);
+			fprintf(womble_file, "CLIPLIST: #%i commercial\nCLIP: %s\n6 %li %li\n", i+1, mpegfilename, start, end - start);
 		} else {
 			if (end - prev > 0)
-				fprintf(womble_file, "CLIPLIST: #%i show\nCLIP: %s\n6 %i %i\n", i+1, mpegfilename, prev+1, end - prev);
+				fprintf(womble_file, "CLIPLIST: #%i show\nCLIP: %s\n6 %li %li\n", i+1, mpegfilename, prev+1, end - prev);
 		}
 	}
 	CLOSEOUTFILE(womble_file);
@@ -4913,9 +4959,9 @@ void OutputCommercialBlock(int i, long prev, long start, long end, bool last) {
 				fprintf(mls_file, "%11i 1\n", 0);
 		}
 		else
-			fprintf(mls_file, "%11i 1\n", prev);
+			fprintf(mls_file, "%11li 1\n", prev);
 		if (!last)
-			fprintf(mls_file, "%11i 0\n", start);
+			fprintf(mls_file, "%11li 0\n", start);
 	}
 	CLOSEOUTFILE(mls_file);
 
@@ -4956,8 +5002,8 @@ void OutputCommercialBlock(int i, long prev, long start, long end, bool last) {
 
 	if (mpeg2schnitt_file) {
 			if (start - prev > 0) {
-				fprintf(mpeg2schnitt_file, "/o%d ",	start);
-				fprintf(mpeg2schnitt_file, "/i%d ", end);
+				fprintf(mpeg2schnitt_file, "/o%ld ",	start);
+				fprintf(mpeg2schnitt_file, "/i%ld ", end);
 			}
 		if (last) {
 			fprintf(mpeg2schnitt_file, "\n");
@@ -4967,7 +5013,7 @@ void OutputCommercialBlock(int i, long prev, long start, long end, bool last) {
 
 	if (cuttermaran_file) {
 		if (prev+1 < start) {
-			fprintf(cuttermaran_file, "<CutElements refVideoFile=\"0\" StartPosition=\"%i\" EndPosition=\"%i\">\n", prev+1, start-1);
+			fprintf(cuttermaran_file, "<CutElements refVideoFile=\"0\" StartPosition=\"%li\" EndPosition=\"%li\">\n", prev+1, start-1);
 			fprintf(cuttermaran_file, "<CurrentFiles refVideoFiles=\"0\" /> <cutAudioFiles refAudioFile=\"1\" /></CutElements>\n");
 		}
 		if (last)
@@ -5489,7 +5535,7 @@ bool OutputBlocks(void) {
 	return (foundCommercials);
 }
 
-OutputStrict(double len, double delta, double tol)
+void OutputStrict(double len, double delta, double tol)
 {
 //return;
 	if (output_training && !training_file) {
@@ -5503,7 +5549,7 @@ OutputStrict(double len, double delta, double tol)
 
 
 
-OutputTraining() {
+void OutputTraining() {
 	int i,s,e,r;
 	return;
 	if (!output_training)
@@ -5578,7 +5624,7 @@ OutputTraining() {
 
 #else
 
-#define TRAINING_LAYOUT	"%3d,%c,%c,%7.2f,%7.2f,%7i,%7i,%5.2f,%5.2f,\"%10s\",\"%10s\",\"%10s\",\"%s\"\n"
+#define TRAINING_LAYOUT	"%3d,%c,%c,%7.2f,%7.2f,%7li,%7li,%5.2f,%5.2f,\"%10s\",\"%10s\",\"%10s\",\"%s\"\n"
 
 	fprintf(training_file, "block, cm,rf, score, length, start, end, ar, logo, cause, less, more\n");
 
@@ -5597,8 +5643,7 @@ OutputTraining() {
 				CauseString(cblock[i].cause),
 				CauseString(cblock[i].less),
 				CauseString(cblock[i].more),
-				basename,
-				"a","b");
+        basename);
 					
 		}
 	}
@@ -5607,13 +5652,12 @@ OutputTraining() {
 }
 
 
-#include <fcntl.h>
-#include <io.h>
 static unsigned char MPEG2SysHdr[] = {0x00, 0x00, 0x01, 0xBB, 00, 0x12, 0x80, 0x8E, 0xD3, 0x04, 0xE1, 0x7F, 0xB9, 0xE0, 0xE0, 0xB8, 0xC0, 0x54, 0xBD, 0xE0, 0x3A, 0xBF, 0xE0, 0x02};
 
 bool OutputCleanMpg()
 {
 
+  FILE *infile=0;
 	int inf, outf;
 	int i,j,c;
 	__int64 startpos=0, endpos=0, begin=0;
@@ -5628,13 +5672,22 @@ bool OutputCleanMpg()
 
 	if (outputfilename[0] == 0) return(true);
 
-	if (!(Buf=(BYTE*)malloc(BufSize))) return(false);
+	if (!(Buf=(char*)malloc(BufSize))) return(false);
 	
 	dwPackStart=0xBA010000;
 	
+#ifdef WIN32
 	outf = _creat(outputfilename, _S_IREAD | _S_IWRITE);
 	if(outf<0) return(false);
 	inf = _open(mpegfilename, _O_RDONLY | _O_BINARY);
+#else
+  outf = open(outputfilename, O_CREAT | O_TRUNC | O_WRONLY, S_IRUSR | S_IWUSR);
+	if(outf<0) 
+    return(false);
+
+  infile=fopen(mpegfilename,"rb");
+  inf = fileno(infile);
+#endif
 	
 /*	
 	if (_lseeki64(Infile[File_Limit-1], process.leftlba*BUFFER_SIZE,SEEK_SET)!= -1L)
@@ -5675,7 +5728,11 @@ bool OutputCleanMpg()
 	for (c=0; c<=commercial_count; c++) {
 
 		endpos = frame[commercial[c].start_frame].goppos;
+#ifdef _WIN32
 		_lseeki64(inf, startpos,SEEK_SET);
+#else
+		fseeko(infile, startpos,SEEK_SET);
+#endif
 		
 		begin = startpos;
 		prevperc = 0;
@@ -5684,7 +5741,7 @@ bool OutputCleanMpg()
 		{
 			len = (int)endpos-startpos;
 			if(len>BufSize) len = BufSize;//sizeof(Buf);
-			i = _read(inf, Buf, (UINT)len);
+			i = _read(inf, Buf, (unsigned int)len);
 			if(i<=0)
 			{
 				//				MessageBox(hWnd, "Source read error.         ", "Oops...", MB_ICONSTOP | MB_OK);
@@ -5696,7 +5753,7 @@ bool OutputCleanMpg()
 			{
 				firstbl=false;
 				j = 14 + (Buf[13] & 7);
-				if (*((UNALIGNED DWORD*)(Buf+j)) == 0xBB010000) j=0;
+        if (*((UNALIGNED DWORD*)(Buf+j)) == 0xBB010000) j=0; //FIXME: unaligned dword may not be the right thing on mac: #defined  away
 				else
 				{
 					_write(outf, Buf, j);
@@ -5787,7 +5844,7 @@ double FindNumber(char* str1, char* str2, double v) {
 		return (-1);
 	}
 
-	if (str1 = strstr(str1, str2)) {
+  if ((str1 = strstr(str1, str2))) {
 		str1 += strlen(str2);
 		while (isspace(*str1)) {
 			str1++;
@@ -5826,7 +5883,7 @@ char * FindString(char* str1, char* str2, char *v) {
 		return (0);
 	}
 
-	if (str1 = strstr(str1, str2)) {
+  if ((str1 = strstr(str1, str2))) {
 		str1 += strlen(str2);
 		while (isspace(*str1)) {
 			str1++;
@@ -6074,6 +6131,7 @@ void LoadIniFile() {
 
 		AddIniString("[Output Control]\n");
 		if ((tmp = FindNumber(data, "output_default=", (double) output_default)) > -1) output_default = (bool) tmp;
+		if ((tmp = FindNumber(data, "output_plist_cutlist=", (double) output_plist_cutlist)) > -1) output_plist_cutlist = (bool) tmp;
 		if ((tmp = FindNumber(data, "output_zoomplayer_cutlist=", (double) output_zoomplayer_cutlist)) > -1) output_zoomplayer_cutlist = (bool) tmp;
 		if ((tmp = FindNumber(data, "output_zoomplayer_chapter=", (double) output_zoomplayer_chapter)) > -1) output_zoomplayer_chapter = (bool) tmp;
 		if ((tmp = FindNumber(data, "output_vcf=", (double) output_vcf)) > -1) output_vcf = (bool) tmp;
@@ -6174,11 +6232,12 @@ FILE* LoadSettings(int argc, char ** argv) {
 	struct arg_lit*		cl_output_zp_chapter	= arg_lit0(NULL, "zpchapter", "Outputs a ZoomPlayer chapter file");
 	struct arg_lit*		cl_output_vredo			= arg_lit0(NULL, "videoredo", "Outputs a VideoRedo cutlist");
 	struct arg_lit*		cl_output_csv			= arg_lit0(NULL, "csvout", "Outputs a csv of the frame array");
+	struct arg_lit*		cl_output_plist	= arg_lit0(NULL, "plist", "Outputs a mac-style plist for addition to an EyeTV archive as the 'markers' property");
 	struct arg_int*		cl_detectmethod			= arg_intn("d", "detectmethod", NULL, 0, 1, "An integer sum of the detection methods to use");
 //	struct arg_int*		cl_pid					= arg_intn("p", "pid", NULL, 0, 1, "The PID of the video in the TS");
 	struct arg_str*		cl_pid					= arg_strn("p", "pid", NULL, 0, 1, "The PID of the video in the TS");
 	struct arg_int*		cl_dump					= arg_intn("u", "dump", NULL, 0, 1, "Dump the cutscene at this frame number");
-	struct arg_int*		cl_ts					= arg_lit0("t", "ts", "The input file is a Transport Stream");
+	struct arg_lit*		cl_ts					= arg_lit0("t", "ts", "The input file is a Transport Stream");
 	struct arg_lit*		cl_help					= arg_lit0("h", "help", "Display syntax");
 	struct arg_lit*		cl_show					= arg_lit0("s", "play", "Play the video");
 	struct arg_lit*		cl_debugwindow			= arg_lit0("w", "debugwindow", "Show debug window");
@@ -6199,6 +6258,7 @@ FILE* LoadSettings(int argc, char ** argv) {
 		cl_output_zp_chapter,
 		cl_output_vredo,
 		cl_output_csv,
+    cl_output_plist,
 		cl_demux,
 		cl_pid,
 		cl_ts,
@@ -6215,7 +6275,7 @@ FILE* LoadSettings(int argc, char ** argv) {
 	};
 	int					nerrors;
 	int					exitcode = 0;
-	sprintf(incomingCommandLine, "");
+  incomingCommandLine[0]=0; // was:	sprintf(incomingCommandLine, "");
 	if (strchr(argv[0], ' ')) {
 		sprintf(incomingCommandLine, "\"%s\"", argv[0]);
 	} else {
@@ -6320,7 +6380,7 @@ FILE* LoadSettings(int argc, char ** argv) {
 			exit(3);
 		}
 		_stat(in->filename[0], &instat);
-		sprintf(basename, "%.*s", strlen(in->filename[0]) - strlen(in->extension[0]), in->filename[0]);
+    sprintf(basename, "%.*s", (int)strlen(in->filename[0]) - (int)strlen(in->extension[0]), in->filename[0]);
 		i = strlen(basename);
 		while (i>0 && basename[i-1] != '\\' && basename[i-1] != '/') {
 			i--;
@@ -6336,17 +6396,17 @@ FILE* LoadSettings(int argc, char ** argv) {
 			exit(4);
 		}
 
-		sprintf(basename,     "%.*s", strlen(in->filename[0]) - strlen(in->extension[0]), in->filename[0]);
-		sprintf(mpegfilename, "%.*s.mpg", strlen(basename), basename);
+    sprintf(basename,     "%.*s", (int)strlen(in->filename[0]) - (int)strlen(in->extension[0]), in->filename[0]);
+    sprintf(mpegfilename, "%.*s.mpg", (int)strlen(basename), basename);
 		test_file = fopen(mpegfilename, "rb");
 		if (!test_file) {
-			sprintf(mpegfilename, "%.*s.ts", strlen(basename), basename);
+			sprintf(mpegfilename, "%.*s.ts", (int)strlen(basename), basename);
 			test_file = fopen(mpegfilename, "rb");
 			if (!test_file) {
-				sprintf(mpegfilename, "%.*s.tp", strlen(basename), basename);
+				sprintf(mpegfilename, "%.*s.tp", (int)strlen(basename), basename);
 				test_file = fopen(mpegfilename, "rb");
 				if (!test_file) {
-					sprintf(mpegfilename, "%.*s.dvr-ms", strlen(basename), basename);
+					sprintf(mpegfilename, "%.*s.dvr-ms", (int)strlen(basename), basename);
 					test_file = fopen(mpegfilename, "rb");
 					if (!test_file) {
 						mpegfilename[0] = 0;
@@ -6383,17 +6443,17 @@ FILE* LoadSettings(int argc, char ** argv) {
 		fclose(in_file);
 		in_file = 0;
 
-		sprintf(basename,     "%.*s", strlen(in->filename[0]) - strlen(in->extension[0]), in->filename[0]);
-		sprintf(mpegfilename, "%.*s.mpg", strlen(basename), basename);
+    sprintf(basename,     "%.*s", (int)strlen(in->filename[0]) - (int)strlen(in->extension[0]), in->filename[0]);
+    sprintf(mpegfilename, "%.*s.mpg", (int)strlen(basename), basename);
 		test_file = fopen(mpegfilename, "rb");
 		if (!test_file) {
-			sprintf(mpegfilename, "%.*s.ts", strlen(basename), basename);
+			sprintf(mpegfilename, "%.*s.ts", (int)strlen(basename), basename);
 			test_file = fopen(mpegfilename, "rb");
 			if (!test_file) {
-				sprintf(mpegfilename, "%.*s.tp", strlen(basename), basename);
+				sprintf(mpegfilename, "%.*s.tp", (int)strlen(basename), basename);
 				test_file = fopen(mpegfilename, "rb");
 				if (!test_file) {
-					sprintf(mpegfilename, "%.*s.dvr-ms", strlen(basename), basename);
+					sprintf(mpegfilename, "%.*s.dvr-ms", (int)strlen(basename), basename);
 					demux_asf = 1;
 				} else
 					fclose(test_file);
@@ -6654,14 +6714,19 @@ FILE* LoadSettings(int argc, char ** argv) {
 		}
 	}
 
-	out_file = zoomplayer_cutlist_file = zoomplayer_chapter_file = vcf_file = vdr_file = projectx_file = avisynth_file = cuttermaran_file = videoredo_file = btv_file = edl_file = edlp_file = edlx_file = mls_file = womble_file = mpgtx_file = dvrcut_file = dvrmstb_file = tuning_file = training_file = 0L;
+ 	out_file = plist_cutlist_file = zoomplayer_cutlist_file = zoomplayer_chapter_file = vcf_file = vdr_file = projectx_file = avisynth_file = cuttermaran_file = videoredo_file = btv_file = edl_file = edlp_file = edlx_file = mls_file = womble_file = mpgtx_file = dvrcut_file = dvrmstb_file = tuning_file = training_file = 0L;
 
+
+	if (cl_output_plist->count)
+		output_plist_cutlist = true;
 	if (cl_output_zp_cutlist->count)
 		output_zoomplayer_cutlist = true;
 	if (cl_output_zp_chapter->count)
 		output_zoomplayer_chapter = true;
 	if (cl_output_vredo->count)
 		output_videoredo = true;
+	if (cl_output_plist->count)
+		output_plist_cutlist = true;
 
 	if (output_default && ! loadingTXT) {
 		if(!isSecondPass) {
@@ -6687,7 +6752,7 @@ FILE* LoadSettings(int argc, char ** argv) {
 			printf("Incompatible TXT file\n");
 			exit(2);			
 		}
-		framearray = NULL;
+		framearray = 0;
 		printf("Close window or hit ESCAPE when done\n");
 		ReviewResult();
 //		in_file = NULL;
@@ -7160,7 +7225,7 @@ void RecordCutScene(int frame_count, int brightness)
 	}
 }
 
-void LoadCutScene(char *filename)
+void LoadCutScene(const char *filename)
 {
 	int i,j,s,b,c;
 	cutscene_file = fopen(filename,"rb");
@@ -8952,12 +9017,12 @@ void LoadLogoMaskData(void) {
 				return;
 			}
 		}
-	}
 
 
 	if(fseek( txt_file, 0L, SEEK_SET )) {
 		Debug(0, "ERROR SEEKING\n");
 	}
+
 
 	while (fgets(data, 1999, txt_file) != NULL) {
 		if (strstr(data, "FILE PROCESSING COMPLETE") != NULL) {
@@ -8975,6 +9040,7 @@ void LoadLogoMaskData(void) {
 	}
 	fclose(txt_file);
 	Debug(10, "The last frame found in %s was %i\n", out_filename, lastFrame);
+	}
 }
 
 int CountSceneChanges(int StartFrame, int EndFrame) {
@@ -9273,6 +9339,7 @@ void InitComSkip(void) {
 }
 
 void FindIniFile(void) {
+#ifdef _WIN32
 	char	searchinifile[] = "comskip.ini";
 	char	searchexefile[] = "comskip.exe";
 	char	searchdictfile[] = "comskip.dictionary";
@@ -9297,6 +9364,7 @@ void FindIniFile(void) {
 	} else {
 		Debug(1, "%s not found\n", searchexefile);
 	}
+#endif
 }
 
 double FindScoreThreshold(double percentile) {
@@ -9562,7 +9630,7 @@ void OutputFrame(int frame_number) {
 	int		x,y;
 	FILE*	raw;
 	char	array[MAX_PATH];
-	sprintf(array, "%.*s%i.frm", strlen(logfilename) - 4, logfilename,frame_number);
+  sprintf(array, "%.*s%i.frm", (int)(strlen(logfilename) - 4), logfilename,frame_number);
 
 	Debug(5, "Sending frame to file\n");
 	raw = fopen(array, "w");
@@ -9581,7 +9649,7 @@ void OutputFrame(int frame_number) {
 		fprintf(raw, "%3i", y);
 		for (x = 0; x < width; x++) {
 			if (frame_ptr[y * width + x] < 30)
-				fprintf(raw, ";   ", frame_ptr[y * width + x]);
+				fprintf(raw, ";   ");
 			else
 				fprintf(raw, ";%3i", frame_ptr[y * width + x]);
 
@@ -9605,7 +9673,7 @@ int InputReffer(char *extension) {
 	bool	lineProcessed;
 	int     frames;
 	char	co,re;
-	sprintf(array, "%.*s%s", strlen(logfilename) - 4, logfilename,extension);
+  sprintf(array, "%.*s%s", (int)(strlen(logfilename) - 4), logfilename,extension);
 	raw = fopen(array, "r");
 	if (!raw) {
 		return(0);
@@ -9637,7 +9705,7 @@ int InputReffer(char *extension) {
 		lineProcessed = false;
 		reffer_count++;
 		// Split Line Apart
-		while (line[i] != '\0' && i < sizeof(line) && !lineProcessed) {
+    while (line[i] != '\0' && i < (int)sizeof(line) && !lineProcessed) {
 			if (line[i] == ' ' || line[i] == '\t' || line[i] == '\n') {
 				split[x] = '\0';
 
@@ -9675,7 +9743,7 @@ int InputReffer(char *extension) {
 	if (extension[1] == 't')
 		return(frames);
 
-	sprintf(array, "%.*s.dif", strlen(logfilename) - 4, logfilename);
+  sprintf(array, "%.*s.dif", (int)(strlen(logfilename) - 4), logfilename);
 	raw = fopen(array, "w");
 	if (!raw) {
 		return(0);
@@ -9685,30 +9753,30 @@ int InputReffer(char *extension) {
 	i = 0;
 	while ( i <= reffer_count && j <= commercial_count) {
 		if ( commercial[j].end_frame < reffer[i].start_frame ) {
-			fprintf(raw, "Found %5d %5d    Not in reference\n", commercial[j].start_frame, commercial[j].end_frame);
+			fprintf(raw, "Found %5ld %5ld    Not in reference\n", commercial[j].start_frame, commercial[j].end_frame);
 			j++;
 		} else if ( commercial[j].start_frame > reffer[i].end_frame ) {
-			fprintf(raw, "Not found %5d %5d\n", reffer[i].start_frame, reffer[i].end_frame);
+			fprintf(raw, "Not found %5ld %5ld\n", reffer[i].start_frame, reffer[i].end_frame);
 			i++;
 		} else { 	
 			if (abs(reffer[i].start_frame-commercial[j].start_frame) > 40 ) {
-				fprintf(raw, "Found %5d %5d    Reference %5d %5d    ", commercial[j].start_frame, commercial[j].end_frame, reffer[i].start_frame, reffer[i].end_frame);
-				fprintf(raw, "starts at %5d instead of %5d\n", commercial[j].start_frame, reffer[i].start_frame);
+				fprintf(raw, "Found %5ld %5ld    Reference %5ld %5ld    ", commercial[j].start_frame, commercial[j].end_frame, reffer[i].start_frame, reffer[i].end_frame);
+				fprintf(raw, "starts at %5ld instead of %5ld\n", commercial[j].start_frame, reffer[i].start_frame);
 			}
 			if (abs(reffer[i].end_frame-commercial[j].end_frame) > 40 ) {
-				fprintf(raw, "Found %5d %5d    Reference %5d %5d    ", commercial[j].start_frame, commercial[j].end_frame, reffer[i].start_frame, reffer[i].end_frame);
-				fprintf(raw, "ends   at %5d instead of %5d\n", commercial[j].end_frame, reffer[i].end_frame);
+				fprintf(raw, "Found %5ld %5ld    Reference %5ld %5ld    ", commercial[j].start_frame, commercial[j].end_frame, reffer[i].start_frame, reffer[i].end_frame);
+				fprintf(raw, "ends   at %5ld instead of %5ld\n", commercial[j].end_frame, reffer[i].end_frame);
 			}
 			i++;
 			j++;
 		}
 	}
 	while (j <= commercial_count) {
-		fprintf(raw, "Found %5d %5d    Not in reference\n", commercial[j].start_frame, commercial[j].end_frame);
+		fprintf(raw, "Found %5ld %5ld    Not in reference\n", commercial[j].start_frame, commercial[j].end_frame);
 		j++;
 	}
 	while (i <= reffer_count) {
-		fprintf(raw, "Not found %5d %5d\n", reffer[i].start_frame, reffer[i].end_frame);
+		fprintf(raw, "Not found %5ld %5ld\n", reffer[i].start_frame, reffer[i].end_frame);
 		i++;
 	}
 
@@ -9726,6 +9794,7 @@ int InputReffer(char *extension) {
 }
 
 
+void
 OutputAspect() {
 	int		i;
 //	long	j;
@@ -9736,7 +9805,7 @@ OutputAspect() {
 	if (!output_aspect)
 		return;
 	
-	sprintf(array, "%.*s.aspects", strlen(logfilename) - 4, logfilename);
+  sprintf(array, "%.*s.aspects", (int)(strlen(logfilename) - 4), logfilename);
 	raw = fopen(array, "w");
 	if (!raw) {
 		Debug(1, "Could not open aspect output file.\n");
@@ -9769,7 +9838,7 @@ void OutputFrameArray(bool screenOnly) {
 	char	array[MAX_PATH];
 	FILE*	raw;
 	char	lp[10];
-	sprintf(array, "%.*s.csv", strlen(logfilename) - 4, logfilename);
+  sprintf(array, "%.*s.csv", (int)(strlen(logfilename) - 4), logfilename);
 //	Debug(5, "Expanding logo blocks into frame array\n");
 //	for (i = 0; i < logo_block_count; i++) {
 //		for (j = logo_block[i].start; j <= logo_block[i].end; j++) {
@@ -10001,7 +10070,7 @@ again:
 
 
 		// Split Line Apart
-		while (line[i] != '\0' && i < sizeof(line) && !lineProcessed) {
+    while (line[i] != '\0' && i < (int)sizeof(line) && !lineProcessed) {
 			if (line[i] == ';' || line[i] == ',' || line[i] == '\n') {
 				split[x] = '\0';
 
@@ -10775,11 +10844,11 @@ char* CCTypeToStr(int type) {
 			break;
 
 		default:
-			_itoa(type, tempString, 10);
+			sprintf(tempString, "%d",type);
 			break;
 		}
 	} else {
-		sprintf(tempString, "");
+		tempString[0]=0; // was: sprintf(tempString, "");
 	}
 
 	return (tempString);
@@ -10896,7 +10965,7 @@ bool ProcessCCDict(void) {
 
 		Debug(3, "Searching for: %s\n", phrase);
 		for (i = 0; i < cc_text_count; i++) {
-			if (strstr(_strupr(cc_text[i].text), _strupr(phrase)) != NULL) {
+			if (strstr(_strupr((char*)cc_text[i].text), _strupr((char*)phrase)) != NULL) {
 				Debug(2, "%s found in cc_text_block %i\n", phrase, i);
 				if (goodPhrase) {
 					j = FindBlock((cc_text[i].start_frame + cc_text[i].end_frame) / 2);
@@ -11162,7 +11231,7 @@ void BuildCommListAsYouGo(void) {
 					commercial[commercial_count].length = c_end[i]-2*padding - c_start[i] + remove_before + remove_after;
 	
 					if (out_file)
-						fprintf(out_file, "%i\t%i\n", c_start[i] + padding, c_end[i] - padding);
+						fprintf(out_file, "%li\t%li\n", c_start[i] + padding, c_end[i] - padding);
 					if (edl_file)
 						fprintf(edl_file, "%.2f\t%.2f\t0\n", (double) (c_start[i] + padding) / fps , (double) (c_end[i] - padding) / fps );
 					if (dvrmstb_file)
@@ -11428,7 +11497,7 @@ void dump_video (char *start, char *end)
 //	fclose(dump_video_file);
 }
 
-int close_dump()
+void close_dump(void)
 {
 	if (!output_demux) return;
 	if (dump_audio_file) {

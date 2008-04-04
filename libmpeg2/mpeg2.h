@@ -24,6 +24,8 @@
 #ifndef MPEG2_H
 #define MPEG2_H
 
+#include "config.h"
+
 #define MPEG2_VERSION(a,b,c) (((a)<<16)|((b)<<8)|(c))
 #define MPEG2_RELEASE MPEG2_VERSION (0, 4, 1)	/* 0.4.1 */
 

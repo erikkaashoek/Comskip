@@ -1,3 +1,4 @@
+#ifdef _WIN32
 /*
  * video_out_dx.c
  * Copyright (C) 2000-2003 Michel Lespinasse <walken@zoy.org>
@@ -964,3 +965,9 @@ main()
 #endif
 
 
+#else
+/* these need a home, even though this file is mostly not used */
+int xPos,yPos,lMouseDown;
+int key;
+char osname[1024];
+#endif

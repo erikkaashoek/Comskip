@@ -22,7 +22,9 @@
 #include <math.h>
 #include "ac3.h"
 
+#ifndef M_PI
 #define M_PI	3.1415926535897932384626433832795
+#endif
 #define N		512
 
 void imdct_do_256(double data[], double delay[]);

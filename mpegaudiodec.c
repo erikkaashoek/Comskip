@@ -31,7 +31,7 @@
 void dprintf(const char* fmt,...) {} 
 #endif
 
-#include ".\common.h"
+#include "common.h"
 
 //#define DEBUG
 #include "avcodec.h"
@@ -66,8 +66,12 @@ typedef int32_t OUT_INT;
 #define OUT_SHIFT (WFRAC_BITS + FRAC_BITS - 31)
 #else
 typedef short OUT_INT;
+#ifndef INT16_MAX
 #define INT16_MAX 0x7fff
+#endif
+#ifndef INT16_MIN
 #define INT16_MIN -0x7fff
+#endif
 #define OUT_MAX INT16_MAX
 #define OUT_MIN INT16_MIN
 #define OUT_SHIFT (WFRAC_BITS + FRAC_BITS - 15)
@@ -238,7 +242,9 @@ typedef struct HuffTable {
     const uint16_t *codes;
 } HuffTable;
 
+#ifndef NULL
 #define NULL 0
+#endif
 
 #include "mpegaudiodectab.h"
 

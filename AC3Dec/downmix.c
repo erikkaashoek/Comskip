@@ -27,6 +27,9 @@ double drc[256];
 static double DRCScale[4] = { 1.0, 1.5, 2.0, 4.0 };
 static double ds_x1, ds_x2, ds_y1, ds_y2;
 
+#ifdef __POWERPC__
+#define SaturateRound(x) (x < -32768) ? -32768 : ((x > 32767) ? 32767 : ((short)x));
+#else
 __forceinline short SaturateRound(double flt)
 {
 	int tmp;
@@ -39,6 +42,7 @@ __forceinline short SaturateRound(double flt)
 
 	return (tmp<-32768) ? -32768 : ((tmp>32767) ? 32767 : tmp);
 }
+#endif
 
 void drc_init()
 {

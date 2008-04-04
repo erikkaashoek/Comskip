@@ -16,6 +16,8 @@
  * to force playback of corrupted MP3 files.
  */
 
+#include "../config.h"
+
 struct mpstr { char c[40000]; };
 
 #define ML_ERR       -1
@@ -47,6 +49,15 @@ typedef struct
 	CHAR	zHomepage[ML_MAX_HOMEPAGE + 1];	
 
 } ML_VERSION, *PML_VERSION;			
+
+
+
+#ifndef _WIN32
+#define MLINIT mlInit
+#define MLEXIT mlExit
+#define MLDECODE mlDecode
+#define MLVERSION mlVersion
+#endif
 
 
 typedef BOOL (*MLINIT)   (struct mpstr *mp, long scale);

@@ -74,12 +74,6 @@
 #define AVOPTION_END() AVOPTION_SUB(NULL)
 
 struct AVOption;
-#ifdef HAVE_MMX
-extern const struct AVOption avoptions_common[3 + 5];
-#else
-extern const struct AVOption avoptions_common[3];
-#endif
-extern const struct AVOption avoptions_workaround_bug[11];
 
 #endif /* HAVE_AV_CONFIG_H */
 

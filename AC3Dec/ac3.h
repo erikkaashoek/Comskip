@@ -19,7 +19,12 @@
  *
  */
 
+#ifdef _WIN32
 #include <windows.h>
+#endif
+
+#include "../config.h"
+
 
 typedef unsigned int	uint_32;
 typedef unsigned short	uint_16;
@@ -29,7 +34,8 @@ typedef signed int		sint_32;
 typedef signed short	sint_16;
 typedef signed char		sint_8;
 
-uint_32 ac3_decode_data(uint_8 *data_start, uint_32 length, uint_32 start);
+
+uint_32 ac3_decode_data(uint_8 *data_start, uint_32 length, uint_32 *start, short *audio_buf_ptr);
 
 /* Exponent strategy constants */
 #define EXP_REUSE	(0)

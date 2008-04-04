@@ -35,7 +35,8 @@ void mpeg2_mc_init (uint32_t accel)
 {
 #ifdef ARCH_X86
   if (accel & MPEG2_ACCEL_X86_SSE2)
-	mpeg2_mc = mpeg2_mc_sse2;
+//	mpeg2_mc = mpeg2_mc_sse2;
+	mpeg2_mc = mpeg2_mc_mmxext;
   else 
 	if (accel & MPEG2_ACCEL_X86_MMXEXT)
 	mpeg2_mc = mpeg2_mc_mmxext;

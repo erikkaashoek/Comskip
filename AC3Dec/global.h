@@ -25,19 +25,22 @@
  *
  */
 
+#include <stdio.h>
+#ifdef _WIN32
 #include <windows.h>
 #include <commctrl.h>
-#include <stdio.h>
 #include <ddraw.h>
 #include <vfw.h>
 #include <winreg.h>
 #include <direct.h>
 #include <io.h>
-#include <fcntl.h>
 #include "resource.h"
+#endif
+#include <fcntl.h>
+
 #include "mpalib.h"
 
-#include <SYS\stat.h>
+#include <sys/stat.h>
 
 typedef struct
 {
@@ -48,7 +51,9 @@ typedef struct
 
 	ML_VERSION Version;
 
+#ifdef _WIN32
 	HINSTANCE hDLL;
+#endif
 
 	struct mpstr mp;
 	int nRet;
@@ -231,7 +236,7 @@ MPAStream mpa[CHANNEL];
 
 struct PCMStream {
 //	FILE					*file;
-	char					filename[_MAX_PATH];
+	char					filename[MAX_PATH];
 	int						rip;
 	int						size;
 	int						delay;
@@ -315,6 +320,7 @@ int lfsr0, lfsr1;
 #define		KEY_INPUT	1
 #define		KEY_OP		2
 
+#ifdef _WIN32
 typedef __int64 (WINAPI *pfnKeyOp) (int, char*[], HWND);
 pfnKeyOp KeyOp;
 typedef void (WINAPI *pfnBufferOp) (unsigned char*, int, int);
@@ -334,6 +340,7 @@ HMENU hMenu; HDC hDC;
 FILE *D2VFile;
 HWND hWnd, hDlg, hTrack, hLeftButton, hLeftArrow, hRightArrow, hRightButton;
 char szInput[_MAX_PATH], szOutput[_MAX_PATH], szBuffer[_MAX_PATH];
+#endif
 
 unsigned char *backward_reference_frame[3], *forward_reference_frame[3];
 unsigned char *auxframe[3], *current_frame[3];
@@ -412,6 +419,14 @@ void CheckDirectDraw(void);
 void ResizeWindow(int width, int height);
 
 /* idct */
+#ifndef _WIN32
+#ifdef __POWERPC__
+#define __fastcall
+#else
+#define __fastcall __attribute__((fastcall))
+#endif
+#endif
+
 extern void __fastcall MMX_IDCT(short *block);
 extern void __fastcall SSEMMX_IDCT(short *block);
 void Initialize_FPU_IDCT(void);
@@ -425,7 +440,9 @@ void motion_vectors(int PMV[2][2][2], int dmvector[2], int motion_vertical_field
 void Dual_Prime_Arithmetic(int DMV[][2], int *dmvector, int mvx, int mvy);
 
 /* mpeg2dec.c */
+#ifdef _WIN32
 DWORD WINAPI MPEG2Dec(LPVOID n);
+#endif
 
 /* norm.c */
 void Normalize(FILE *WaveIn, int WaveInPos, char *filename, FILE *WaveOut, int WaveOutPos, int size);

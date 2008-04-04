@@ -151,20 +151,22 @@ static inline uint32_t arch_accel (uint32_t accel)
     if ((accel & (MPEG2_ACCEL_PPC_ALTIVEC | MPEG2_ACCEL_DETECT)) ==
 	MPEG2_ACCEL_DETECT) {
 	static RETSIGTYPE (* oldsig) (int);
-
+	uint32_t accel_cp=accel;
+        
 	oldsig = signal (SIGILL, sigill_handler);
 	if (sigsetjmp (jmpbuf, 1)) {
 	    signal (SIGILL, oldsig);
-	    return accel;
+	    return accel_cp;
 	}
 
 	canjump = 1;
 
-#ifdef HAVE_ALTIVEC_H	/* gnu */
-#define VAND(a,b,c) "vand " #a "," #b "," #c "\n\t"
-#else			/* apple */
+#ifdef __APPLE__			/* apple */
 #define VAND(a,b,c) "vand v" #a ",v" #b ",v" #c "\n\t"
+#elif defined(HAVE_ALTIVEC_H)	/* gnu */
+#define VAND(a,b,c) "vand " #a "," #b "," #c "\n\t"
 #endif
+#ifdef VAND
 	asm volatile ("mtspr 256, %0\n\t"
 		      VAND (0, 0, 0)
 		      :
@@ -172,6 +174,9 @@ static inline uint32_t arch_accel (uint32_t accel)
 
 	canjump = 0;
 	accel |= MPEG2_ACCEL_PPC_ALTIVEC;
+#else
+	canjump = 0;
+#endif
 
 	signal (SIGILL, oldsig);
     }

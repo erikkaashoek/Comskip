@@ -68,7 +68,7 @@ do {					\
 } while (0)
 #endif
 
-static void inline idct_row (int16_t * const block)
+inline static void idct_row (int16_t * const block)
 {
     int d0, d1, d2, d3;
     int a0, a1, a2, a3, b0, b1, b2, b3;
@@ -143,7 +143,7 @@ __normal:
     block[7] = (a0 - b0) >> 12;
 }
 
-static void inline idct_col (int16_t * const block)
+inline static void idct_col (int16_t * const block)
 {
     int d0, d1, d2, d3;
     int a0, a1, a2, a3, b0, b1, b2, b3;
