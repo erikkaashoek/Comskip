@@ -1,0 +1,565 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.0 Transitional//EN">
+<HTML>
+<HEAD>
+	<META HTTP-EQUIV="CONTENT-TYPE" CONTENT="text/html; charset=utf-8">
+	<TITLE>Advanced argtable topics</TITLE>
+	<META NAME="GENERATOR" CONTENT="OpenOffice.org 1.9.129  (Linux)">
+	<META NAME="CREATED" CONTENT="20030925;11311700">
+	<META NAME="CHANGED" CONTENT="20051216;11435800">
+	<META NAME="CLASSIFICATION" CONTENT="ANSI C command line parser">
+	<META NAME="KEYWORDS" CONTENT="command line parser">
+	<STYLE>
+	<!--
+		@page { size: 21.01cm 29.69cm }
+		H1 { margin-top: 2.01cm }
+		PRE { margin-left: 0.76cm }
+		PRE.western { font-size: 9pt }
+	-->
+	</STYLE>
+</HEAD>
+<BODY LANG="en-GB" DIR="LTR">
+<H1 ALIGN=CENTER>Advanced argtable-2.x topics<BR><FONT SIZE=3>An ANSI
+C library for parsing GNU style command line arguments</FONT></H1>
+<P ALIGN=CENTER STYLE="margin-bottom: 0.99cm">Stewart
+Heitmann<BR><I>sheitmann@users.sourceforge.net</I></P>
+<H2>1. Parsing optional argument values</H2>
+<P STYLE="margin-bottom: 0cm"><I><B>example code:</B>
+<FONT FACE="Bitstream Vera Serif">&lt;installdir&gt;/share/doc/argtable2/example/hasoptvalue.c</FONT></I></P>
+<P STYLE="margin-top: 0.51cm; margin-bottom: 0.51cm">This topic shows
+how to use define command line arguments that take optional argument
+values as in --foo=[&lt;int&gt;]. Consider the following syntax:</P>
+<PRE CLASS="western">Usage: foobar -f &lt;int&gt; -b [&lt;int&gt;]
+This program demonstrates the use of the argtable2 library
+  -f, --foo=&lt;int&gt;           takes an integer value (defaults to 9)
+  -b, --bar=[&lt;int&gt;]         takes an optional integer value (defaults to 5)</PRE><P ALIGN=LEFT STYLE="margin-bottom: 0cm">
+Notice that the -f argument takes a mandatory argument value (eg:
+-f4) , whereas the -b argument may or may not be given a value (eg:
+-b5 or -b are both legal) even though both are defined in the
+argument table in the same way.</P>
+<PRE CLASS="western"><B>struct</B> arg_int *foo = arg_int1(&quot;f&quot;,&quot;foo&quot;, NULL,&quot;takes an integer value (defaults to 9)&quot;);
+<B>struct</B> arg_int *bar = arg_int1(&quot;b&quot;,&quot;bar&quot;, NULL,&quot;takes an optional integer value (defaults to 5)&quot;);
+<B>struct</B> arg_end *end = arg_end(20);
+void* argtable[] = {foo,bar,end};
+int nerrors;</PRE><P ALIGN=LEFT STYLE="margin-bottom: 0cm">
+<BR>
+</P>
+<P ALIGN=LEFT STYLE="margin-bottom: 0cm">To have the -b argument
+accept optional values we must set the following flag in its argtable
+hdr structure.</P>
+<P ALIGN=LEFT STYLE="margin-bottom: 0cm"><BR>
+</P>
+<PRE CLASS="western" STYLE="margin-bottom: 0.5cm; font-weight: medium">bar-&gt;hdr.flag |= ARG_HASOPTVALUE;</PRE><P>
+Whenever an optional argument value is omitted from the command line
+the argument is counted as a valid one, though the argument value
+itself is left unaltered. Hence, any desired default values should be
+manually assigned prior to parsing.</P>
+<PRE CLASS="western">/* set foo default values to 9 */
+for (i=0; i&lt;foo-&gt;hdr.maxcount; i++)
+    foo-&gt;ival[i]=9;
+
+/* set bar default values to 5 */
+for (i=0; i&lt;bar-&gt;hdr.maxcount; i++)
+    bar-&gt;ival[i]=5;
+
+/* Parse the command line as defined by argtable[] */
+nerrors = arg_parse(argc,argv,argtable);</PRE><H2>
+2. Parsing multiple command line syntaxes</H2>
+<P STYLE="margin-bottom: 0cm"><I><B>example code:</B>
+<FONT FACE="Bitstream Vera Serif">&lt;installdir&gt;/share/doc/argtable2/example/multisyntax.c</FONT></I></P>
+<P STYLE="margin-top: 0.51cm; margin-bottom: 0.51cm">This topic shows
+how to use argtable to implement a program having multiple
+alternative command line syntaxes. In this case our example program
+has four alternate syntaxes as follows:</P>
+<PRE CLASS="western">Usage: multisyntax [-nvR] insert &lt;file&gt; [&lt;file&gt;]... [-o &lt;output&gt;]
+       multisyntax [-nv] remove &lt;file&gt;
+       multisyntax [-v] search &lt;pattern&gt; [-o &lt;output&gt;]
+       multisyntax [--help] [--version]
+This program demonstrates the use of the argtable2 library for parsing multiple command line syntaxes.
+  -n                take no action
+  -v, --verbose     verbose messages
+  -R                recurse through subdirectories
+  &lt;file&gt;            input file(s)
+  -o &lt;output&gt;       output file (default is &quot;-&quot;)
+  &lt;pattern&gt;         search string
+  --help            print this help and exit</PRE><P STYLE="margin-bottom: 0cm">
+A separate argument table is defined for each alternate syntax and
+each is parsed against the command line in turn. That syntax which
+returns no errors is taken to be the winner. Should no syntax match
+the command line then the appropriate error messages are displayed
+and the program exits. Obviously, you must design your alternate
+syntaxes to be mutually exclusive, otherwise your program syntax will
+be ambiguous. Mutual exclusion is achieved in this case by the use of
+keywords (insert, remove, search) in the command line which uniquely
+identify each syntax.</P>
+<P STYLE="margin-top: 0.25cm; margin-bottom: 0.51cm">Looking at the
+code, we see that each syntax is defined by its own argument table as
+follows:</P>
+<PRE CLASS="western">/* SYNTAX 1: insert [-nvR] &lt;file&gt; [file]... -o &lt;file&gt; */
+<B>struct</B> arg_rex  *cmd1     = arg_rex1(NULL, NULL, &quot;insert&quot;, NULL, REG_ICASE, NULL);
+<B>struct</B> arg_lit  *noact1   = arg_lit0(&quot;n&quot;,  NULL, &quot;take no action&quot;);
+<B>struct</B> arg_lit  *verbose1 = arg_lit0(&quot;v&quot;, &quot;verbose&quot;, &quot;verbose messages&quot;);
+<B>struct</B> arg_lit  *recurse1 = arg_lit0(&quot;R&quot;,  NULL, &quot;recurse through subdirectories&quot;);
+<B>struct</B> arg_file *infiles1 = arg_filen(NULL,NULL, NULL, 1,argc+2, &quot;input files)&quot;);
+<B>struct</B> arg_file *outfile1 = arg_file0(&quot;o&quot;, NULL, &quot;&lt;output&gt;&quot;, &quot;output file (default is \&quot;-\&quot;)&quot;);
+<B>struct</B> arg_end  *end1     = arg_end(20);
+<B>void</B>* argtable1[] = {cmd1,noact1,verbose1,recurse1,infiles1,outfile1,end1};
+<B>int</B> nerrors1;
+
+/* SYNTAX 2: remove [-nv] &lt;file&gt; */
+<B>struct</B> arg_rex  *cmd2     = arg_rex1(NULL, NULL, &quot;remove&quot;, NULL, REG_ICASE, NULL);
+<B>struct</B> arg_lit  *noact2   = arg_lit0(&quot;n&quot;, NULL, NULL);
+<B>struct</B> arg_lit  *verbose2 = arg_lit0(&quot;v&quot;, &quot;verbose&quot;, NULL);
+<B>struct</B> arg_file *infiles2 = arg_file1(NULL, NULL, NULL, NULL);
+<B>struct</B> arg_end  *end2     = arg_end(20);
+<B>void</B>* argtable2[] = {cmd2,noact2,verbose2,infiles2,end2};
+<B>int</B> nerrors2;
+
+/* SYNTAX 3: search [-v] &lt;pattern&gt; [-o &lt;file&gt;] [--help] [--version] */
+<B>struct</B> arg_rex  *cmd3     = arg_rex1(NULL, NULL, &quot;search&quot;, NULL, REG_ICASE, NULL);
+<B>struct</B> arg_lit  *verbose3 = arg_lit0(&quot;v&quot;, &quot;verbose&quot;, NULL);
+<B>struct</B> arg_str  *pattern3 = arg_str1(NULL, NULL, &quot;&lt;pattern&gt;&quot;, &quot;search string&quot;);
+<B>struct</B> arg_file *outfile3 = arg_file0(&quot;o&quot;, NULL, &quot;&lt;output&gt;&quot;, NULL);
+<B>struct</B> arg_end  *end3     = arg_end(20);
+<B>void</B>* argtable3[] = {cmd3,verbose3,pattern3,outfile3,end3};
+<B>int</B> nerrors3;
+
+/* SYNTAX 4: [-help] [-version] */
+<B>struct</B> arg_lit *help4    = arg_lit0(NULL,&quot;help&quot;,    &quot;print this help and exit&quot;);
+<B>struct</B> arg_lit *version4 = arg_lit0(NULL,&quot;version&quot;, &quot;print version information and exit&quot;);
+<B>struct</B> arg_end *end4     = arg_end(20);
+<B>void</B>* argtable4[] = {help4,version4,end4};
+<B>int</B> nerrors4;</PRE><P STYLE="margin-bottom: 0cm">
+Notice that the argument tables keep their contents separate from
+each other. While it may be tempting to share an <I><FONT FACE="Bitstream Vera Serif">arg_xxx</FONT></I>
+structure between multiple argument tables, that will not work in
+this example code since the contents of any shared <I><FONT FACE="Bitstream Vera Serif">arg_xxx</FONT></I>
+structure will be repeatedly overwritten when each successive
+argument table is parsed.</P>
+<P STYLE="margin-bottom: 0cm">The insert/remove/search keywords are
+implemented using <I><FONT FACE="Bitstream Vera Serif">arg_rex</FONT></I>
+arguments. These are parsed as untagged string arguments that must
+match a given regular expression: &quot;insert&quot;, &quot;remove&quot;,
+and &quot;search&quot; respectively. The REG_ICASE regex flag is also
+given to allow case insensitive regular expression matching as a
+nicety. See the argtable programmer's manual for more information of
+the <I><FONT FACE="Bitstream Vera Serif">arg_rex</FONT></I> argument
+type.</P>
+<P STYLE="margin-bottom: 0.51cm">Since we have multiple argument
+tables, you'll need to pre-set any default argument values in every
+argument table in which the value appears. Here we set the default
+value of the output filename argument which appears in both the first
+and third argument tables as <I><FONT FACE="Bitstream Vera Serif">struct
+arg_file *outfile1</FONT></I> and <I><FONT FACE="Bitstream Vera Serif">struct
+arg_file *outfile2</FONT></I> respectively.</P>
+<PRE CLASS="western">/* set any command line default values prior to parsing */
+outfile1-&gt;filename[0]=&quot;-&quot;;
+outfile3-&gt;filename[0]=&quot;-&quot;;</PRE><P STYLE="margin-bottom: 0.51cm">
+Having completed the argument tables, the command line is parsed
+against each argument table in turn and we record the number of
+errors reported by each.</P>
+<PRE CLASS="western">nerrors1 = arg_parse(argc,argv,argtable1);
+nerrors2 = arg_parse(argc,argv,argtable2);
+nerrors3 = arg_parse(argc,argv,argtable3);
+nerrors4 = arg_parse(argc,argv,argtable4);</PRE><P STYLE="margin-bottom: 0.51cm">
+If any of these return zero errors then we have detected a successful
+matching command line and we can pass the argument data from the
+matching argument table to our program's main processing routine. 
+</P>
+<PRE CLASS="western"><B>if</B> (nerrors1==0)
+    exitcode = mymain1(noact1-&gt;count, verbose1-&gt;count, recurse1-&gt;count,
+                       outfile1-&gt;filename[0], infiles1-&gt;filename, infiles1-&gt;count);
+<B>else</B> <B>if</B> (nerrors2==0)
+    exitcode = mymain2(noact2-&gt;count, verbose2-&gt;count, infiles2-&gt;filename[0]);
+<B>else</B> <B>if</B> (nerrors3==0)
+    exitcode = mymain3(verbose3-&gt;count, pattern3-&gt;sval[0], outfile3-&gt;filename[0]);
+<B>else</B> <B>if</B> (nerrors4==0)
+    exitcode = mymain4(help4-&gt;count, version4-&gt;count, progname,
+                       argtable1, argtable2, argtable3, argtable4);</PRE><P STYLE="margin-bottom: 0cm">
+Should they all return errors then we must display the appropriate
+syntax error messages. The trick is knowing which error messages to
+display. Simply displaying the error messages for each and every
+syntax will work, but is overkill as it generates a lot of irrelevant
+messages. A better strategy is to display only those errors related
+to the syntax that gave the fewest errors on the presumption that the
+user got it mostly correct. The strategy used in this example however
+is to utilise the presence of any keywords (&quot;insert&quot;,
+&quot;remove&quot;, &quot;search&quot;) as markers to indicate which
+syntax the user intended and only display the errors for that syntax.
+Remember that the keywords were implemented using <I><FONT FACE="Bitstream Vera Serif">arg_rex</FONT></I>
+argument structures (<FONT FACE="Bitstream Vera Serif"><I>cmd1</I>,
+<I>cmd2</I>, <I>cmd3</I></FONT>) and these will return a count of 0
+if the keyword was missing from the command line and 1 otherwise.
+Thus we can test the presence of each keyword by checking the count
+value stored in the <I>cmd1</I>, <I>cmd2</I>, and <I>cmd3</I>
+structures. 
+</P>
+<P STYLE="margin-bottom: 0.51cm">So if the &quot;insert&quot; keyword
+was given on the command line then we display only those errors
+associated with the first argument table, namely, the errors stored
+in <I><FONT FACE="Bitstream Vera Serif">struct arg_end *end1</FONT></I>.</P>
+<PRE CLASS="western"><B>if</B> (cmd1-&gt;count &gt; 0)
+   {
+   <I>/* here the cmd1 argument was correct, so presume syntax 1 was intended target */</I>
+   arg_print_errors(stdout,end1,progname);
+   printf(&quot;usage: %s &quot;, progname);
+   arg_print_syntax(stdout,argtable1,&quot;\n&quot;);
+   }</PRE><P STYLE="margin-bottom: 0.51cm">
+Likewise for the &quot;remove&quot; and &quot;search&quot; keywords
+of the second and third argument tables</P>
+<PRE CLASS="western"><B>else</B> <B>if</B> (cmd2-&gt;count &gt; 0)
+   {
+   <I>/* here the cmd2 argument was correct, so presume syntax 2 was intended target */</I>
+   arg_print_errors(stdout,end2,progname);
+   printf(&quot;usage: %s &quot;, progname);
+   arg_print_syntax(stdout,argtable2,&quot;\n&quot;);
+   }
+<B>else</B> <B>if</B> (cmd3-&gt;count &gt; 0)
+   {
+   <I>/* here the cmd3 argument was correct, so presume syntax 3 was intended target */</I>
+   arg_print_errors(stdout,end3,progname);
+   printf(&quot;usage: %s &quot;, progname);
+   arg_print_syntax(stdout,argtable3,&quot;\n&quot;);
+   }</PRE><P STYLE="margin-bottom: 0.51cm">
+If none of the keywords were detected we display a message to that
+effect followed by the full usage description.</P>
+<PRE CLASS="western">else
+   {
+   <I>/* no correct cmd literals were given, so we cant presume which syntax was intended */</I>
+   printf(&quot;%s: missing &lt;insert|remove|search&gt; command.\n&quot;,progname);
+   printf(&quot;usage 1: %s &quot;, progname); arg_print_syntax(stdout,argtable1,&quot;\n&quot;);
+   printf(&quot;usage 2: %s &quot;, progname); arg_print_syntax(stdout,argtable2,&quot;\n&quot;);
+   printf(&quot;usage 3: %s &quot;, progname); arg_print_syntax(stdout,argtable3,&quot;\n&quot;);
+   printf(&quot;usage 4: %s&quot;,  progname); arg_print_syntax(stdout,argtable4,&quot;\n&quot;);
+   }</PRE><P STYLE="margin-bottom: 0.51cm">
+Lastly, remember to clean up all the argument tables at program's
+end.</P>
+<PRE CLASS="western">arg_freetable(argtable1,sizeof(argtable1)/sizeof(argtable1[0]));
+arg_freetable(argtable2,sizeof(argtable2)/sizeof(argtable2[0]));
+arg_freetable(argtable3,sizeof(argtable3)/sizeof(argtable3[0]));
+arg_freetable(argtable4,sizeof(argtable4)/sizeof(argtable4[0]));</PRE><H2>
+3. Writing custom callbacks</H2>
+<P STYLE="margin-bottom: 0cm"><I><B>example code:</B>
+<FONT FACE="Bitstream Vera Serif">&lt;installdir&gt;/share/doc/argtable2/example/callbacks.c</FONT></I></P>
+<P STYLE="margin-top: 0.51cm; margin-bottom: 0.51cm">This topic shows
+how to write your own argtable callback functions for controlling the
+parsing, validation, and error reporting aspects of the command line
+parsing. Each <I>arg_xxx</I> struct has four callback routines that
+get called by the argtable parser. These are buried within the
+<I>arg_hdr</I> structure that each <I>arg_xxx</I> structure has.
+Among other things, you can see the relevant function pointers below.
+They are called <I>resetfn</I>, <I>scanfn</I>, <I>checkfn</I>, and
+<I>errorfn</I>.</P>
+<PRE CLASS="western">typedef void (arg_resetfn)(void *parent);
+typedef int  (arg_scanfn)(void *parent, const char *argval);
+typedef int  (arg_checkfn)(void *parent);
+typedef void (arg_errorfn)(void *parent, FILE *fp, int error, const char *argval, const char *progname);
+
+struct arg_hdr
+   {
+   <FONT COLOR="#000000">char flag;</FONT>
+   const char *shortopts;
+   const char *longopts; 
+   const char *datatype;
+   const char *glossary; 
+   int mincount;
+   int maxcount;
+   void *parent;
+   <B>arg_resetfn *resetfn;</B>
+   <B>arg_scanfn  *scanfn; </B>
+   <B>arg_checkfn *checkfn;</B>
+   <B>arg_errorfn *errorfn;</B>
+   <FONT COLOR="#000000">void *priv;</FONT><FONT COLOR="#666666"> </FONT>
+   };</PRE><P STYLE="margin-bottom: 0cm">
+These function pointers are always pre-set by the <I>arg_xxx</I>
+constructor functions to the default routines for that argument type
+and ordinarily there is no need to change them. However, you may
+replace them with your own custom routines if you wish. Thus when
+argtable parses the command line for these particular argument types,
+it will call your custom callbacks rather than the default routines.
+However responsibility comes with control, and all callbacks must
+implement certain features that argtable expects. These are each
+discussed in turn.</P>
+<H4>void resetfn(void *parent)</H4>
+<P STYLE="margin-bottom: 0.51cm">The <I>resetfn</I> of each <I>arg_xxx</I>
+within an argument table is called once by the parser prior to
+parsing the command line. This provides the opportunity to initialise
+the <I>arg_xxx</I> structure prior to parsing and nominally requires
+resetting the argument count to zero. The <I>parent</I> parameter is
+actually a pointer to the pertinent <I>arg_xxx</I> structure, and
+should be cast appropriately. The casting may be done in the function
+definition as shown in this example for an <I>arg_int</I> struct. 
+</P>
+<PRE CLASS="western">void myresetfn(struct arg_int *parent)
+   {
+   parent-&gt;count=0;
+   }</PRE><P STYLE="margin-bottom: 0cm">
+The storage space for the parsed argument values should <U>not</U> be
+initialised since the user may have deliberately set default values
+that should be retained.</P>
+<H4>int scanfn(void *parent, const char *argval)</H4>
+<P STYLE="margin-bottom: 0.51cm">The parser calls an <I>arg_xxx</I>'s
+scanfn routine once for each matching command line argument that
+needs to be parsed. Its purpose is to extract the argument's data
+value from the argument string in <I>argval</I>, convert it to the
+appropriate data type, and store the result in the <I>arg_xxx</I>'s
+data array. It must handle NULL argval as will occur when an argument
+with optional value is invoked. The function must return zero to
+indicate success and a non-zero error code otherwise. The error codes
+may be of your own choosing as they will latter be handled by your
+own <I>errorfn</I> callback.</P>
+<PRE CLASS="western">enum {EMINCOUNT=1, EMAXCOUNT, EBADINT};
+
+int myscanfn(struct arg_int *parent, const char *argval)
+   {
+   int val;
+   char *end;
+
+   <I>/* return EMAXCOUNT if we have exceeded the maximum argument count */</I>
+   if (parent-&gt;count == parent-&gt;hdr.maxcount )
+      return EMAXCOUNT;
+   /* if argval is NULL then no argument value was given */
+   /* this will only happen for arguments that allow optional values */
+   /* in which case we leave the parent data value unaltered and */
+   /* count this as a valid argument (which it is) */
+   if (!argval)
+      {
+      parent-&gt;count++;
+      return 0;
+      }
+
+   /* extract base10 integer from argval string into val */
+   /* return EBADINT if conversion failed */
+   val = (int)strtol(argval,&amp;end,10);
+   if (*end!=0)
+      return EBADINT;  
+
+   <I>/* &lt;perform custom checks here&gt; */</I>
+
+   /* store the value in parent's ival[] array and increment the argument count */
+   parent-&gt;ival[parent-&gt;count++] = val;
+
+   /* return zero to indicate success */
+   return 0;
+   }</PRE><P STYLE="margin-bottom: 0cm">
+Do <U>not</U> print error messages from within <I>scanfn</I> as the
+user may wish to delay the error messages until alternative argument
+tables have been tried. In the meantime the parser will save each
+returned error code in the argument table's <I>arg_end</I> structure.
+Latter, the <I>arg_print_errors</I> function will be called to
+retrieve those error codes from <I>arg_end</I> and pass them onto the
+<I>errorfn</I> callbacks whose job is to print the appropriate
+messages.</P>
+<H4>int checkfn(void *parent)</H4>
+<P STYLE="margin-bottom: 0.51cm">The <I>checkfn</I> of each <I>arg_xxx</I>
+within an the argument table is called by the parser once upon
+completion of command line parsing. It provides the opportunity to
+perform any post-parse error checks and nominally requires checking
+the minimum argument count for the <I>arg_xxx</I> structure has been
+satisfied. 
+</P>
+<PRE CLASS="western">int mycheckfn(struct arg_int *parent)
+    {
+    <I>/* return EMINCOUNT if the minimum number of arguments is not present. */</I>
+    if (parent-&gt;count &lt; parent-&gt;hdr.mincount)
+        return EMINCOUNT;
+
+    <I>/* &lt;perform custom checks here&gt; */</I>
+
+    <I>/* all checks passed */</I>
+    return 0;
+    }</PRE><P STYLE="margin-bottom: 0cm">
+Like scanfn, it should return zero for success and a user-defined
+non-zero error code otherwise. These error codes are likewise
+destined to be passed onto errorfn.</P>
+<H4>int errorfn(void *parent, FILE *fp, int errorcode, const char
+*argval, const char *progname)</H4>
+<P STYLE="margin-bottom: 0.51cm">When the users wishes to print the
+syntax error messages he or she calls the <I>arg_print_errors</I>
+function which in turn calls the <I>errorfn</I> routine of each
+<I>arg_xxx</I> for each error that was previously reported. This is
+where the error messages for the corresponding error codes are
+printed. The <I>parent</I> pointer refers to the pertinent <I>arg_xxx</I>
+structure, and <I>FILE* fp</I> designates the output stream onto
+which the error messages should be printed. The <I>errorcode</I>
+parameter contains the same value returned by the <I>scanfn</I> or
+<I>checkfn</I> routine that reported the error, and <I>argval</I>
+points to the offending command line argument string. The <I>progname</I>
+parameter is the same one passed to the <I>arg_print_errors</I>
+function, and is expected to contain the name of the program which is
+usually prefixed onto the error message by convention. Notice that
+each <I>arg_xxx</I> need only handle the error codes generated by its
+own <I>scanfn</I> and <I>checkfn</I> routines.</P>
+<PRE CLASS="western">void myerrorfn(struct arg_int *parent, FILE *fp, int errorcode, const char *argval, const char *progname)
+    {
+    <I>/* for convenience */</I>
+    const char *shortopts = parent-&gt;hdr.shortopts;
+    const char *longopts  = parent-&gt;hdr.longopts;
+    const char *datatype  = parent-&gt;hdr.datatype;
+
+    /* make argval NULL safe */
+    <I>argval = argval ? argval : &quot;&quot;;</I>
+
+    <I>/* prefix all error messages with the program name */</I>
+    fprintf(fp,&quot;%s: &quot;,progname);
+
+    switch(errorcode)
+        {
+        case EMINCOUNT:
+            fputs(&quot;missing option &quot;,fp);
+            arg_print_option(fp,shortopts,longopts,datatype,&quot;\n&quot;);
+            break;
+
+        case EMAXCOUNT:
+            fputs(&quot;excess option &quot;,fp);
+            arg_print_option(fp,shortopts,longopts,argval,&quot;\n&quot;);
+            break;
+
+        case EBADINT:
+            arg_print_option(fp,shortopts,longopts,argval,&quot; is not a valid &lt;int&gt;\n&quot;);
+            break;
+
+        <I>/* &lt;add custom error messages here&gt; */</I>        
+
+        }
+    }</PRE><H4>
+Hooking the callbacks into the arg_xxx structure</H4>
+<P STYLE="margin-bottom: 0.51cm">There are no functions for
+registering callbacks with arg_xxx structures, you simply write the
+function pointers directly into the arg_xxx structure after it has
+been constructed.</P>
+<PRE CLASS="western">struct arg_int  *val = arg_intn(NULL,NULL,NULL,2,100,&quot;blah blah&quot;); 
+
+/* replace the default arg_int parser routines with custom routines */
+val-&gt;hdr.resetfn = (arg_resetfn*)myresetfn;
+val-&gt;hdr.scanfn  = (arg_scanfn*)myscanfn;
+val-&gt;hdr.checkfn = (arg_checkfn*)mycheckfn;
+val-&gt;hdr.errorfn = (arg_errorfn*)myerrorfn;</PRE><H4>
+Words of restraint</H4>
+<P STYLE="margin-bottom: 0cm">Callbacks are part of the argtable
+design to make it possible to add new argument data types in future
+without changing the base argtable source code. Since they exist,
+they may be exploited by the programmer for finer control of the
+parsing and error validation but that was never their intended role.
+It is the authors view that the majority of custom argument checking
+tasks are better done as a second stage in your program after
+argtable has done its job. It is usually much simpler to implement
+additional post-parse checks in your own code than creating custom
+argtable callbacks that do it all. Custom callbacks are really only
+required if you are scanning data types that argtable does not
+support natively. In such cases you may also need to create a custom
+arg_xxx structure in which to store the results, as is described in
+the next topic.</P>
+<H2>4. Creating custom argument types</H2>
+<P STYLE="margin-bottom: 0cm"><I><B>example code:</B>
+<FONT FACE="Bitstream Vera Serif">&lt;installdir&gt;/share/doc/argtable2/example/argcustom.c,
+argxxx.c, argxxx.h</FONT></I></P>
+<P STYLE="margin-top: 0.51cm; margin-bottom: 0cm">This topic shows
+how to write new argument types for use with the argtable parser.
+These need not be compiled into the library base code, so you can
+create custom argument types for specific programs at will. A custom
+argument type is required if you need to handle a data type that is
+not supported natively by the argtable library. It involves defining
+a new <I>arg_xxx</I> structure and writing the callback and
+constructor functions that go with it. If you merely wish to alter
+the parsing and validation rules applied to an existing <I>arg_xxx</I>
+data type then hooking your own custom callbacks into the existing
+structure as described in the previous topic is more appropriate.</P>
+<H4>Defining an arg_xxx structure</H4>
+<P STYLE="margin-bottom: 0.51cm">Every <I>arg_xxx</I> struct must
+have an <I>arg_hdr</I> struct as its first data member. Internally,
+argtable casts all <I>arg_xxx</I> structures to <I>arg_hdr</I>
+structures, so it is imperative that <I>arg_hdr</I> be the first data
+member. Argtable uses the information within it to cast the command
+line option into the format required by GNU getopt which actually
+does the parsing.</P>
+<PRE CLASS="western">struct arg_xxx
+   {
+   struct arg_hdr hdr;      /* The mandatory argtable header struct */
+   int count;               /* Number of matching arguments parsed */
+   &lt;xxx&gt; *data;             /* Array for storing the argument values */
+   ...                      /* Other custom fields go here */
+   };</PRE><P STYLE="margin-bottom: 0.51cm">
+Custom data members follow the <I>arg_hdr</I> struct. Since argtable
+supports multiple instances of any given command line argument, it is
+usual that your structure provides an array for storing multiple
+argument values (<I>arg_xxx.data)</I> and a count of them
+(<I>arg_xxx.count)</I>. Add any other fields you need for your custom
+parsing routines as required. Any internal data you would prefer to
+hide from the end-user can be stored in a user-defined private data
+structure that is encapsulated by the <I>arg_hdr</I> structure as you
+will see next.</P>
+<PRE CLASS="western">struct arg_xxx_priv
+   {
+   /* Private custom data goes here */
+   ...
+   };</PRE><H4>
+Defining the argx_xxx constructors</H4>
+<P STYLE="margin-bottom: 0.51cm">Each arg_xxx structure should have a
+constructor function that is responsible for allocating memory for it
+and populating the data within it. By convention, there are
+ordinarily three forms of constructor function for each arg_xxx
+struct</P>
+<PRE CLASS="western">struct arg_xxx* arg_xxx0(const char* shortopts, const char* longopts,
+                         const char *datatype, const char *glossary);
+
+struct arg_xxx* arg_xxx1(const char* shortopts, const char* longopts,
+                         const char *datatype, const char *glossary);
+
+struct arg_xxx* arg_xxxn(const char* shortopts, const char* longopts,
+                         const char *datatype,
+                         int mincount, int maxcount,
+                         const char *glossary);</PRE><P STYLE="margin-bottom: 0cm">
+The different forms provide a convenient means for specifying command
+line arguments that accept either zero-or-one, exactly-one, or many
+instances on the command line. The first two forms are typically
+implemented as wrapper functions of the third. You may customise the
+actual parameters to fit your purposes, the declarations above are
+merely examples of common forms.</P>
+<P STYLE="margin-bottom: 0cm"><IMG SRC="argxxx.gif" NAME="Graphic1" ALIGN=LEFT WIDTH=671 HEIGHT=623 BORDER=0><BR CLEAR=LEFT><BR>
+</P>
+<P STYLE="margin-bottom: 0.51cm">The diagram shows the general layout
+of the data structure that should be returned by the <I>arg_xxx</I>
+constructor function(s). It comprises of a single contiguous block of
+heap allocated memory, with the <I>arg_xxx</I> struct at its head,
+followed by the storage space for <I>maxcount</I> argument values as
+well as an optional private data structure that may be used to hide
+internal data from the end-user. If the allocation failed then the
+constructor should return NULL.</P>
+<PRE CLASS="western">size_t nbytes;
+struct arg_xxx *result;
+
+nbytes = sizeof(struct arg_xxx) + sizeof(struct arg_xxx_priv) + maxcount*sizeof(&lt;xxx&gt;) ;
+result = (struct arg_xxx*)malloc(nbytes);</PRE><P STYLE="margin-bottom: 0.51cm">
+The entire <I>arg_hdr</I> structure must be populated by the
+constructor, including the pointers to the appropriate callback
+functions, the enclosing <I>arg_xxx</I> structure (<I>void *parent</I>),
+and the private data structure (<I>void *priv</I>). 
+</P>
+<PRE CLASS="western">result-&gt;hdr.flag      = ARG_HASVALUE;                  /* argument accepts a value */
+result-&gt;hdr.shortopts = shortopts;                     /* short options */
+result-&gt;hdr.longopts  = longopts;                      /* long options */
+result-&gt;hdr.datatype  = datatype ? datatype : &quot;&lt;xxx&gt;&quot;; /* datatype description */
+result-&gt;hdr.glossary  = glossary;                      /* glossary description */
+result-&gt;hdr.mincount  = mincount;                      /* minimum number of arguments */
+result-&gt;hdr.maxcount  = maxcount;                      /* maximum number of arguments */
+result-&gt;hdr.parent    = result;                        /* ptr to parent arg_xxx struct */
+result-&gt;hdr.resetfn   = (arg_resetfn*)resetfn;         /* ptr to resetfn callback */
+result-&gt;hdr.scanfn    = (arg_scanfn*)scanfn;           /* ptr to scanfn callback */
+result-&gt;hdr.checkfn   = (arg_checkfn*)checkfn;         /* ptr to checkfn callback */
+result-&gt;hdr.errorfn   = (arg_errorfn*)errorfn;         /* ptr to errorfn callback */
+result-&gt;hdr.priv      = result + 1;                    /* ptr to private data */ </PRE><P STYLE="margin-bottom: 0.51cm">
+The custom <I>arg_xxx</I> fields should also be populated,
+particularly the pointer to the argument storage array. The values
+within the array may or may not be initialised at your discretion.</P>
+<PRE CLASS="western"><I>/* locate the data[maxcount] array immediately after the private data structure */</I>
+result-&gt;data  = (&lt;xxx&gt;*)((struct arg_xxx_priv*)(result-&gt;hdr.priv) + 1);
+
+/* init the remaining of the arg_xxx struct variables */
+result-&gt;count = 0;
+...</PRE><P STYLE="margin-bottom: 0cm">
+Lastly, we return a pointer to the completed data structure</P>
+<PRE CLASS="western" STYLE="margin-top: 0.51cm; margin-bottom: 0.51cm">return result;</PRE><P STYLE="margin-bottom: 0cm">
+<BR>
+</P>
+</BODY>
+</HTML>

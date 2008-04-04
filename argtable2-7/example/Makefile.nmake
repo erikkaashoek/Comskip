@@ -1,0 +1,21 @@
+#This Makefile is for building the argtable2 examples with Microsoft Visual C.
+#To build a release version execute
+#   NMAKE /f Makefile.nmake
+#or for a debug version execute 
+#   NMAKE /f Makefile.nmake DEBUG=1
+
+CFLAGS = /D "WIN32" /D "_MBCS" /nologo /I "..\src" ..\src\argtable2.lib
+
+!IF "$(DEBUG)" == "1"
+CFLAGS = $(CFLAGS) /D "_DEBUG" /Od /MLd /RTC1 /ZI
+!ELSE
+CFLAGS = $(CFLAGS) /D "NDEBUG" /O2 /ML /GS /Zi
+!ENDIF
+
+all: argcustom.exe echo.exe ls.exe mv.exe myprog.exe rm.exe uname.exe
+
+argcustom.exe: argcustom.obj argxxx.obj
+  cl $(CFLAGS) argcustom.obj argxxx.obj
+
+clean:
+	del *.exe *.obj *.ilk *.idb *.pdb

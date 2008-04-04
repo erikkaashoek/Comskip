@@ -1,0 +1,603 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.0 Transitional//EN">
+<HTML>
+<HEAD>
+	<META HTTP-EQUIV="CONTENT-TYPE" CONTENT="text/html; charset=us-ascii">
+	<TITLE>Introduction to argtable</TITLE>
+	<META NAME="GENERATOR" CONTENT="OpenOffice.org 1.1.4  (FreeBSD)">
+	<META NAME="CREATED" CONTENT="20030925;11311700">
+	<META NAME="CHANGED" CONTENT="20051003;18290000">
+	<META NAME="CLASSIFICATION" CONTENT="ANSI C command line parser">
+	<META NAME="KEYWORDS" CONTENT="command line parser">
+	<STYLE>
+	<!--
+		@page { size: 21.01cm 29.69cm }
+		H1 { margin-top: 2.01cm }
+	-->
+	</STYLE>
+</HEAD>
+<BODY LANG="en-AU" DIR="LTR">
+<H1 ALIGN=CENTER>Introduction to argtable-2.x<BR><FONT SIZE=3>An ANSI
+C library for parsing GNU style command line arguments</FONT></H1>
+<P ALIGN=CENTER STYLE="margin-bottom: 0.99cm">Stewart
+Heitmann<BR><I>sheitmann@users.sourceforge.net</I></P>
+<P>Parsing a program's command line arguments has always been a
+distraction from the main programming task at hand. The argtable
+library simplifies the job by enabling the programmer to define the
+command line options directly in the source code as a static array of
+structs and then pass that array to argtable library functions which
+parse the command line accordingly. The values extracted from the
+comand line are deposited directly into user-defined program
+variables where they can be accessed by the main program. Argtable
+can also generate descriptions of the command line syntax from that
+same array for display as on-line help. The software is freely
+available under the terms of the GNU Library General Public License
+(LGPL).</P>
+<P ALIGN=CENTER><FONT FACE="Courier, monospace"><FONT SIZE=3>myprog
+-abc --scalar=7 --verbose -o myfile &lt;file&gt; [&lt;file&gt;]</FONT></FONT></P>
+<P ALIGN=LEFT>Argtable uses GNUgetopt to perform the actual parsing
+so it is 100% GNU compatable. It supports both GNU short options (as
+in -abc, -o myfile) GNU long options (as in &ndash;scalar=7,
+&ndash;verbose), as well as untagged arguments (as in &lt;file&gt;
+[&lt;file&gt;]). It does not support non-GNU command line formats,
+such as DOS /X /Y /Z style options.</P>
+<P STYLE="margin-top: 1.5cm; page-break-after: avoid"><FONT FACE="Albany, sans-serif"><FONT SIZE=4>How
+it works</FONT></FONT></P>
+<P ALIGN=LEFT>Argtable provides a set of arg_<I>xxx</I> structs, one
+for each type of argument (literal, integer, double, string,
+filename, etc) that it supports and each struct is capable of
+handling multiple occurrences of that argument on the command line.
+Furthermore, each option can be given alternative short option (ie:
+-c) or long option (ie: --scalar) forms that can be used
+interchangeably. It fact, each option can even take multiple
+alternative short or long options, or both. Options can also be
+defined to have no option tag at all (ie: &lt;file&gt;) in which case
+they are identifed by their position on the command line (tagged
+options can appear anywhere on the command line).</P>
+<P ALIGN=LEFT>To define a program's the command line options the user
+creates an arg_<I>xxx</I> struct for each type of argument required
+and collates them into an array which we call the argument table. The
+order of the structs in the argument table defines the order in which
+the command line options are expected, although the parsing order
+really only matters for untagged options. The argument table itself
+is just an array of void pointers, and by convention each arg_<I>xxx</I>
+struct has a known arg_hdr struct as its first entry that the
+argtable functions use to identify the structure. 
+</P>
+<P ALIGN=LEFT>By way of example, let us consider the arg_int struct
+which is used for command line options taking integer arguments, as
+in &ndash;scalar=7.</P>
+<P ALIGN=LEFT STYLE="margin-left: 1.91cm; text-indent: -0.99cm"><FONT FACE="Courier, monospace">struct
+arg_int<BR>{<BR>struct arg_hdr hdr;<BR>int count;<BR>int *ival;<BR>};</FONT></P>
+<P ALIGN=LEFT>The struct's first data member, <FONT FACE="Courier, monospace">hdr</FONT>,
+holds the &ldquo;private&rdquo; data used by the argtable library
+functions. It contains things like the argument's tag string and so
+on. Direct access to this data is openly permitted, but it rarely
+necessary to do so. The <FONT FACE="Courier, monospace">ival</FONT>
+member variable points to an array of integers that hold the values
+extracted from the command line and <FONT FACE="Courier, monospace">count</FONT>
+gives the number of values held in the array. The storage for the
+<FONT FACE="Courier, monospace">ival</FONT> array is allocated when
+the arg_int is constructed. This must done with one of the dedicated
+arg_int constructor functions:</P>
+<P ALIGN=LEFT STYLE="margin-left: 7.21cm; text-indent: -6.22cm"><FONT FACE="Courier, monospace">struct
+arg_int* arg_int0(const char* shortopts,<BR>const char*
+longopts,<BR>const char* datatype,<BR>const char* glossary);</FONT></P>
+<P ALIGN=LEFT STYLE="margin-left: 7.19cm; text-indent: -6.17cm"><FONT FACE="Courier, monospace">struct
+arg_int* arg_int1(const char* shortopts,<BR>const char*
+longopts,<BR>const char* datatype,<BR>const char *glossary);</FONT></P>
+<P STYLE="margin-left: 7.24cm; text-indent: -6.17cm"><FONT FACE="Courier, monospace">struct
+arg_int* arg_intn(const char* shortopts,<BR>const char*
+longopts,<BR>const char *datatype,<BR>int mincount,<BR>int
+maxcount,<BR>const char *glossary);</FONT></P>
+<P ALIGN=LEFT>All the argtable constructor functions work in the same
+manner; they allocate a block of memory that contains an arg_<I>xxx</I>
+struct at its head followed by storage for the local data for that
+structure, in this case the contents of the <FONT FACE="Courier, monospace">ival</FONT>
+array. For this reason, you should never manually instantiate any
+arg_<I>xxx</I> struct yourself. Always use the constructor functions
+provided to allocate the structure and deallocate it using <FONT FACE="Courier, monospace">free</FONT>
+when you are finished.</P>
+<P ALIGN=LEFT>The three forms of the <FONT FACE="Courier, monospace">arg_int</FONT>
+constructors represent the three most common uses of command line
+arguments: <FONT FACE="Courier, monospace">arg_int0</FONT> is for
+options that appear zero-or-once on the command line, <FONT FACE="Courier, monospace">arg_int1</FONT>
+is for options that appear exactly once on the command line, and
+<FONT FACE="Courier, monospace">arg_intn</FONT> is for options that
+appear any number of times (within a given range). Thus <FONT FACE="Courier, monospace">arg_int0</FONT>
+and <FONT FACE="Courier, monospace">arg_int1</FONT> will both
+allocate one element to the <FONT FACE="Courier, monospace">ival</FONT>
+array of the resulting structure, whereas <FONT FACE="Courier, monospace">arg_intn</FONT>
+will allocate sufficient space for <FONT FACE="Courier, monospace">ival</FONT>
+to store up to <FONT FACE="Courier, monospace">maxcount</FONT>
+elements. The former are just specialised forms of the latter and are
+provided for convenience. Notice the arg_<I>xxx</I>0, arg_<I>xxx</I>1,
+and arg_<I>xxx</I>n naming convention applies likewise to all
+argtable constructor functions.</P>
+<P ALIGN=LEFT>Continuing with our <FONT FACE="Courier, monospace">arg_int</FONT>
+example, the following code fragment will construct a integer type
+option of the form <FONT FACE="Courier, monospace">--scalar=&lt;n&gt;</FONT>
+that must appear on the command line between 3 and 5 times inclusive.
+</P>
+<P ALIGN=LEFT STYLE="margin-left: 1.02cm; margin-right: 0.84cm"><FONT FACE="Courier, monospace">struct
+arg_int *s;<BR>s = arg_intn(NULL,&rdquo;scalar&rdquo;,&rdquo;&lt;n&gt;&rdquo;,3,5,&ldquo;foo
+value&rdquo;);</FONT></P>
+<P ALIGN=LEFT>Upon completion <FONT FACE="Courier, monospace">s</FONT>
+will point to a memory block containing the <FONT FACE="Courier, monospace">arg_int</FONT>
+struct followed by the <FONT FACE="Courier, monospace">ival</FONT>
+array of 5 elements.</P>
+<P ALIGN=LEFT STYLE="margin-left: 1.02cm; margin-bottom: 0cm; line-height: 100%">
+<IMG SRC="arg_int.gif" NAME="Graphic1" ALIGN=LEFT WIDTH=488 HEIGHT=442 BORDER=0><BR CLEAR=LEFT><BR>
+</P>
+<P ALIGN=LEFT>As shown in the diagram, the <FONT FACE="Courier, monospace">s-&gt;hdr
+</FONT>structure keeps, among other things, references back to the
+string parameters of the constructor function. The <FONT FACE="Courier, monospace">s-&gt;count</FONT>
+variable is initialised to zero as it represents the number of valid
+values that are stored in the <FONT FACE="Courier, monospace">s-&gt;ival</FONT>
+array <U>after</U> parsing the command line. The size of the <FONT FACE="Courier, monospace">s-&gt;ival</FONT>
+array is instead given by <FONT FACE="Courier, monospace">s-&gt;hdr.maxcount</FONT>.</P>
+<P ALIGN=LEFT>In this example we omitted a short option form by
+passing a NULL shortopts parameter to the constructor function. If
+instead we passed shortops as, say, &ldquo;k&rdquo;</P>
+<P ALIGN=LEFT STYLE="margin-left: 1.02cm; margin-right: 0.84cm"><FONT FACE="Courier, monospace">s
+= arg_intn(&ldquo;k&rdquo;,<FONT COLOR="#000000">&rdquo;scalar&rdquo;,<FONT COLOR="#000000">&rdquo;&lt;n&gt;&rdquo;,</FONT>3,5,&ldquo;foo
+value&rdquo;</FONT>);</FONT></P>
+<P ALIGN=LEFT>then the resulting structure would be the same but the
+option could be accepted on the command line as either <FONT FACE="Courier, monospace">-k&lt;n&gt;</FONT>
+or &ndash;<FONT FACE="Courier, monospace">scalar=&lt;n&gt;</FONT>
+equivalently. Indeed, we can go even further and define multiple
+alternative forms for both the short and long options. Alternative
+short options are given a string of single characters, whereas long
+options are given as a comma separated string. For instance, 
+</P>
+<P ALIGN=LEFT STYLE="margin-left: 1.02cm; margin-right: 0.84cm"><FONT FACE="Courier, monospace">s
+= arg_intn(&ldquo;kKx&rdquo;,&rdquo;scalar,foo&rdquo;<FONT COLOR="#000000">,<FONT COLOR="#000000">&rdquo;&lt;n&gt;&rdquo;,</FONT>3,5,&ldquo;foo
+value&rdquo;</FONT>);</FONT></P>
+<P ALIGN=LEFT>will accept any of the following alternative forms on
+the command line: <FONT FACE="Courier, monospace">-k&lt;n&gt; -K&lt;n&gt;
+-x&lt;n&gt; --scalar=&lt;n&gt; --foo=&lt;n&gt;</FONT></P>
+<DL>
+	<DD STYLE="margin-left: 0cm; margin-bottom: 0.51cm">Apart from
+	<FONT FACE="Courier, monospace">arg_int</FONT>, other arg_<I>xxx</I>
+	structs of interest are: 
+	</DD></DL>
+<TABLE WIDTH=745 BORDER=0 CELLPADDING=10 CELLSPACING=0>
+	<COL WIDTH=332>
+	<COL WIDTH=373>
+	<TR VALIGN=TOP>
+		<TD WIDTH=332>
+			<P STYLE="margin-left: 1.27cm; text-indent: -0.96cm; font-style: normal">
+			<FONT FACE="Courier, monospace">struct arg_lit<BR>{<BR>struct
+			arg_hdr hdr;<BR>int count;<BR>};</FONT></P>
+		</TD>
+		<TD WIDTH=373>
+			<DL>
+				<DD STYLE="margin-left: 0cm">For literal options (ie: no
+				arguments).<BR>eg: <FONT FACE="Courier, monospace">-v, --verbose</FONT></DD></DL>
+		</TD>
+	</TR>
+	<TR VALIGN=TOP>
+		<TD WIDTH=332>
+			<P STYLE="margin-left: 1.27cm; text-indent: -0.96cm; font-style: normal">
+			<FONT FACE="Courier, monospace">struct arg_dbl<BR>{<BR>struct
+			arg_hdr hdr;<BR>int count;<BR>double *dval;<BR>};</FONT></P>
+		</TD>
+		<TD WIDTH=373>
+			<DL>
+				<DD STYLE="margin-left: 0cm">For options taking real
+				arguments.<BR>eg: <FONT FACE="Courier, monospace">-x1.0e-6,
+				--pi=3.1415</FONT></DD></DL>
+		</TD>
+	</TR>
+	<TR VALIGN=TOP>
+		<TD WIDTH=332>
+			<P STYLE="margin-left: 1.27cm; text-indent: -0.96cm; font-style: normal">
+			<FONT FACE="Courier, monospace">struct arg_str<BR>{<BR>struct
+			arg_hdr hdr;<BR>int count;<BR>const char **sval;<BR>};</FONT></P>
+		</TD>
+		<TD WIDTH=373>
+			<DL>
+				<DD STYLE="margin-left: 0cm; margin-bottom: 0.51cm">For options
+				taking string arguments.<BR>eg: <FONT FACE="Courier, monospace">-Dmacro,
+				--title=&rdquo;hello world&rdquo;</FONT></DD><DD STYLE="margin-left: 0cm">
+				<BR>
+				</DD></DL>
+		</TD>
+	</TR>
+	<TR VALIGN=TOP>
+		<TD WIDTH=332>
+			<P STYLE="margin-left: 1.27cm; text-indent: -0.96cm; font-style: normal">
+			<FONT FACE="Courier, monospace">struct arg_rex<BR>{<BR>struct
+			arg_hdr hdr;<BR>int count;<BR>const char **sval;<BR>};</FONT></P>
+		</TD>
+		<TD WIDTH=373>
+			<DL>
+				<DD STYLE="margin-left: 0cm; margin-bottom: 0.51cm">For options
+				taking string arguments that must match some regular expression
+				template.<BR>eg: <FONT FACE="Courier, monospace">-Dmacro,
+				--title=&rdquo;hello world&rdquo;</FONT></DD><DD STYLE="margin-left: 0cm">
+				<FONT SIZE=1 STYLE="font-size: 8pt">Note: arg_rex is not
+				supported under Microsoft Windows.</FONT></DD></DL>
+		</TD>
+	</TR>
+	<TR VALIGN=TOP>
+		<TD WIDTH=332>
+			<P STYLE="margin-left: 1.27cm; text-indent: -0.96cm"><FONT FACE="Courier, monospace">struct
+			arg_file<BR>{<BR>struct arg_hdr hdr;<BR>int count;<BR>const char
+			**filename;<BR>const char **basename;<BR>const char
+			**extension;<BR>};</FONT></P>
+		</TD>
+		<TD WIDTH=373>
+			<DL>
+				<DD STYLE="margin-left: 0cm">For options taking filename
+				arguments.<BR>This option returns not only the filename itself,
+				but separates out its basename and extension as well.<BR>eg: <FONT FACE="Courier, monospace">-o
+				myfile, --infile=memo.txt</FONT></DD></DL>
+		</TD>
+	</TR>
+	<TR VALIGN=TOP>
+		<TD WIDTH=332>
+			<P STYLE="margin-left: 1.27cm; text-indent: -0.96cm"><FONT FACE="Courier, monospace">struct
+			arg_date<BR>{<BR>struct arg_hdr hdr;<BR>const char *format;<BR>int
+			count;<BR>struct tm *tm_val;<BR>};</FONT></P>
+		</TD>
+		<TD WIDTH=373>
+			<DL>
+				<DD STYLE="margin-left: 0cm; margin-bottom: 0.51cm">For options
+				taking date/time arguments.<BR>eg: <FONT FACE="Courier, monospace">12/31/04,
+				-d 1982-11-28,<BR>--time 23:59</FONT></DD><DD STYLE="margin-left: 0cm">
+				<FONT FACE="Bitstream Vera Sans"><FONT SIZE=1 STYLE="font-size: 8pt">Note:
+				arg_date is not supported under Microsoft Windows.</FONT></FONT></DD></DL>
+		</TD>
+	</TR>
+</TABLE>
+<DL>
+	<DD STYLE="margin-left: 0cm; margin-top: 1.5cm; margin-bottom: 0.51cm">
+	<FONT FACE="Albany, sans-serif"><FONT SIZE=4>The argument table</FONT></FONT></DD></DL>
+<P ALIGN=LEFT>
+Having constructed our arg_xxx structs we collate them into an
+argument table, as in the following example which defines the command
+line arguments:<FONT FACE="Courier, monospace">[-a] [-b] [-c]
+[--scalar=&lt;n&gt;] [-v|--verbose] [-o myfile] &lt;file&gt; [&lt;file&gt;]</FONT></P>
+<P STYLE="margin-left: 0.99cm; margin-bottom: 0cm"><FONT FACE="Courier, monospace"><FONT SIZE=2>struct
+arg_lit *a = arg_lit0(&ldquo;a&rdquo;, NULL, &rdquo;the -a
+option&rdquo;);<BR>struct arg_lit *b = arg_lit0(&ldquo;b&rdquo;,
+NULL, &rdquo;the -b option&rdquo;);<BR>struct arg_lit *c =
+arg_lit0(&ldquo;c&rdquo;, NULL, &rdquo;the -c option&rdquo;);<BR>struct
+arg_int *scal = arg_int0(NULL, &rdquo;scalar&rdquo;,&rdquo;&lt;n&gt;&rdquo;,
+&rdquo;foo value&rdquo;);<BR>struct arg_lit *verb = arg_lit0(&ldquo;v&rdquo;,
+&rdquo;verbose, &rdquo;verbose output&rdquo;);<BR>struct arg_file *o
+= arg_file0(&ldquo;o&rdquo;, NULL,&rdquo;myfile&rdquo;, &rdquo;output
+file&rdquo;);<BR>struct arg_file *file =
+arg_filen(NULL,NULL,&rdquo;&lt;file&gt;&rdquo;,1,2, &rdquo;input
+files&rdquo;);<BR>struct arg_end *end = arg_end(20);<BR>void
+*argtable[] = {a,b,c,scal,verb,o,file,end};</FONT></FONT></P>
+<P STYLE="margin-left: 1.02cm; margin-bottom: 0cm"><BR>
+</P>
+<P>The &ldquo;-a&rdquo;, &ldquo;-b&rdquo;, &ldquo;-c&rdquo; and
+&ldquo;-v|--verbose&rdquo; options do not take argument values so we
+use <FONT FACE="Courier, monospace">arg_lit</FONT> structs for them.
+We use the <FONT FACE="Courier, monospace">arg_lit0</FONT> form of
+the constructor function because these particular options only appear
+on the command line once or not at all.</P>
+<P>The &ldquo;--scalar=&lt;n&gt;&rdquo; option takes an integer
+argument so its uses an <FONT FACE="Courier, monospace">arg_int</FONT>
+struct. It too appears either once or not at all so we use the
+<FONT FACE="Courier, monospace">arg_int0</FONT> constructor function.</P>
+<P>The &ldquo;-o myfile&rdquo; and &ldquo;&lt;file&gt;&rdquo; options
+both refer to filenames so we use the <FONT FACE="Courier, monospace">arg_file</FONT>
+struct for them. We use the <FONT FACE="Courier, monospace">arg_file0</FONT>
+constructor function for the former because it appears either once or
+not at all, but the latter must appear either once or twice so we use
+the more general <FONT FACE="Courier, monospace">arg_filen</FONT>
+constructor function for that. Notice that it is an untagged option
+as it does not take either short or long option strings.</P>
+<P>The <FONT FACE="Courier, monospace">arg_end</FONT> struct is a
+special one as it doesn't represent any command line option.
+Primarily it marks the end of the argtable array, but it also stores
+any parser errors encountered when processing the command line
+arguments. The integer parameter passed to the <FONT FACE="Courier, monospace">arg_end</FONT>
+constructor is the maximum number of errors that it will store, in
+this case 20, any further errors are discarded and replaced with the
+single error message &ldquo;too many errors&rdquo;.</P>
+<P>We will see how to use <FONT FACE="Courier, monospace">arg_end</FONT>
+in error reporting soon but first we must ensure that all of the
+argument table entries were successfully allocated by their
+constructor functions. If they were'nt then there will be NULL
+entries in the argtable array which will cause trouble. We can use
+the arg_nullcheck function to check argtable for NULL entries in one
+step. It returns non-zero if any NULL entries were encountered up
+until the end of the table as marked by the <FONT FACE="Courier, monospace">arg_end</FONT>
+structure.</P>
+<P STYLE="margin-left: 1.98cm; text-indent: -1.02cm"><FONT FACE="Courier, monospace"><FONT SIZE=2>if
+(arg_nullcheck(argtable) != 0)<BR>printf(&quot;error: insufficient
+memory\n&quot;);</FONT></FONT></P>
+<P>Presuming that went well, we may now initate any default values we
+wish to assign our optional arguments. We simply write our desired
+values directly into the <FONT FACE="Courier, monospace">arg_<I>xxx</I></FONT>
+structs knowing that argtable will only overwrite them if valid
+command line values are given in their place. Here we set the default
+values of 3 and &ldquo;-&rdquo; for the <FONT FACE="Courier, monospace">repeat</FONT>
+and <FONT FACE="Courier, monospace">outfile</FONT> arguments
+respectively. 
+</P>
+<P STYLE="margin-left: 1.07cm"><FONT FACE="Courier, monospace"><FONT SIZE=2>repeat-&gt;ival[0]=3;<BR>outfile-&gt;filename[0]=&rdquo;-&rdquo;;</FONT></FONT></P>
+<P>Argtable does not require we initialise any default values, it is
+simply more convenient for our program if we pre-load defaults prior
+to parsing rather than retro-fit defaults to missing values later.
+However, you may prefer the latter.</P>
+<P STYLE="margin-top: 1.47cm; margin-bottom: 0.51cm"><FONT FACE="Albany, sans-serif"><FONT SIZE=4>Parsing
+the command line</FONT></FONT></P>
+<P>Now our argument table is complete, we can use it to parse the
+command line arguments. We use the <FONT FACE="Courier, monospace">arg_parse</FONT>
+function to do that, and it returns the number of parse errors it
+encountered.</P>
+<P STYLE="margin-left: 2.01cm; text-indent: -0.99cm"><FONT FACE="Courier, monospace"><FONT SIZE=2>nerrors
+= arg_parse(argc,argv,argtable);</FONT></FONT></P>
+<P>If there were no errors then we have successfully parsed the
+command line and we can proceed with our main processing task, using
+the values to be found in our program's arg_<I>xxx</I> structs.</P>
+<P STYLE="margin-left: 2.01cm; text-indent: -0.99cm"><FONT FACE="Courier, monospace"><FONT SIZE=2>if
+(nerrors==0)<BR>{<BR>int i;<BR>printf(&ldquo;-a = %d\n&rdquo;,
+a-&gt;count);<BR>printf(&ldquo;-b = %d\n&rdquo;,
+b-&gt;count);<BR>printf(&ldquo;-c = %d\n&rdquo;,
+c-&gt;count);<BR>printf(&ldquo;--verbose = %d\n&rdquo;,
+verb-&gt;count);<BR>if (scal-&gt;count &gt;
+0)<BR>printf(&ldquo;--scalar=%d\n&rdquo;,scal-&gt;ival[0]);<BR>if
+(o-&gt;count &gt; 0)<BR>printf(&ldquo;-o %s\n&rdquo;,o-&gt;filename[0]);<BR>for
+(i=0; i&lt;file-&gt;count;
+i++)<BR>printf(&ldquo;file[%d]=%s\n&rdquo;,i,file-&gt;filename[i]);<BR>};</FONT></FONT></P>
+<P STYLE="margin-top: 1.5cm; page-break-after: avoid"><FONT FACE="Albany, sans-serif"><FONT SIZE=4>Error
+processing</FONT></FONT></P>
+<P>If the <FONT FACE="Courier, monospace">arg_parse</FONT> function
+reported errors then we need to display them as <FONT FACE="Courier, monospace">arg_parse</FONT>
+does not do so itself. As mentioned earlier, the <FONT FACE="Courier, monospace">arg_parse</FONT>
+function stores the errors it encounters in the argument table's
+<FONT FACE="Courier, monospace">arg_end</FONT> struct. We dont need
+to know the internal details of the <FONT FACE="Courier, monospace">arg_end</FONT>
+struct, we simply call the <FONT FACE="Courier, monospace">arg_print_errors</FONT>
+function to print those errors in the order they were encountered. 
+</P>
+<P STYLE="margin-left: 1.02cm"><FONT FACE="Courier, monospace"><FONT SIZE=2>void
+arg_print_errors(FILE* fp, struct arg_end* end, const char*
+progname);</FONT></FONT></P>
+<P>We pass the function a pointer to the argument table's <FONT FACE="Courier, monospace">arg_end</FONT>
+struct as well as the name of the program which is prependend to each
+error message. The program name can be NULL if not required.</P>
+<P STYLE="margin-left: 2.01cm; text-indent: -1.02cm"><FONT FACE="Courier, monospace"><FONT SIZE=2>If
+(nerrors &gt; 0)<BR>arg_print_errors(stdout,end,&rdquo;myprog&rdquo;);</FONT></FONT></P>
+<P STYLE="font-weight: medium">This example illustrates the results
+of invoking our example program with incorrect command line options:</P>
+<P STYLE="margin-left: 1.07cm"><FONT FACE="Courier, monospace"><FONT SIZE=2><B>$
+./myprog -x -y -z --scalar=hello --verby</B><BR>myprog: invalid
+option &quot;-x&quot;<BR>myprog: invalid option &quot;-y&quot;<BR>myprog:
+invalid option &quot;-z&quot;<BR>myprog: invalid argument &quot;hello&quot;
+to option --scalar=&lt;n&gt;<BR>myprog: invalid option
+&quot;--verby&quot;<BR>myprog: missing option &lt;file&gt;</FONT></FONT></P>
+<P>The reason <FONT FACE="Courier, monospace">arg_parse</FONT>
+function doesnt print error messages is so it can be called multiple
+times to parse the command line with alternative argument tables
+without having extraneous error messages displayed prematurely. Thus
+we may define separate argument tables for those programs that have
+mutually exclusive sets of command line options, trying each argument
+table in turn until we find a successful candidate. Should all
+argument tables fail to satisfy then we can choose to print the error
+messages from all of them, or perhaps only show the errors form the
+one that matched the closest. In any event, we control which messages
+are displayed.</P>
+<P STYLE="margin-top: 1.5cm; page-break-after: avoid"><FONT FACE="Albany, sans-serif"><FONT SIZE=4>Displaying
+the option syntax</FONT></FONT></P>
+<P>If you want your program to display on-line help you can use the
+<FONT FACE="Courier, monospace">arg_print_syntax</FONT> function to
+display the exact command line syntax as derived from an argument
+table. There are actually two forms of the function:</P>
+<P STYLE="margin-left: 1.02cm"><FONT FACE="Courier, monospace"><FONT SIZE=2>void
+arg_print_syntax(FILE *fp, void **argtable, const char *suffix);<BR>void
+arg_print_syntaxv(FILE *fp, void **argtable, const char *suffix);</FONT></FONT></P>
+<P>The latter displays a more verbose form of output, and is
+distinguished by the &ldquo;v&rdquo; at the end of the function name.
+Both functions display the syntax for an entire argument table, with
+the <FONT FACE="Courier, monospace">suffix</FONT> parameter provided
+as a convenience for appending newline characters or any other string
+onto the end of the output. In the verbose form, each argument table
+entry displays its alternative short and long options separated by
+the &ldquo;|&rdquo; character followed by its datatype string. For
+instance, 
+</P>
+<P ALIGN=LEFT STYLE="margin-left: 1.02cm; margin-right: 0.84cm"><FONT FACE="Courier, monospace"><FONT SIZE=2>arg_int0(&ldquo;kKx&rdquo;,&rdquo;scalar,foo&rdquo;<FONT COLOR="#000000">,<FONT COLOR="#000000">&rdquo;&lt;n&gt;&rdquo;,</FONT>&ldquo;foo
+value&rdquo;</FONT>);</FONT></FONT></P>
+<P>will be displayed in verbose form as
+&ldquo;<FONT FACE="Courier, monospace">[-k|-K|-x|--scalar|--foo=&lt;n&gt;]</FONT>&rdquo;.
+Whereas the standard form abbreviates the output by displaying only
+the first option of each argument table entry, as in &ldquo;<FONT FACE="Courier, monospace">[-k
+&lt;n&gt;]</FONT>&rdquo;. The standard form also concatentates all
+short options in the argument table into a single option string at
+the head of the display in standard GNU style (eg: -a -b -c is
+displayed as -abc). The argument table from our previous example
+would thus be displayed in standard form as:</P>
+<P STYLE="margin-left: 0.99cm"><FONT FACE="Courier, monospace"><FONT SIZE=2>[-abcv]
+[--scalar=&lt;n&gt;] [-o myfile] &lt;file&gt; [&lt;file&gt;]</FONT></FONT></P>
+<P>and in verbose form as:</P>
+<P STYLE="margin-left: 0.99cm"><FONT FACE="Courier, monospace"><FONT SIZE=2>[-a]
+[-b] [-c] [--scalar=&lt;n&gt;] [-o myfile] [-v|--verbose] &lt;file&gt;
+[&lt;file&gt;]</FONT></FONT></P>
+<P>Notice that optional entries are automatically enclosed in square
+brackets whereas mandatory arguments are not. Futhermore arguments
+that accept multiple instances are displayed once per instance, as in
+&ldquo;<FONT FACE="Courier, monospace">&lt;file&gt; [&lt;file&gt;]</FONT>&rdquo;.
+This occurs up to a maximum of three instances after which the
+repetition is replaced by an elipisis, as in &ldquo;<FONT FACE="Courier, monospace">[&lt;file&gt;]...</FONT>&rdquo;.</P>
+<P>The <FONT FACE="Courier, monospace">arg_print_syntax</FONT>
+functions safely ignore NULL short and long option strings, whereas a
+NULL datatype string is automatically replaced by the default
+datatype for that arg_<I>xxx</I> struct. The default datatype can be
+suppressed by using an empty datatype string instead of a NULL.</P>
+<P STYLE="margin-top: 1.5cm; page-break-after: avoid"><FONT FACE="Albany, sans-serif"><FONT SIZE=4>Displaying
+the option glossary</FONT></FONT></P>
+<P>The individual entries of the argument table can be displayed in a
+glossary layout by the arg_print_glossary function. It displays the
+full syntax of each argument table entry followed by each table
+entry's glossary string &ndash; the glossary string is the last
+parameter passed to the arg_<I>xxx</I> constructor functions. Table
+entries with NULL glossary strings are not displayed.</P>
+<P STYLE="margin-left: 1.02cm"><FONT FACE="Courier, monospace"><FONT SIZE=2>void
+arg_print_glossary(FILE *fp, void **argtable, const char *format);</FONT></FONT></P>
+<P>The <FONT FACE="Courier, monospace">format</FONT> string passed to
+the arg_print_glossary function is actually a printf style format
+string. It should contain exactly two &ldquo;%s&rdquo; format
+parameters, the first is used to control the printf format of the
+option's syntax string and the second is for the argument's glossary
+string. A typical format string would be <FONT FACE="Courier, monospace">&quot;
+%-25s %s\n&quot;. </FONT>The format string allows fine control over
+the display formatting but demands dilligence as any unexpected
+parameters in it will cause unpredictable results. Here is the
+results of calling <FONT FACE="Courier, monospace">arg_print_glossary</FONT>
+on our earlier example argument table:</P>
+<DL>
+	<DD>
+	<TABLE WIDTH=617 BORDER=0 CELLPADDING=0 CELLSPACING=0>
+		<COL WIDTH=162>
+		<COL WIDTH=455>
+		<TR VALIGN=TOP>
+			<TD WIDTH=162>
+				<P><FONT FACE="Courier, monospace"><FONT SIZE=2>-a<BR>-b<BR>-c<BR>--scalar=&lt;n&gt;<BR>-v,
+				--verbose<BR>-o myfile<BR>&lt;file&gt;</FONT></FONT></P>
+			</TD>
+			<TD WIDTH=455>
+				<P><FONT FACE="Courier, monospace"><FONT SIZE=2>the -a option<BR>the
+				-b option<BR>the -c option<BR>foo value<BR>verbose option<BR>output
+				file<BR>input files</FONT></FONT></P>
+			</TD>
+		</TR>
+	</TABLE>
+</DL>
+<P STYLE="margin-top: 0.51cm">Sometimes you will wish to add extra
+lines of text to the glossary, or even put your own text into the
+syntax string generated by <FONT FACE="Courier, monospace">arg_print_syntax</FONT>.
+You can add newline characters to your argument table strings if you
+wish, but it soon gets ugly. A better way is to add <FONT FACE="Courier, monospace">arg_rem</FONT>
+structs to your argument table. They are dummy argument table entries
+in the sense that they do not alter the argument parsing but their
+datatype and glossary strings do appear in the output generated by
+the <FONT FACE="Courier, monospace">arg_print_syntax</FONT> and
+<FONT FACE="Courier, monospace">arg_print_glossary</FONT> functions.
+The name <FONT FACE="Courier, monospace">arg_rem</FONT> is for
+&ldquo;remark&rdquo; and is inspired by the REM statement used in the
+BASIC language.</P>
+<P STYLE="margin-top: 1.5cm"><FONT FACE="Albany, sans-serif"><FONT SIZE=4>Cleaning
+up</FONT></FONT></P>
+<P>At the end of our program we need to deallocate the memory
+allocated to each of our arg_<I>xxx</I> structs. We could do that by
+calling <FONT FACE="Courier, monospace">free</FONT> on each of them
+individually, but the <FONT FACE="Courier, monospace">arg_freetable</FONT>
+function can do it for us more conveniently. 
+</P>
+<P STYLE="margin-left: 1.02cm"><FONT FACE="Courier, monospace"><FONT SIZE=2>arg_freetable(argtable,sizeof(argtable)/sizeof(argtable[0]));</FONT></FONT></P>
+<P>It will step through an argument table and call <FONT FACE="Courier, monospace">free</FONT>
+on each of its elements on our behalf. Note the second parameter,
+<FONT FACE="Courier, monospace">sizeof(argtable)/sizeof(argtable[0])</FONT>,
+merely represents the number of elements in our argtable array. Upon
+completion of this function, all of the argtable array entries will
+have been set to NULL.</P>
+<P STYLE="margin-top: 1.5cm; page-break-after: avoid"><FONT FACE="Albany, sans-serif"><FONT SIZE=4>Hint:
+declaring global arg_<I>xxx</I> variables</FONT></FONT></P>
+<P>ANSI C wont allow the the arg_<I>xxx</I> constructor functions to
+be placed in the global namespace, so if you wish to make your
+arg_<I>xxx</I> structs global you must initialiase them elsewhere.
+Here's a programming trick for using global arg_<I>xxx</I> structs
+while stull declaring your argtable statically.</P>
+<P STYLE="margin-left: 1.27cm; margin-bottom: 0cm; line-height: 0.51cm">
+<FONT FACE="Courier, monospace"><FONT SIZE=2>#include &lt;argtable2.h&gt;</FONT></FONT></P>
+<P STYLE="margin-left: 1.27cm; margin-bottom: 0cm; line-height: 0.51cm">
+<FONT FACE="Courier, monospace"><FONT SIZE=2><I>/* global arg_xxx
+structs */</I><BR>struct arg_lit *a, *b, *c, *verb;<BR>struct arg_int
+*scal;<BR>struct arg_file *o, *file;<BR>struct arg_end *end;</FONT></FONT></P>
+<P STYLE="margin-left: 2.54cm; text-indent: -1.27cm; margin-bottom: 0cm; line-height: 0.51cm">
+<FONT FACE="Courier, monospace"><FONT SIZE=2>int main(int argc, char
+**argv)<BR>{<BR><I>/* the global arg_xxx structs are initialised
+within the argtable */</I></FONT></FONT></P>
+<P STYLE="margin-left: 3.81cm; text-indent: -1.27cm; margin-bottom: 0cm; line-height: 0.51cm">
+<FONT FACE="Courier, monospace"><FONT SIZE=2>void *argtable[] ={<BR>a
+= arg_lit0(&ldquo;a&rdquo;, NULL, &rdquo;the -a option&rdquo;),<BR>b
+= arg_lit0(&ldquo;b&rdquo;, NULL, &rdquo;the -b option&rdquo;),<BR>c
+= arg_lit0(&ldquo;c&rdquo;, NULL, &rdquo;the -c option&rdquo;),<BR>scal
+= arg_int0(NULL, &rdquo;scalar&rdquo;,&rdquo;&lt;n&gt;&rdquo;, &rdquo;foo
+value&rdquo;),<BR>verb = arg_lit0(&ldquo;v&rdquo;, &rdquo;verbose,
+&rdquo;verbose output&rdquo;),<BR>o = arg_file0(&ldquo;o&rdquo;,
+NULL,&rdquo;myfile&rdquo;, &rdquo;output file&rdquo;),<BR>file =
+arg_filen(NULL,NULL,&rdquo;&lt;file&gt;&rdquo;,1,2, &rdquo;input
+files&rdquo;),<BR>end = arg_end(20),<BR>};</FONT></FONT></P>
+<P STYLE="margin-left: 2.54cm; margin-bottom: 0cm; line-height: 0.51cm">
+<FONT FACE="Courier, monospace"><FONT SIZE=2>...<BR>return 0;<BR>};</FONT></FONT></P>
+<P>See the <B>ls.c</B> program included in the argtable distribution
+for an example of using this declaration style.</P>
+<P STYLE="margin-top: 1.5cm"><FONT FACE="Albany, sans-serif"><FONT SIZE=4>Compiling
+programs with argtable library</FONT></FONT></P>
+<P>All source code that uses the argtable library must include the
+&ldquo;argtable2.h&rdquo; header function and link against the
+argtable2 library. A typical unix makefile for doing this would be:</P>
+<P STYLE="margin-left: 1.02cm"><FONT FACE="Courier, monospace">CC =
+gcc<BR>CFLAGS = -I/usr/local/include -Wall -ansi<BR>LDFLAGS =
+-L/usr/local/lib<BR>LDLIBS = -largtable2</FONT></P>
+<P STYLE="margin-left: 1.98cm; text-indent: -1.02cm"><FONT FACE="Courier, monospace">myprog.o:
+myprog.c<BR>$(CC) -c $(CFLAGS) -o myprog.o myprog.c</FONT></P>
+<P STYLE="margin-left: 1.98cm; text-indent: -0.99cm"><FONT FACE="Courier, monospace">myprog:
+myprog.o<BR>$(CC) $(LDFLAGS) myprog.o -o myprog $(LDLIBS)</FONT></P>
+<P>Though the last two make rules are redundant as the default make
+rules suffice, so we could simplify the entire Makefile to just:</P>
+<P STYLE="margin-left: 1.02cm"><FONT FACE="Courier, monospace">CC =
+gcc<BR>CFLAGS = -I/usr/local/include -Wall -ansi<BR>LDFLAGS =
+-L/usr/local/lib<BR>LDLIBS = -largtable2</FONT></P>
+<P STYLE="margin-left: 1.02cm"><FONT FACE="Courier, monospace">myprog:
+myprog.o</FONT></P>
+<P>If you would prefer to statically link all the libraries to your
+application then add the &ldquo;-static&rdquo; switch to CFLAGS.</P>
+<P STYLE="margin-left: 1.02cm"><FONT FACE="Courier, monospace">CFLAGS
+= -I/usr/local/include -Wall -ansi -static</FONT></P>
+<P>If you wish to statically link only the argtable2 library while
+linking all other libraries dynamically, then treat the argtable
+static library as if it were an object file. The linker will
+statically link the object files within the library to your
+application.</P>
+<P STYLE="margin-left: 1.98cm; text-indent: -0.99cm"><FONT FACE="Courier, monospace">myprog:
+myprog.o<BR>$(CC) myprog.o /usr/local/lib/libargtable2.a -o myprog</FONT></P>
+<P STYLE="margin-top: 1.5cm; page-break-after: avoid"><FONT FACE="Albany, sans-serif"><FONT SIZE=4>Example
+code</FONT></FONT></P>
+<P>The argtable distribution comes with example programs that
+implement complete GNU compatable command line options for several
+common unix commands. See the argtable-2.x/example/ directory for the
+source code of the following programs:</P>
+<DL>
+	<DD><FONT FACE="Courier, monospace"><FONT SIZE=2>echo [-neE]
+	[--help] [--version] [STRING]...</FONT></FONT></DD><DD>
+	<BR>
+	</DD><DD>
+	<FONT FACE="Courier, monospace"><FONT SIZE=2>ls
+	[-aAbBcCdDfFgGhHiklLmnNopqQrRsStuUvxX1] [--author]
+	[--block-size=SIZE] [--color=[WHEN]] [--format=WORD] [--full-time]
+	[--si] [--dereference-command-line-symlink-to-dir]
+	[--indicator-style=WORD] [-I PATTERN] [--show-control-chars]
+	[--quoting-style=WORD] [--sort=WORD] [--time=WORD]
+	[--time-style=STYLE] [-T COLS] [-w COLS] [--help] [--version]
+	[FILE]...</FONT></FONT></DD><DD>
+	<BR>
+	</DD><DD>
+	<FONT FACE="Courier, monospace"><FONT SIZE=2>mv [-bfiuv]
+	[--backup=[CONTROL]] [--reply={yes,no,query}]
+	[--strip-trailing-slashes] [-S SUFFIX]
+	[--target-directory=DIRECTORY] [--help] [--version] SOURCE
+	[SOURCE]... DEST|DIRECTORY</FONT></FONT></DD><DD>
+	<BR>
+	</DD><DD>
+	<FONT FACE="Courier, monospace"><FONT SIZE=2>rm [-dfirv] [--help]
+	[--version] &lt;file&gt; [&lt;file&gt;]...</FONT></FONT></DD><DD>
+	<BR>
+	</DD><DD STYLE="margin-bottom: 0.51cm">
+	<FONT FACE="Courier, monospace"><FONT SIZE=2>uname [-asnrvmpio]
+	[--help] [--version]</FONT></FONT></DD></DL>
+<P STYLE="margin-top: 0.43cm; page-break-after: avoid">
+<BR><BR>
+</P>
+<P><BR><BR>
+</P>
+</BODY>
+</HTML>

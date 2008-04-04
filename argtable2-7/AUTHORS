@@ -1,0 +1,14 @@
+argtable is Copyright (C) 1998-2001,2003-2007 Stewart Heitmann.
+Parts are Copyright (C) 1989-1994, 1996-1999,2001,2003 Free Software Foundation, Inc.
+
+argtable was written by Stewart Heitmann <sheitmann@users.sourceforge.net>
+The project homepage can be found at http://argtable.sourceforge.net/
+
+Other contributors:
+Nina Clemson for editing the original argtable-1.0 documentation.
+Livio Bertacco for contributing bug fixes and the argtable-2.x Visual C++ Makefiles.
+Justin Dearing for contributing bug fixes and Windows DLL support, plus code support for the Open Watcom compiler and help with the Mac OS X configuration.
+Asa Packer for contributing bug fixes and upgrades to the Visual C++ Makefiles.
+Danilo Cicerone for the Italian translation of "Introduction to Argtable-2x" on http://www.digitazero.org.
+Uli Fouquet for configuration patches and documentation related to cross-compiling argtable from Unix to Windows, as well as providing the arg_print_glossary_gnu function.
+Shachar Shemesh for Debian package integration and kick-starting the migration to automake/autoconf.
