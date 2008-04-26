@@ -89,7 +89,6 @@ resync:
 	{
 #ifdef _WIN32
 		Debug(8, "Audio error\n");
-		SetDlgItemText(hDlg, IDC_INFO, "A.E.!");
 #else
     fprintf(stderr, "\nAudio error, skipping bad input frame\n");
 #endif
@@ -126,14 +125,12 @@ uint_32 ac3_decode_data(uint_8 *data_start, uint_32 length, uint_32 *start, shor
 //	error_flag = buffer_size = 0;
 //	syncinfo.syncword = 0xffff;
 
-    // printf("In ac3_decode_data\n");
-
 	while ((ret = decode_buffer_syncframe(&syncinfo, &data_start, data_end)) > 0)
 	{
 		if (error_flag)
 		{
 #ifdef _WIN32
-			SetDlgItemText(hDlg, IDC_INFO, "A.E.!");
+//			SetDlgItemText(hDlg, IDC_INFO, "A.E.!");
 #else
       printf("A.E.!\n");
 #endif

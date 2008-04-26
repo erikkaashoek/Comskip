@@ -74,6 +74,8 @@ typedef struct block_sys_t block_sys_t;
 #define BLOCK_FLAG_PRIVATE_MASK  0xffff0000
 #define BLOCK_FLAG_PRIVATE_SHIFT 16
 
+typedef struct block_t block_t;
+
 typedef struct block_t
 {
    	block_t     *p_next;
