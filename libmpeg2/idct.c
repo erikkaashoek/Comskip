@@ -21,7 +21,7 @@
  * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
  */
 
-// #/ define NOACCEL
+//#/define NOACCEL
 
 #include "config.h"
 
@@ -184,12 +184,21 @@ inline static void idct_col (int16_t * const block)
     block[8*7] = (a0 - b0) >> 17;
 }
 
+
+
+
+// #define SUBSAMPLE
+
+#define NOACCELNODCT
+
 static void mpeg2_idct_copy_c (int16_t * block, uint8_t * dest,
 			       const int stride)
 {
-    int i;
+    int i, j;
 #ifdef NOACCELNODCT
-	int16_t v = CLIP (block[0]);
+	int16_t v = CLIP ( (block[0]+64 )>> 7);
+	block[0] = block[63] = 0;
+
 	i = 8;
     do {
 	dest[0] =
@@ -199,16 +208,25 @@ static void mpeg2_idct_copy_c (int16_t * block, uint8_t * dest,
 	dest[4] =
 	dest[5] =
 	dest[6] =
-	dest[7] = v;
+	dest[7] = 
+				v;
 
-	((int32_t *)block)[0] = 0;	((int32_t *)block)[1] = 0;
-	((int32_t *)block)[2] = 0;	((int32_t *)block)[3] = 0;
+//	((int32_t *)block)[0] = 0;	((int32_t *)block)[1] = 0;
+//	((int32_t *)block)[2] = 0;	((int32_t *)block)[3] = 0;
 
 	dest += stride;
 	block += 8;
     } while (--i);
 
 #else
+
+    for (i = 0; i < 8; i++)
+		for (j = 0; j < 8; j++)
+		{
+			if (i > 0 || j > 0)
+				block[i+j*8] = 0;
+		}
+
     for (i = 0; i < 8; i++)
 	idct_row (block + 8 * i);
     for (i = 0; i < 8; i++)
@@ -222,7 +240,6 @@ static void mpeg2_idct_copy_c (int16_t * block, uint8_t * dest,
 	dest[5] = CLIP (block[5]);
 	dest[6] = CLIP (block[6]);
 	dest[7] = CLIP (block[7]);
-
 	((int32_t *)block)[0] = 0;	((int32_t *)block)[1] = 0;
 	((int32_t *)block)[2] = 0;	((int32_t *)block)[3] = 0;
 
@@ -235,8 +252,45 @@ static void mpeg2_idct_copy_c (int16_t * block, uint8_t * dest,
 static void mpeg2_idct_add_c (const int last, int16_t * block,
 			      uint8_t * dest, const int stride)
 {
-    int i;
+    int i,j;
+	int v;
 
+#ifdef NOACCELNODCT
+	int DC = (block[0] + 64) >> 7;
+	block[0] = block[63] = 0;
+	v = CLIP (DC + dest[0]);
+	i = 8;
+	do {
+	    dest[0] = 
+	    dest[1] = 
+	    dest[2] = 
+	    dest[3] = 
+	    dest[4] = 
+	    dest[5] = 
+	    dest[6] = 
+	    dest[7] = v;
+//    ((int32_t *)block)[0] = 0;	((int32_t *)block)[1] = 0;
+//    ((int32_t *)block)[2] = 0;	((int32_t *)block)[3] = 0;
+
+	    block += 8;
+		dest += stride;
+
+	} while (--i);
+
+#else    
+
+
+	for (i = 0; i < 8; i++)
+		for (j = 0; j < 8; j++)
+		{
+			if (i > 0 || j > 0)
+				block[i+j*8] = 0;
+		}
+
+
+
+    if (last != 129 || (block[0] & (7 << 4)) == (4 << 4)) {
+		
     if (last != 129 || (block[0] & (7 << 4)) == (4 << 4)) {
 	for (i = 0; i < 8; i++)
 	    idct_row (block + 8 * i);
@@ -244,13 +298,14 @@ static void mpeg2_idct_add_c (const int last, int16_t * block,
 	    idct_col (block + i);
 	do {
 	    dest[0] = CLIP (block[0] + dest[0]);
-	    dest[1] = CLIP (block[1] + dest[1]);
+	    dest[1] = CLIP (block[0] + dest[0]);
 	    dest[2] = CLIP (block[2] + dest[2]);
-	    dest[3] = CLIP (block[3] + dest[3]);
+	    dest[3] = CLIP (block[2] + dest[2]);
 	    dest[4] = CLIP (block[4] + dest[4]);
-	    dest[5] = CLIP (block[5] + dest[5]);
+	    dest[5] = CLIP (block[4] + dest[4]);
 	    dest[6] = CLIP (block[6] + dest[6]);
-	    dest[7] = CLIP (block[7] + dest[7]);
+	    dest[7] = CLIP (block[6] + dest[6]);
+
 
 	    ((int32_t *)block)[0] = 0;	((int32_t *)block)[1] = 0;
 	    ((int32_t *)block)[2] = 0;	((int32_t *)block)[3] = 0;
@@ -266,20 +321,23 @@ static void mpeg2_idct_add_c (const int last, int16_t * block,
 	i = 8;
 	do {
 	    dest[0] = CLIP (DC + dest[0]);
-	    dest[1] = CLIP (DC + dest[1]);
+	    dest[1] = CLIP (DC + dest[0]);
 	    dest[2] = CLIP (DC + dest[2]);
-	    dest[3] = CLIP (DC + dest[3]);
+	    dest[3] = CLIP (DC + dest[2]);
 	    dest[4] = CLIP (DC + dest[4]);
-	    dest[5] = CLIP (DC + dest[5]);
+	    dest[5] = CLIP (DC + dest[4]);
 	    dest[6] = CLIP (DC + dest[6]);
-	    dest[7] = CLIP (DC + dest[7]);
+	    dest[7] = CLIP (DC + dest[6]);
 	    dest += stride;
 	} while (--i);
     }
+#endif
 }
 
 void mpeg2_idct_init (uint32_t accel)
 {
+
+//	accel  = 0;
 #ifndef NOACCEL
 #ifdef ARCH_X86
 

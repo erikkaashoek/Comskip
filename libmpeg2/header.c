@@ -22,11 +22,13 @@
  * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
  */
 
-#include "config.h"
-
 #include <inttypes.h>
 #include <stdlib.h>	/* defines NULL */
 #include <string.h>	/* memcmp */
+
+#include "config.h"
+
+
 
 #include "mpeg2.h"
 #include "attributes.h"
@@ -74,6 +76,9 @@ uint8_t mpeg2_scan_alt[64] ATTR_ALIGN(16) = {
     53, 61, 22, 30,  7, 15, 23, 31, 38, 46, 54, 62, 39, 47, 55, 63
 };
 
+
+extern int skip_B_frames;
+extern int width;
 
 void mpeg2_header_state_init (mpeg2dec_t * mpeg2dec)
 {
@@ -591,7 +596,24 @@ int mpeg2_header_picture (mpeg2dec_t * mpeg2dec)
     decoder->scan = mpeg2_scan_norm;
     decoder->picture_structure = FRAME_PICTURE;
     mpeg2dec->copy_matrix = 0;
-
+#ifdef DONATORS
+	if (type == PIC_FLAG_CODING_TYPE_B)
+	{ 
+		if (skip_B_frames==1) // Skip 'B' frames
+			return 1;
+		if (skip_B_frames==2 && width > 800) // Skip 'B' frames on HD
+			return 1;
+	}
+#endif
+#ifdef _DEBUG
+	if (type == PIC_FLAG_CODING_TYPE_B)
+	{ 
+		if (skip_B_frames==1) // Skip 'B' frames
+			return 1;
+		if (skip_B_frames==2 && width > 800) // Skip 'B' frames on HD
+			return 1;
+	}
+#endif
     return 0;
 }
 

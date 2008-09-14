@@ -999,6 +999,12 @@ entry_2:
     return i;
 }
 
+
+
+#include <xmmintrin.h>
+#include <emmintrin.h>
+
+
 static inline void slice_intra_DCT (mpeg2_decoder_t * const decoder,
 									const int cc,
 									uint8_t * const dest, const int stride)
@@ -1006,7 +1012,13 @@ static inline void slice_intra_DCT (mpeg2_decoder_t * const decoder,
 #define bit_buf (decoder->bitstream_buf)
 #define bits (decoder->bitstream_bits)
 #define bit_ptr (decoder->bitstream_ptr)
-    NEEDBITS (bit_buf, bits, bit_ptr);
+
+    
+	__m128i* src;
+	__m128i zero;
+
+	
+	NEEDBITS (bit_buf, bits, bit_ptr);
     /* Get the intra DC coefficient and inverse quantize it */
     if (cc == 0)
 		decoder->DCTblock[0] =
@@ -1026,8 +1038,26 @@ static inline void slice_intra_DCT (mpeg2_decoder_t * const decoder,
 	if (cc == 0)
 	    mpeg2_idct_copy (decoder->DCTblock, dest, stride);
 	else
-		memset (decoder->DCTblock, 0, 64 * sizeof (int16_t));
+	{
 
+#define USEMMX
+#ifdef USEMMX
+	src = (__m128i*) decoder->DCTblock;
+	zero = _mm_setzero_si128();
+	_mm_store_si128(&src[0], zero);
+	_mm_store_si128(&src[1], zero);
+	_mm_store_si128(&src[2], zero);
+	_mm_store_si128(&src[3], zero);
+	_mm_store_si128(&src[4], zero);
+	_mm_store_si128(&src[5], zero);
+	_mm_store_si128(&src[6], zero);
+	_mm_store_si128(&src[7], zero);
+#else		
+		memset (decoder->DCTblock, 0, 64 * sizeof (int16_t));
+#endif
+//		decoder->DCTblock[0] = 0;
+//		decoder->DCTblock[63] = 0;
+	}
 #undef bit_buf
 #undef bits
 #undef bit_ptr
@@ -1038,6 +1068,8 @@ static inline void slice_non_intra_DCT (mpeg2_decoder_t * const decoder,
 										uint8_t * const dest, const int stride)
 {
     int last;
+	__m128i* src;
+	__m128i zero;
 	
     if (decoder->mpeg1)
 		last = get_mpeg1_non_intra_block (decoder);
@@ -1048,7 +1080,26 @@ static inline void slice_non_intra_DCT (mpeg2_decoder_t * const decoder,
 	if (cc == 0)
 	    mpeg2_idct_add (last, decoder->DCTblock, dest, stride);
 	else
+	{
+
+#define USEMMX
+#ifdef USEMMX
+	src = (__m128i*) decoder->DCTblock;
+	zero = _mm_setzero_si128();
+	_mm_store_si128(&src[0], zero);
+	_mm_store_si128(&src[1], zero);
+	_mm_store_si128(&src[2], zero);
+	_mm_store_si128(&src[3], zero);
+	_mm_store_si128(&src[4], zero);
+	_mm_store_si128(&src[5], zero);
+	_mm_store_si128(&src[6], zero);
+	_mm_store_si128(&src[7], zero);
+#else		
 		memset (decoder->DCTblock, 0, 64 * sizeof (int16_t));
+#endif
+//		decoder->DCTblock[0] = 0;
+//		decoder->DCTblock[63] = 0;
+	}
 }
 
 #define MOTION_420(table,ref,motion_x,motion_y,size,y)			      \
@@ -1165,11 +1216,11 @@ ref[2] + offset, decoder->uv_stride, 8)
 	pos_y = ((int)pos_y < 0) ? 0 : decoder->limit_y_ ## size;	      \
 	motion_y = pos_y - 2 * decoder->v_offset - 2 * y;		      \
     }									      \
-/*    xy_half = ((pos_y & 1) << 1) | (pos_x & 1);				      \
+    xy_half = ((pos_y & 1) << 1) | (pos_x & 1);				      \
     offset = (pos_x >> 1) + (pos_y >> 1) * decoder->stride;		      \
     table[xy_half] (decoder->dest[0] + y * decoder->stride + decoder->offset, \
 	ref[0] + offset, decoder->stride, size);		      \
-    offset = (offset + (motion_x & (motion_x < 0))) >> 1;		      \
+/*    offset = (offset + (motion_x & (motion_x < 0))) >> 1;		      \
     motion_x /= 2;							      \
     xy_half = ((pos_y & 1) << 1) | (motion_x & 1);			      \
     table[4+xy_half] (decoder->dest[1] + y * decoder->uv_stride +	      \
@@ -1260,11 +1311,11 @@ ref[2] + offset, decoder->uv_stride, 16)
 	pos_y = ((int)pos_y < 0) ? 0 : decoder->limit_y_ ## size;	      \
 	motion_y = pos_y - 2 * decoder->v_offset - 2 * y;		      \
     }									      \
-/*    xy_half = ((pos_y & 1) << 1) | (pos_x & 1);				      \
+    xy_half = ((pos_y & 1) << 1) | (pos_x & 1);				      \
     offset = (pos_x >> 1) + (pos_y >> 1) * decoder->stride;		      \
     table[xy_half] (decoder->dest[0] + y * decoder->stride + decoder->offset, \
 	ref[0] + offset, decoder->stride, size);		      \
-    table[xy_half] (decoder->dest[1] + y * decoder->stride + decoder->offset, \
+/*    table[xy_half] (decoder->dest[1] + y * decoder->stride + decoder->offset, \
 	ref[1] + offset, decoder->stride, size);		      \
     table[xy_half] (decoder->dest[2] + y * decoder->stride + decoder->offset, \
 ref[2] + offset, decoder->stride, size)
@@ -1280,12 +1331,12 @@ ref[2] + offset, decoder->stride, size)
 	pos_y = ((int)pos_y < 0) ? 0 : decoder->limit_y;		      \
 	motion_y = pos_y - decoder->v_offset;				      \
     }									      \
-/*    xy_half = ((pos_y & 1) << 1) | (pos_x & 1);				      \
+    xy_half = ((pos_y & 1) << 1) | (pos_x & 1);				      \
     offset = (pos_x >> 1) + ((pos_y op) + src_field) * decoder->stride;	      \
     table[xy_half] (decoder->dest[0] + dest_field * decoder->stride +	      \
 	decoder->offset, ref[0] + offset,			      \
 	2 * decoder->stride, 8);				      \
-    table[xy_half] (decoder->dest[1] + dest_field * decoder->stride +	      \
+/*    table[xy_half] (decoder->dest[1] + dest_field * decoder->stride +	      \
 	decoder->offset, ref[1] + offset,			      \
 	2 * decoder->stride, 8);				      \
     table[xy_half] (decoder->dest[2] + dest_field * decoder->stride +	      \

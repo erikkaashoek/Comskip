@@ -256,6 +256,10 @@ static long FAR PASCAL event_procedure (HWND hwnd, UINT message,
 		    return DefWindowProc (hwnd, message, wParam, lParam);
 		}
 		break;
+	case WM_SHOWWINDOW:
+	case WM_ACTIVATEAPP:
+			key = '.';
+			break;
 		
 		case WM_WINDOWPOSCHANGED:
 			instance = (dx_instance_t *) GetWindowLong (hwnd, GWL_USERDATA);
@@ -269,10 +273,12 @@ static long FAR PASCAL event_procedure (HWND hwnd, UINT message,
 			GetClientRect (hwnd, &rect_window);
 			instance->window_coords.right = rect_window.right + point_window.x;
 			instance->window_coords.bottom = rect_window.bottom + point_window.y;
+
+			key = '.';
 			
 			/* update the overlay */
-			//	if (instance->overlay && instance->display)
-			//	    update_overlay (instance);
+				if (instance->overlay && instance->display)
+				    update_overlay (instance);
 			
 			//	return 0;
 			
@@ -280,6 +286,7 @@ static long FAR PASCAL event_procedure (HWND hwnd, UINT message,
 			hdc = BeginPaint(hwnd, &ps);
 			EndPaint(hwnd, &ps);
 			ReleaseDC(hwnd, hdc);
+			key = '.';
 			
 			break;
 			
@@ -358,6 +365,13 @@ static long FAR PASCAL event_procedure (HWND hwnd, UINT message,
 					if(PopFileDlg(hwnd, osname, SAVE_DMP) == 0)
 						key = 0;
 			}
+			break;
+		case WM_SETFOCUS:
+		case WM_ACTIVATE:
+			key = '.';
+			break;
+		default:
+			key = key;
 			break;
 	}
 	/*
@@ -822,6 +836,7 @@ dx_instance_t * instance;
 vo_setup_result_t result;
 
 void vo_init(int width, int height, char *title) {
+//	width -= 30;
 	memset(buf1,128,width*height);
 	memset(buf2,128,width*height);
 

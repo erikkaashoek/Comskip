@@ -34,7 +34,7 @@
 //#define TRACE
 
 
-
+#define __restrict
 #    include <stdlib.h>
 #    include <stdio.h>
 #    include <string.h>
@@ -100,6 +100,8 @@ typedef unsigned __int64 uint64_t;
 typedef signed char int8_t;
 typedef signed int int32_t;
 typedef signed __int64 int64_t;
+
+#define INT64_C (const int64_t)
 
 #    ifndef __MINGW32__
 #        define int64_t_C(c)     (c ## i64)
@@ -1145,4 +1147,61 @@ if(256*256*256*64%(tcount+tskip_count)==0){\
 
 #endif /* HAVE_AV_CONFIG_H */
 
+
+/* assume b>0 */
+#define ROUNDED_DIV(a,b) (((a)>0 ? (a) + ((b)>>1) : (a) - ((b)>>1))/(b))
+#define FFABS(a) ((a) >= 0 ? (a) : (-(a)))
+#define FFSIGN(a) ((a) > 0 ? 1 : -1)
+
+#define FFMAX(a,b) ((a) > (b) ? (a) : (b))
+#define FFMAX3(a,b,c) FFMAX(FFMAX(a,b),c)
+#define FFMIN(a,b) ((a) > (b) ? (b) : (a))
+#define FFMIN3(a,b,c) FFMIN(FFMIN(a,b),c)
+
+#define FFSWAP(type,a,b) do{type SWAP_tmp= b; b= a; a= SWAP_tmp;}while(0)
+
+
+/* memory */
+void *av_malloc(unsigned int size);
+void *av_mallocz(unsigned int size);
+void *av_realloc(void *ptr, unsigned int size);
+void av_free(void *ptr);
+char *av_strdup(const char *s);
+//void av_freep(void *ptr);
+
+void __av_freep(void **ptr);
+#define av_freep(p) __av_freep((void **)(p)) 
+
+void *av_fast_realloc(void *ptr, unsigned int *size, unsigned int min_size);
+/* for static data only */
+/* call av_free_static to release all staticaly allocated tables */
+void av_free_static(void);
+//void *av_mallocz_static(unsigned int size);
+
+void *av_realloc_static(void *ptr, unsigned int size);
+void *__av_mallocz_static(void** location, unsigned int size);
+#define av_mallocz_static(p, s) __av_mallocz_static((void **)(p), s)
+
+/**
+ * rescale a 64bit integer with rounding to nearest.
+ * a simple a*b/c isnt possible as it can overflow
+ */
+int64_t av_rescale(int64_t a, int64_t b, int64_t c);
+
+/**
+ * rescale a 64bit integer with specified rounding.
+ * a simple a*b/c isnt possible as it can overflow
+ */
+int64_t av_rescale_rnd(int64_t a, int64_t b, int64_t c, enum AVRounding);
+
+/* Systems that don't have stdint.h may not define INT64_MIN and
+   INT64_MAX */
+#ifndef INT64_MIN
+#define INT64_MIN (-9223372036854775807LL-1)
+#endif
+#ifndef INT64_MAX
+#define INT64_MAX (9223372036854775807LL)
+#endif
+ 
 #endif /* COMMON_H */
+

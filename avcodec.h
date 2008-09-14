@@ -5,7 +5,7 @@
  * @file avcodec.h
  * external api header.
  */
-
+#define const
 
 #ifdef __cplusplus
 extern "C" {
@@ -175,6 +175,8 @@ enum CodecID {
     CODEC_ID_MPEG2TS= 0x20000, /* _FAKE_ codec to indicate a raw MPEG2 transport
                          stream (only used by libavformat) */
 };
+
+typedef int CodecID;
 
 /* CODEC_ID_MP3LAME is absolete */
 #define CODEC_ID_MP3LAME CODEC_ID_MP3

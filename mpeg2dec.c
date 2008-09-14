@@ -68,6 +68,8 @@ static int audio_ac3_track = 0x80;	//
 int is_AC3;
 int AC3_rate;
 int AC3_mode;
+int is_h264=0;
+int is_AAC=0;
 extern int sampling_rate; //AC3
 extern int AC3_byterate;
 int demux_pid=0;
@@ -87,7 +89,7 @@ int selected_audio_pid=0;
 int selection_restart_count = 0;
 int found_pids=0;
 
-#define uint64_t unsigned __int64
+// #define uint64_t unsigned __int64
 __int64 new_pts,pts, dts;
 __int64 apts, adts,initial_apts;
 static int initial_apts_set = 0;
@@ -166,6 +168,8 @@ int cur_second = 0;
 
 extern char HomeDir[256];
 extern int processCC;
+int	reorderCC = 0;
+
 //int live_tv;
 int csRestart;
 int csStartJump;
@@ -178,9 +182,17 @@ int	seekDirection = 0;
 extern FILE * out_file;
 extern uint8_t ccData[500];
 extern int ccDataLen;
+static uint8_t				prevccData[500];
+static int					prevccDataLen;
+static int prevframeno;
+char				prevfield_t = 0;
+
 extern int height,width,framenum;
 extern int output_debugwindow;
+extern int output_console;
 extern int output_timing;
+extern int output_srt;
+extern int output_smi;
 
 extern unsigned char *frame_ptr;
 extern int lastFrameWasSceneChange;
@@ -216,7 +228,7 @@ static void signal_handler (int sig)
 
 
 
-#define AUDIOBUFFER	40000
+#define AUDIOBUFFER	80000
 
 static int audio_buffer_size = AUDIOBUFFER;
 static short audio_buffer[AUDIOBUFFER];
@@ -238,6 +250,7 @@ int tracks_without_sound = 0;
 int frames_without_sound = 0;
 int frames_with_loud_sound = 0;
 
+extern int faad_sample_rate;
 void sound_to_frames(short *buffer, int samples)
 {
 static __int64 expected_apts = 0;
@@ -251,14 +264,18 @@ static int old_is_AC3 = -2;
 	if (!samples)
 		return;
 	if (old_is_AC3 != is_AC3) {
-		if (is_AC3)
+		if (is_AAC)
+			Debug(6, "AAC sound at %d khz\n", sampling_rate/1000);
+		else if (is_AC3)
 			Debug(6, "AC3 sound at %d khz\n", sampling_rate/1000);
 		else
 			Debug(6, "MPEG2 sound at %d khz\n", get_samplerate()/1000);
 		old_is_AC3 = is_AC3;
 	}
 
-	if (is_AC3) {
+	if (is_AAC)
+		sampling_rate = faad_sample_rate;
+	if (is_AC3 || is_AAC) {
 		s_per_frame = (int) ((double)sampling_rate * (double)2 / get_fps());
 	} else {
 		s_per_frame = (int) ((double)get_samplerate() * (double) get_channels() / get_fps());
@@ -270,7 +287,7 @@ static int old_is_AC3 = -2;
 	buffer = audio_buffer;
 	while (audio_samples >= s_per_frame)
 	{
-//		if (sample_file) fprintf(sample_file, "Frame %i\n", sound_frame_counter); 
+		if (sample_file) fprintf(sample_file, "Frame %i\n", sound_frame_counter); 
 		volume = 0;
 		for (i = 0; i < s_per_frame; i++)
 		{
@@ -288,6 +305,8 @@ static int old_is_AC3 = -2;
 		if (volume == 0)
 			frames_without_sound++;
 		if (volume > 10000) {
+			if (volume > 256000)
+				volume = 220000;
 			frames_with_loud_sound++;
 			volume = -1;
 		}
@@ -339,9 +358,10 @@ static char *read_buf = storage_buf;
 
 void decode_audio (char *input_buf, int bytes)
 {
-static int min_buffer = 1800;
+static int min_buffer = 4000;
 	int done_bytes, avail_bytes;
 	int samples=0;
+//	char *AC3test;
 	int tries = 4;
 	int size;
 	short *sum_ptr;
@@ -349,8 +369,6 @@ static int min_buffer = 1800;
 
 	if (bytes <= 0)
 		return;
-	if (input_buf[0] == 0x0b && input_buf[1] == 0x77)
-		is_AC3 = 1;
 #ifdef SINGLE_BUFFERING
 	samples = 0;
 	if (is_AC3) {
@@ -384,6 +402,18 @@ static int min_buffer = 1800;
 need_more:
 	while ( avail_bytes > min_buffer && done_bytes) {
 		samples = 0;
+
+//		if (faac_test_frame(read_buf, write_buf - read_buf)) {
+//			is_AAC = 1;
+//		} else 
+		if (test_AC3_frame(read_buf, write_buf))
+			is_AC3 = 1;
+		if (is_AAC) {
+			done_bytes = faac_decode_frame(audio_buffer_ptr, &samples, read_buf, write_buf - read_buf );		\
+			if (done_bytes < 0)
+				done_bytes = write_buf - read_buf; 
+		}
+		else
 		if (is_AC3) {
 try_AC3:
 			done_bytes = ac3_decode_data(read_buf, write_buf - read_buf, &samples , audio_buffer_ptr);		\
@@ -400,6 +430,12 @@ try_AC3:
 */
 		} else {
 try_MPEG:
+//		AC3test = read_buf;
+//		while (AC3test < write_buf) {
+//			if (AC3test[0] == 0x0b && AC3test[1] == 0x77)
+//				is_AC3 = 1;
+//			AC3test++;
+//		}
 		done_bytes = decode_frame(0, audio_buffer_ptr, &samples, read_buf, (int)(write_buf - read_buf));
 				if (samples == 0 && min_buffer < 5000) {
 //					if (tries == 0) {
@@ -487,7 +523,7 @@ static int last_count = 0;
 
 		fprintf (stderr,"\n%d frames decoded in %.2f seconds (%.2f fps)\n",
 			 frame_counter, total_elapsed / 100.0, tfps);
-
+		fflush(stderr);
 		return;
     }
 
@@ -507,7 +543,7 @@ static int last_count = 0;
     fprintf (stderr, "%s - %d frames in %.2f sec (%.2f fps), "
 	     "%.2f sec (%.2f fps), %d%%\r", cur_pos, frame_counter,
 	     total_elapsed / 100.0, tfps, elapsed / 100.0, fps, (int) (100 * headerpos / fileendpos));
-
+	fflush(stderr);
     last_count = frame_counter;
 }
 
@@ -598,6 +634,14 @@ void asf_tag_picture(__int64 new_pts, __int64 newheaderpos )
 
 	DUMP_TIMING("v settag  ", new_pts,(__int64)0, (__int64)0);
 	if (csJumping) {
+#ifdef DONATORS
+		headerpos = newheaderpos;
+		set_pts(new_pts);
+#endif
+#ifdef _DEBUG
+		headerpos = newheaderpos;
+		set_pts(new_pts);
+#endif
 	}
 	mpeg2_tag_picture (mpeg2dec, new_pts, new_pts);
 }
@@ -723,6 +767,147 @@ int SubmitFrame(int frame_count)
 }
 
 
+#include "libavcodec\avcodec.h"
+extern  AVCodecContext  *pCodecCtx;
+extern  AVFrame         *pFrame; 
+
+void decode_h264 (uint8_t * current, uint8_t * end)
+{
+#define BUFSIZE	1000000
+static char buffer[BUFSIZE];
+static int chars = 0;
+	int i=0;
+	int done;
+	int pc;
+	int frame_found = 0;
+	int size = end - current;
+	if (csJumping)
+		return;
+	if (!reviewing) {
+		dump_video_start();
+		dump_video(current, end);
+	}
+	while (size > 0) {
+		if (chars > 100 && (buffer[chars-1] == 9 || buffer[chars-1] == 0xc0) && buffer[chars-2] == 1 && buffer[chars-3] == 0 && buffer[chars-4] == 0 && buffer[chars-5] == 0)
+		{
+			pCodecCtx->debug |=  FF_DEBUG_PICT_INFO;
+			pc = buffer[chars-1];
+			chars = chars - 5;
+//			Debug(10, "Submit h264 frame with %d bytes, first chars %d %d %d %d %d\n", chars, buffer[0], buffer[1], buffer[2], buffer[3], buffer[4]);
+			if (h264_decode_frame(buffer, chars))
+			{
+				frame_period = (double)900000*30 / (((double)pCodecCtx->time_base.den) / pCodecCtx->time_base.num );
+				if (pCodecCtx->time_base.num == 1001 && pCodecCtx->time_base.den == 30000)
+					frame_period = 900900;
+//				if (pCodecCtx->time_base.num == 1 && pCodecCtx->time_base.den == 25)
+//					frame_period = 900000;
+
+				if (frame_period == 450450 || frame_period == 900900 || frame_period == 900000 || frame_period == 1080000 || frame_period == 540000) {
+					if (height != pCodecCtx->height && pCodecCtx->height > 100 && pCodecCtx->height < 1200)
+						height= pCodecCtx->height;
+					if (width != pFrame->linesize[0] && pFrame->linesize[0] > 100 && pFrame->linesize[0]  < 2000)
+						width= pFrame->linesize[0];
+					bitrate = pCodecCtx->bit_rate;
+				}
+				if (width > 2000 || height > 1200 || frame_period == 0 || bitrate == 0) {
+					//				printf("Panic: illegal height, width or frame period\n");
+					goto quit; // return; // exit(2);
+				}
+				set_fps(frame_period);
+				infopos = headerpos;
+				frame_ptr = pFrame->data[0]; 
+
+				//		frame_period = info->sequence->frame_period;
+				/* draw current picture */
+				/* might free frame buffer */			
+
+				/*
+
+				if (info->display_fbuf) {
+				frame_ptr = info->display_fbuf->buf[0];
+
+				if (info->gop) {
+				cur_hour = info->gop->hours;
+				cur_minute = info->gop->minutes;
+				cur_second = info->gop->seconds;
+				goppos = packpos;
+				}
+
+				pic = info->current_picture;
+				if (pic != NULL) {
+				if (pic->nb_fields == 3)
+				is32++;
+				if (pic->flags & PIC_FLAG_TAGS) {
+				new_pts = pic->tag;
+				set_pts(new_pts);
+				}
+				*/
+				new_pts = pFrame->pts;
+				set_pts(new_pts);
+
+				if (pFrame->pict_type == FF_B_TYPE)
+					SetField('B');
+				else if (pFrame->pict_type == FF_I_TYPE)
+					SetField('I');
+				else
+					SetField('P');
+				/*
+				if (pic->flags & PIC_FLAG_PROGRESSIVE_FRAME)
+				printf (" PROG");
+				if (pic->flags & PIC_FLAG_SKIP)
+				printf (" SKIP");
+				printf (" fields %d", pic->nb_fields);
+				if (pic->flags & PIC_FLAG_TOP_FIELD_FIRST)
+				printf (" TFF");
+				if (pic->flags & PIC_FLAG_TAGS)
+				printf (" pts %08x dts %08x", pic->tag, pic->tag2);
+				printf("\n");
+
+				}
+				*/
+				print_fps (0);
+
+				if (csStepping) {
+					if (dump_seek)  printf("[%6d] Stepping to %d, headerpos=%6d\n",framenum_infer, (int)SeekPos, (int)(headerpos/byterate));
+					if (framenum_infer >= SeekPos) {
+						//						SubmitFrame((int)framenum_infer);
+						//						vo_init(width, height, "Dump");
+						//						vo_draw(frame_ptr);
+						framenum = pCodecCtx->frame_number;
+						csFound = 1;
+						return;
+					} else 
+						frame_ptr = NULL;
+
+					pts += PTS_FRAME;
+					framenum++;
+					framenum_infer++;
+				} else {
+					if (SubmitFrame((int)framenum_infer)==1) {
+						csRestart = 1;
+						audio_samples = 0;
+						print_fps(-1);
+						return;
+					}
+				}
+			} else {
+				frame_ptr = NULL;
+			}
+quit:
+			chars = 0;
+			buffer[chars++] = 0;
+			buffer[chars++] = 0;
+			buffer[chars++] = 0;
+			buffer[chars++] = 1;
+			buffer[chars++] = pc;
+		}
+		buffer[chars++] = *current++;
+		size--;
+	}
+
+
+}
+
 void decode_mpeg2 (uint8_t * current, uint8_t * end)
 {
 	static int c = 0;
@@ -730,11 +915,20 @@ void decode_mpeg2 (uint8_t * current, uint8_t * end)
     const mpeg2_info_t * info;
     const mpeg2_picture_t * pic;
 	mpeg2_state_t state;
+	int f;
+	char ft;
 
+	if (end-current > 5 && current[0] == 0 && current[1] == 0 && current[2] == 0 && current[3] == 1 && current[4] == 9)
+		is_h264 = 1;
 	if (csJumping)
 		return;
 	if (!reviewing)
 		dump_video(current, end);
+	if (is_h264)
+	{
+		decode_h264 (current, end);
+		return;
+	}
     mpeg2_buffer (mpeg2dec, current, end);
     total_offset += (int)(end - current);
 
@@ -866,15 +1060,60 @@ void decode_mpeg2 (uint8_t * current, uint8_t * end)
 			break;
 		default:
 
-			if ((processCC) && (info->user_data_len > 4) && (info->user_data_len < 100)) {
+			if ((info->user_data_len > 4) && (info->user_data_len < 100)) {
 				int i;
-				ccDataLen = (int)info->user_data_len;
-//				dump_data(info->user_data, (int)info->user_data_len);
-				for (i=0; i<ccDataLen; i++) {
-					ccData[i] = info->user_data[i];
+				if (reorderCC) {
+					if (prevfield_t == 'B' && field_t == 'B') {
+						if (prevccDataLen != 0)
+							prevccDataLen = prevccDataLen;
+						prevccDataLen = (int)info->user_data_len;
+						for (i=0; i<ccDataLen; i++) {
+							prevccData[i] = info->user_data[i];
+						}
+						prevframeno = framenum;
+					} else {
+						
+						ccDataLen = (int)info->user_data_len;
+						for (i=0; i<ccDataLen; i++) {
+							ccData[i] = info->user_data[i];
+						}
+						dump_data(ccData, (int)ccDataLen);
+						if (output_srt)
+							process_block(ccData, (int)ccDataLen);
+						if (processCC) ProcessCCData();
+						
+						if (field_t == 'B' && prevfield_t != 'B') {
+							ft = field_t;
+							field_t = 'B';
+							ccDataLen = prevccDataLen;
+							for (i=0; i<prevccDataLen; i++) {
+								ccData[i] = prevccData[i];
+							}
+							f = framenum;
+							framenum = prevframeno;
+							dump_data(ccData, (int)ccDataLen);
+							if (output_srt)
+								process_block(ccData, (int)ccDataLen);
+							if (processCC) ProcessCCData();
+							field_t = ft;
+							framenum = f;
+							prevccDataLen = 0;
+						}
+					}
+					prevfield_t = field_t;
+				} else {
+					ccDataLen = (int)info->user_data_len;
+					for (i=0; i<ccDataLen; i++) {
+						ccData[i] = info->user_data[i];
+					}
+					dump_data(ccData, (int)ccDataLen);
+					if (output_srt)
+						process_block(ccData, (int)ccDataLen);
+					if (processCC) ProcessCCData();
 				}
-				ProcessCCData();
 			}
+			else
+				break;
 			break;
 		}
     }
@@ -1607,7 +1846,7 @@ static void ps_loop (void)
 //    uint8_t *	buffer = (uint8_t *) malloc (buffer_size);
     uint8_t *	end;
 	int retries = 0;
-    buffer = (uint8_t *) malloc (buffer_size);
+    buffer = (uint8_t *) av_malloc (buffer_size);
 
     if (buffer == NULL)
 	exit (2);
@@ -1659,7 +1898,7 @@ dosleep:
 	} while (end == buffer + buffer_size && !sigint && !csFound);
 	Debug( 11,"Read only %d bytes, stopping\n", end - buffer, retries);
 
-    free (buffer);
+    av_free (buffer);
 }
 
 int pnum[40];
@@ -1832,11 +2071,45 @@ void GetPMT(uint8_t * buf, int pid)
 				pcr = pid_pcr[i];
 				pid = pid_pid[i];
 				for (i = 0; i < last_pid; i++) {
-					if (pid_pid[i] == pid && pid_pcr[i] == pcr && (pid_type[i] == 3 || pid_type[i] == 4 || pid_type[i] == 6 || pid_type[i] == 129)) {
+					if (pid_pid[i] == pid && pid_pcr[i] == pcr && (pid_type[i] == 15)) {
 						if ((selected_audio_pid == 0 || frames_without_sound > 50) && selected_audio_pid != pids[i]) {
 							if (top_pid_count[pids[i]] != 0) {
 								frames_without_sound = 0;
 								selected_audio_pid = pids[i];
+								if (pid_type[i] == 15)
+									is_AAC = 1;
+								Debug( 1,"%8i: Auto selected audio pid = %4x\n", (int)filepos, selected_audio_pid);
+								found_pids = 1;
+							//							csRestart = 1;
+								return;
+							}
+						}
+					}
+				}
+				for (i = 0; i < last_pid; i++) {
+					if (pid_pid[i] == pid && pid_pcr[i] == pcr && (pid_type[i] == 129)) {
+						if ((selected_audio_pid == 0 || frames_without_sound > 50) && selected_audio_pid != pids[i]) {
+							if (top_pid_count[pids[i]] != 0) {
+								frames_without_sound = 0;
+								selected_audio_pid = pids[i];
+								if (pid_type[i] == 15)
+									is_AAC = 1;
+								Debug( 1,"%8i: Auto selected audio pid = %4x\n", (int)filepos, selected_audio_pid);
+								found_pids = 1;
+							//							csRestart = 1;
+								return;
+							}
+						}
+					}
+				}
+				for (i = 0; i < last_pid; i++) {
+					if (pid_pid[i] == pid && pid_pcr[i] == pcr && (pid_type[i] == 3 || pid_type[i] == 4 || pid_type[i] == 6)) {
+						if ((selected_audio_pid == 0 || frames_without_sound > 50) && selected_audio_pid != pids[i]) {
+							if (top_pid_count[pids[i]] != 0) {
+								frames_without_sound = 0;
+								selected_audio_pid = pids[i];
+								if (pid_type[i] == 15)
+									is_AAC = 1;
 								Debug( 1,"%8i: Auto selected audio pid = %4x\n", (int)filepos, selected_audio_pid);
 								found_pids = 1;
 							//							csRestart = 1;
@@ -1870,7 +2143,7 @@ static void ts_loop (void)
 write_buf = storage_buf;
 read_buf = storage_buf;
 
-	buffer = (uint8_t *) malloc (buffer_size);
+	buffer = (uint8_t *) av_malloc (buffer_size);
     if (buffer == NULL || buffer_size < 188)
 		exit (1);
     buf = buffer;
@@ -2035,10 +2308,14 @@ dosleep:
 				} else
 				for (i = 0; i < last_pid; i++) {
 					if (pid == pids[i] || selected_video_pid == pid) {
-						if (selected_video_pid != pid && (pid_type[i] == 3 || pid_type[i] == 4 ||  pid_type[i] == 6|| pid_type[i] == 129)) {
+						if (selected_video_pid != pid && (pid_type[i] == 3 || pid_type[i] == 4 ||  pid_type[i] == 6 || pid_type[i] == 15 || pid_type[i] == 129)) {
 
 							if (first_pmt && PMT_failed > 4 && selected_video_pid && selected_audio_pid == 0) {
 								selected_audio_pid = pid;
+								if (pid_type[i] == 15)
+									is_AAC = 1;
+								if (pid_type[i] == 129)
+									is_AC3 = 1;
 								Debug( 1,"%8i:Auto selected audio pid = %4x\n", (int) filepos, pid);
 								found_pids=1;
 //								csRestart = 1;
@@ -2050,10 +2327,12 @@ dosleep:
 								break;
 							}
 						} else
-						if (pid_type[i] == 1 || pid_type[i] == 2 || selected_video_pid == pid ) {
+						if (pid_type[i] == 1 || pid_type[i] == 2 || pid_type[i] == 27 || selected_video_pid == pid ) {
 							if (demux_pid == 1 && selected_video_pid != pid && top_pid_pid == pid) {
 								selected_video_pid = pid;
 								demux_pid = pid;
+								if (pid_type[i] == 27)
+									is_h264 = 1;
 								Debug( 1,"%8i:Auto selected video pid = %4x\n", (int) filepos, demux_pid);
 								selection_restart_count++;
 								if (selection_restart_count < 2)
@@ -2061,7 +2340,10 @@ dosleep:
 							}
 							if (selected_video_pid == pid) {
 								Debug( 12,"%8i:Demux video pid = %4x\n",(int)filepos, pid);
-								demux (data, nextbuf, (buf[1] & 0x40) ? DEMUX_PAYLOAD_START : demuxparm);
+//								if (is_h264) {
+//									decode_h264(data, nextbuf);
+//								} else 
+									demux (data, nextbuf, (buf[1] & 0x40) ? DEMUX_PAYLOAD_START : demuxparm);
 								break;
 							}
 						}
@@ -2076,7 +2358,7 @@ dosleep:
 		memcpy (buffer, buf, end - buf);
 		buf = buffer + (end - buf);
     } while (!sigint  && !csFound);
-    free (buffer);
+    av_free (buffer);
 }
  
 
@@ -2259,9 +2541,9 @@ int main (int argc, char ** argv)
 	char *ptr;
 	size_t len;
 #ifndef _DEBUG
-//	__try
+//	__tr y
 	{
-		//      raise_exception();
+		//      raise_ exception();
 #endif
 
 //		output_debugwindow = 1;
@@ -2306,7 +2588,9 @@ int main (int argc, char ** argv)
 			" - by Michel Lespinasse <walken@zoy.org> and Aaron Holtzman\n");
 		
 		in_file = LoadSettings(argc, argv); 
-		
+
+		Load_libavcodec();
+
 		FSEEK(in_file, (__int64)0, SEEK_END);
 		fileendpos = FTELL(in_file);
 		
@@ -2357,7 +2641,7 @@ int main (int argc, char ** argv)
             result = 3;
 			Debug(0,"Video PID not found, available video PID's ");
 			for (i = 0; i < last_pid; i++) {
-				if (pid_type[i] == 1 || pid_type[i] == 2 ) {
+				if (pid_type[i] == 1 || pid_type[i] == 2 || pid_type[i] == 27 ) {
 					Debug(0, "%x, ", pids[i]);
 				}
 			}
@@ -2406,7 +2690,7 @@ int main (int argc, char ** argv)
 
 #ifndef _DEBUG
 	}
-//	__except(filter()) /* Stage 3 */
+//	__exc ept(filter()) /* Stage 3 */
 //	{
 //      printf("Exception raised, terminating\n");/* Stage 5 of terminating exception */
 //		exit(result);

@@ -81,7 +81,7 @@ static inline uint64_t ByteSwap64(uint64_t x)
 #define bswap_64(x) ByteSwap64(x)
 
 #else
-#include <stdint.h>
+// #include <stdint.h>
 
 #define bswap_16(x) (((x) & 0x00ff) << 8 | ((x) & 0xff00) >> 8)
 			

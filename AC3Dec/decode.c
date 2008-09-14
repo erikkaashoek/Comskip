@@ -45,6 +45,61 @@ static sint_16 s16_samples[2 * 6 * 256];
 static uint_8 buffer[BUFFER_MAX_SIZE];
 static sint_32 buffer_size;
 
+
+
+int test_AC3_frame(uint_8 *start, uint_8 *end)
+{
+	syncinfo_t syncinfo;
+	uint_8 *cur = start;
+	uint_8 *frame;
+	uint_16 syncword = 0xffff;
+	uint_32 ret = 0;
+
+	// find an ac3 sync frame
+resync:
+	syncword = 0xffff;
+	while(syncword != 0x0b77)
+	{
+		if(cur >= end) {
+			goto done;
+		}
+		syncword = (syncword << 8) + *cur++;
+	}
+
+	frame = cur;
+	if (&cur[3] > end)
+		goto done;
+
+	parse_syncinfo(&syncinfo, frame);
+
+	if (syncinfo.frame_size==0) {		// CRITICAL CONDITION
+		goto resync;
+	}
+
+	cur = &cur[3];
+
+	if (&cur[(syncinfo.frame_size<<1) - 2] > end)
+		goto done;
+
+	// check the crc over the entire frame
+	if (crc_process_frame(frame, (syncinfo.frame_size<<1) - 2))
+	{
+		syncword = 0xffff;
+		goto resync;
+	}
+	cur = &frame[(syncinfo.frame_size<<1) - 2];
+	if (&cur[2] > end)
+		goto done;
+	if (cur[0] != 0x0b || cur[1] != 0x77)
+		goto done;
+	ret = 1;
+done:
+	// reset the syncword for next time
+	syncword = 0xffff;
+	return ret;
+}
+
+
 uint_32 decode_buffer_syncframe(syncinfo_t *syncinfo, uint_8 **start, uint_8 *end)
 {
 	uint_8 *cur = *start;

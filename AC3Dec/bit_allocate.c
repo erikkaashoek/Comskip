@@ -141,7 +141,7 @@ static sint_16 sdecay;
 static sint_16 fdecay;
 static sint_16 sgain;
 static sint_16 dbknee;
-static sint_16 floor;
+static sint_16 lfloor;
 static sint_16 psd[256];
 static sint_16 bndpsd[256];
 static sint_16 excite[256];
@@ -179,7 +179,7 @@ void bit_allocate(uint_16 fscod, bsi_t *bsi, audblk_t *audblk)
 	fdecay = fastdec[audblk->fdcycod];
 	sgain = slowgain[audblk->sgaincod]; 
 	dbknee = dbpbtab[audblk->dbpbcod]; 
-	floor = floortab[audblk->floorcod]; 
+	lfloor = floortab[audblk->floorcod]; 
 
 	/* if all the SNR offset constants are zero then the whole block is zero */
 	if(!audblk->csnroffst && !audblk->fsnroffst[0] && 
@@ -416,13 +416,13 @@ static void ba_compute_bap(sint_16 start, sint_16 end, sint_16 snroffset,
 	{ 
 		lastbin = minvalue(bndtab[j] + bndsz[j], end); 
 		mask[j] -= snroffset; 
-		mask[j] -= floor; 
+		mask[j] -= lfloor; 
 		
 		if (mask[j] < 0) 
 			mask[j] = 0; 
 
 		mask[j] &= 0x1fe0;
-		mask[j] += floor; 
+		mask[j] += lfloor; 
 		for (k = i; k < lastbin; k++) 
 		{ 
 			address = (psd[i] - mask[j]) >> 5; 
