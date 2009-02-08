@@ -26,7 +26,7 @@
 #include <stdlib.h>
 #include <inttypes.h>
 
-#include "config.h"
+#include "libmpeg2\config.h"
 
 
 #include "mpeg2.h"

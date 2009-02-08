@@ -32,7 +32,7 @@
 #include <sys/stat.h>
 #include <fcntl.h>
 #include "config.h"
-#include "mpeg2.h"
+#include "libmpeg2\mpeg2.h"
 //#include "mpeg2convert.h"
 #include "argtable2.h"
 #include "comskip.h"
@@ -98,6 +98,7 @@ FILE*			avisynth_file = NULL;
 FILE*			videoredo_file = NULL;
 FILE*			btv_file = NULL;
 FILE*			edl_file = NULL;
+FILE*			ipodchap_file = NULL;
 FILE*			edlp_file = NULL;
 FILE*			bcf_file = NULL;
 FILE*			edlx_file = NULL;
@@ -528,6 +529,9 @@ double				logo_fraction = 0.40;
 int					commDetectMethod = BLACK_FRAME + LOGO + RESOLUTION_CHANGE +  AR + SILENCE; // + CC
 int					giveUpOnLogoSearch = 2000;			// If no logo is identified after x seconds into the show - give up.
 bool				cut_on_ar_change = 1;
+int					added_recording = 14;
+int					after_start = 0;
+int					before_end = 0;
 int					delete_show_after_last_commercial = false;
 int					delete_show_before_first_commercial = false;
 int					delete_block_after_commercial = 0;
@@ -546,6 +550,7 @@ bool				output_plist_cutlist = false;
 bool				output_zoomplayer_cutlist = false;
 bool				output_zoomplayer_chapter = false;
 bool				output_videoredo = false;
+bool				output_ipodchap = false;
 int					videoredo_offset = 2;
 bool				output_edl = false;
 bool				output_edlp = false;
@@ -977,10 +982,10 @@ double ValidateBlackFrames(long reason, double ratio, int remove) {
 				if (incommercial)
 				{
 					incommercial = 0;
-					if (summed_length < min_commercialbreak && summed_length > 4.7 && black[(i+k)/2].frame < frame_count * 6 / 7 )
+					if (summed_length < min_commercialbreak && summed_length > 4.7 && black[(i+k)/2].frame < frame_count * 6 / 7  && black[last].frame > frame_count * 1 / 7 )
 					{
 						negative_count++;
-						Debug (10,"Negative %s cutpoint at %6i\n", r,black[(i+k)/2].frame);
+						Debug (10,"Negative %s cutpoint at %6i, commercial too short\n", r,black[last].frame);
 					} else
 						positive_count++;
 					summed_length = 0.0;
@@ -990,10 +995,13 @@ double ValidateBlackFrames(long reason, double ratio, int remove) {
 				summed_length = 0.0;
 			} else {
 				summed_length += length;
-				if (incommercial && summed_length > max_commercialbreak)
+				if (incommercial && summed_length > max_commercialbreak )
 				{
-					negative_count++;
-					Debug (10,"Negative %s cutpoint at %6i\n", r,black[(i+k)/2].frame);
+					if (black[(i+k)/2].frame < frame_count * 6 / 7)
+					{
+						negative_count++;
+						Debug (10,"Negative %s cutpoint at %6i, commercial too long\n", r,black[(i+k)/2].frame);
+					}
 				} else {
 					positive_count++;
 					incommercial = 1;
@@ -2742,6 +2750,7 @@ int DetectCommercials(int f) {
 				(frame_count - logo_block[logo_block_count-1].end) > (int)( max_commercialbreak * fps * 1.2 ) &&
 				(double)frames_with_logo / (double)frame_count < 0.5
 				) {
+				Debug(6, "\nNo Logo in frames %i to %i, restarting Logo search.\n", logo_block[logo_block_count-1].end, frame_count);
 				// First logo found but no logo found after first commercial cblock so search new logo
 				logoInfoAvailable = false;
 				secondLogoSearch = true;
@@ -3088,10 +3097,11 @@ try_again:
 				i += a;
 			}
 			a = 0;
+			Debug(9, "Vol: Frames\n", i*10, silenceHistogram[i]);
 			for (i = 0; i < 255; i++) {
 				a += silenceHistogram[i];
 				if (silenceHistogram[i] > 0)
-					Debug(9, "%2d: %d\n", i, silenceHistogram[i]);
+					Debug(9, "%3d: %d\n", i*10, silenceHistogram[i]);
 
 			}
 			a = a * 6 / 10;
@@ -3104,11 +3114,14 @@ try_again:
 			Debug(7, "Calculated silence level = %d\n", ms);
 			if (ms > 0 && ms < 30)
 				ms = 30;
+			if (ms < 50)
+				mv = 2 * ms;
+			else
 			if (ms < 100)
-				mv = 4 * ms;
+				mv = 2 * ms;
 			else
 			if (ms < 200)
-				mv = 3 * ms;
+				mv = 2 * ms;
 			else
 				mv = 2 * ms;
 		}
@@ -3125,7 +3138,13 @@ try_again:
 
 	if (max_silence < min_volume + 30)
 		max_silence = min_volume + 30;
-	if (max_volume < min_volume + 150)
+
+	if (max_volume < 100) {
+		if ( max_volume < min_volume + 30)
+			max_volume = min_volume + 30;
+	}
+	else
+	if (max_volume < min_volume + 100)
 		max_volume = min_volume + 100;
 	
 	if (max_volume == 0) {
@@ -3246,6 +3265,17 @@ scanagain:
 					continue;			// Don't do anything if too close
 				if (i == logo_block_count-1 && frame_count - logo_block[i].end < max_commercialbreak * fps/4)
 					continue;			// Don't do anything if too close
+				if (after_logo==999) {
+					j = logo_block[i].end;
+					InsertBlackFrame(j,frame[j].brightness,frame[j].uniform,frame[j].volume, C_l);
+					Debug(
+						3,
+						"Frame %6i - Cutpoint added when Logo disappears\n",
+						j
+					);
+					continue;
+				}
+
 				j = logo_block[i].end + (int)(after_logo * fps);
 				if ( j > frame_count)
 					j = frame_count-1;
@@ -3296,6 +3326,17 @@ scanagain:
 					continue;
 				if (i == 0 && logo_block[i].start < max_commercialbreak * fps/4)
 					continue;
+				if (before_logo==999) {
+					j = logo_block[i].start;
+					InsertBlackFrame(j,frame[j].brightness,frame[j].uniform,frame[j].volume, C_l);
+					Debug(
+						3,
+						"Frame %6i - Cutpoint added when Logo appears\n",
+						j
+					);
+
+					continue;
+				}
 
 				j = logo_block[i].start - (int)(before_logo * fps);
 				if ( j < 1)
@@ -3844,6 +3885,8 @@ void WeighBlocks(void) {
 	Debug(5, "\nFuzzy scoring of the blocks\n---------------------------\n");
 
 
+	after_start = added_recording * fps * 60;
+	before_end  = cblock[block_count-1].f_end - 2* added_recording * fps * 60;
 
 
 
@@ -4393,8 +4436,8 @@ expand:
 				 (combined_length < min_show_segment_length / 1.5 && wscore > 0.3) ) &&
 				 cblock[j].score > 1.4 &&
 				(combined_length < min_show_segment_length / 3 || 
-				(cblock[i].f_start > cblock[block_count-1].f_end/8 &&
-				 cblock[j].f_end < cblock[block_count-1].f_end * 7/8))) { 
+				(cblock[i].f_start > after_start &&
+				 cblock[j].f_end < before_end))) { 
 				for (k = i+1; k < j; k++) {
 					cblock[k].score = 99.99;
 					Debug(3, "H1 Discarding cblock %i because too short and between two commercial blocks.\n",
@@ -4428,7 +4471,7 @@ expand:
 /*	
 	if (delete_show_before_or_after_current && logoPercentage == 0) { 
 		i = 0;
-		while (i < block_count-1 && cblock[i].score < 1.0 && cblock[i].f_end < cblock[block_count-1].f_end/6) {
+		while (i < block_count-1 && cblock[i].score < 1.0 && cblock[i].f_end < before_end) {
 			j = i+1;
 			k = 0;
 			while (cblock[j].score > 1.05 && k + cblock[j].length * fps < min_commercialbreak * fps && j < block_count-1) {
@@ -4459,7 +4502,7 @@ expand:
 			}
 		}
 		i = block_count-1;
-		while (i > 0 && cblock[i].score < 1.05 && cblock[i].f_start > cblock[block_count-1].f_end * 5/6) {
+		while (i > 0 && cblock[i].score < 1.05 && cblock[i].f_start > before_end) {
 			j = i-1;
 			k = 0;
 			while (cblock[j].score > 1.05 && k + cblock[j].length * fps < min_commercialbreak * fps && j >0) {
@@ -4499,11 +4542,11 @@ expand:
 /*		
 		for (i = 0; i < block_count-1; i++) {
 			if (cblock[i].score < 1.0 && cblock[i].logo > 0.2 && cblock[i+1].score < 1.0 && cblock[i+1].logo > 0.2 ) {
-				if (cblock[i].f_end < cblock[block_count-1].f_end/6) {
+				if (cblock[i].f_end < after_start) {
 					cblock[i].score = 99.99;
 					Debug(3, "Discarding cblock %i because cblock %i has also logo.\n",
 						i, i+1);
-				} else if (cblock[i+1].f_start > cblock[block_count-1].f_end * 5/6) { 
+				} else if (cblock[i+1].f_start > before_end) { 
 					cblock[i+1].score = 99.99;
 					Debug(3, "Discarding cblock %i because cblock %i has also logo.\n",
 						i+1, i);
@@ -4514,7 +4557,7 @@ expand:
 	if (!(disable_heuristics & (1 << (7 - 1)))) {
 		i = 0;
 		while (i < block_count-1 && cblock[i].score < 1.05 && 
-				((delete_show_before_or_after_current == 1 && cblock[i].f_end < cblock[block_count-1].f_end/6) ||
+				((delete_show_before_or_after_current == 1 && cblock[i].f_end < after_start) ||
 				 (delete_show_before_or_after_current > 1 && delete_show_before_or_after_current > cblock[i].length))) {
 			j = i+1;
 			k = 0;
@@ -4538,7 +4581,7 @@ expand:
 		
 		i = block_count-1;
 		while (i > 0 && cblock[i].score < 1.0 && 
-				((delete_show_before_or_after_current == 1 && cblock[i].f_start > cblock[block_count-1].f_end * 5/6) ||
+				((delete_show_before_or_after_current == 1 && cblock[i].f_start > before_end) ||
 				 (delete_show_before_or_after_current > 1 && delete_show_before_or_after_current > cblock[i].length))) {
 			j = i-1;
 			k = 0;
@@ -4573,11 +4616,11 @@ expand:
 					j++;
 				}
 				if (cblock[j].score < 1.0) {
-					if (cblock[j].f_start < cblock[block_count-1].f_end/6) {
+					if (cblock[j].f_start < after_start) {
 						cblock[i].score = 99.99;
 						Debug(3, "Discarding cblock %i because cblock %i has also logo and small non logo gap.\n",
 							i, j);
-					} else if (cblock[i].f_end > cblock[block_count-1].f_end * 5/6) { 
+					} else if (cblock[i].f_end > before_end) { 
 						cblock[j].score = 99.99;
 						Debug(3, "Discarding cblock %i because cblock %i has also logo and small non logo gap.\n",
 							j, i);
@@ -4589,14 +4632,14 @@ expand:
 	if (!(disable_heuristics & (1 << (3 - 1)))) {
 		for (i = 0; i < block_count-1; i++) {
 			if (cblock[i].score < 1.0 && cblock[i].logo < 0.1 && cblock[i].length > min_show_segment_length ) {
-				if (cblock[i].f_end < cblock[block_count-1].f_end /7) {
+				if (cblock[i].f_end < after_start) {
 					cblock[i].score *= 1.3;
 					Debug(3, "H3 Demoting cblock %i because cblock %i has no logo and others do.\n",
 						i, i);
 					cblock[i].cause |= C_H3;
 					cblock[i].more |= C_H3;
 
-				} else if (cblock[i].f_start > cblock[block_count-1].f_end * 6/7) { 
+				} else if (cblock[i].f_start > before_end) { 
 					cblock[i].score *= 1.3;
 					Debug(3, "Demoting cblock %i because cblock %i has no logo and others do.\n",
 						i, i);
@@ -4613,8 +4656,8 @@ expand:
 			if (logoPercentage > logo_fraction && 
 				cblock[i].score > 1.0 && cblock[i].logo < 0.1 && 
 				cblock[i].length > min_show_segment_length+4 ) {
-				if (cblock[i].f_start > cblock[block_count-1].f_end/7 &&
-					cblock[i].f_end   < cblock[block_count-1].f_end * 6/7 &&
+				if (cblock[i].f_start > after_start &&
+					cblock[i].f_end   < before_end &&
 					(cblock[i-1].score < 1.0 || cblock[i+1].score < 1.0 )) { 
 					cblock[i].score *= 0.5;
 					Debug(3, "Promoting cblock %i because cblock %i has no logo but long and in the middle of a show.\n",
@@ -4800,13 +4843,25 @@ void OpenOutputFiles()
 
 	if (output_edl) {
 		sprintf(filename, "%s.edl", basename);
-		edl_file = fopen(filename, "w");
+		edl_file = fopen(filename, "wb");
 		if (!edl_file) {
 			fprintf(stderr, "%s - could not create file %s\n", strerror(errno), filename);
 			exit(6);
 		} else {
 			output_edl = true;
 		}
+	}
+
+	if (output_ipodchap) {
+		sprintf(filename, "%s.chap", basename);
+		ipodchap_file = fopen(filename, "w");
+		if (!ipodchap_file) {
+			fprintf(stderr, "%s - could not create file %s\n", strerror(errno), filename);
+			exit(6);
+		} else {
+			output_ipodchap = true;
+		}
+		fprintf(ipodchap_file,"CHAPTER01=00:00:00.000\nCHAPTER01NAME=1\n");
 	}
 
 	if (output_edlp) {
@@ -4819,6 +4874,7 @@ void OpenOutputFiles()
 			output_edlp = true;
 		}
 	}
+
 
 	if (output_bsplayer) {
 		sprintf(filename, "%s.bcf", basename);
@@ -5097,7 +5153,7 @@ void OutputCommercialBlock(int i, long prev, long start, long end, bool last) {
 	}
 	//CLOSEOUTFILE(out_file);
 
-	if (zoomplayer_cutlist_file && prev < start) {
+	if (zoomplayer_cutlist_file && prev < start && end - start > 2) {
 		fprintf(zoomplayer_cutlist_file, "JumpSegment(\"From=%.4f\",\"To=%.4f\")\n", (start) / fps, (end) / fps);
 	}
 	CLOSEOUTFILE(zoomplayer_cutlist_file);
@@ -5119,12 +5175,12 @@ void OutputCommercialBlock(int i, long prev, long start, long end, bool last) {
 	}
 	CLOSEOUTFILE(zoomplayer_chapter_file);
 
-	if (vcf_file && prev < start && start - prev > 5 && prev > 0) {
+	if (vcf_file && prev < start && start - prev > 5 && prev > 0 ) {
 		fprintf(vcf_file, "VirtualDub.subset.AddRange(%i,%i);\n", prev-1, start - prev);
 	}
 	CLOSEOUTFILE(vcf_file);
 
-	if (vdr_file && prev < start) {
+	if (vdr_file && prev < start && end - start > 2) {
 		if (start < 5)
 			start = 0;
 		fprintf(vdr_file, "%s start\n",	dblSecondsToStrMinutes(start/fps ));
@@ -5147,7 +5203,7 @@ void OutputCommercialBlock(int i, long prev, long start, long end, bool last) {
 	}
 	CLOSEOUTFILE(avisynth_file);
 
-	if (videoredo_file && prev < start) {
+	if (videoredo_file && prev < start && end - start > 2) {
 		if (i == 0 && demux_pid)
 			fprintf(videoredo_file, "<VideoStreamPID>%d\n<AudioStreamPID>%d\n", selected_video_pid, selected_audio_pid);
 		s_start = max(start-videoredo_offset-1,0);
@@ -5168,7 +5224,7 @@ void OutputCommercialBlock(int i, long prev, long start, long end, bool last) {
 	}
 	CLOSEOUTFILE(btv_file);
 
-	if (edl_file && prev < start /* &&!last */) {
+	if (edl_file && prev < start /* &&!last */ && end - start > 2) {
 		if (start < 5)
 			start = 0;
 		if (demux_pid && enable_mencoder_pts) {
@@ -5179,20 +5235,26 @@ void OutputCommercialBlock(int i, long prev, long start, long end, bool last) {
 	}
 	CLOSEOUTFILE(edl_file);
 
-	if (edlp_file && prev < start /* &&!last */) {
+	if (ipodchap_file && prev < start /* &&!last */ && end - start > 2) {
+//		fprintf(ipodchap_file,"CHAPTER01=00:00:00.000\nCHAPTER01NAME=1\n");
+		fprintf(ipodchap_file, "CHAPTER%.2i=%s\nCHAPTER%.2iNAME=%d\n", i+2,dblSecondsToStrMinutes(((double)end) / fps), i+2, i+2 );
+	}
+	CLOSEOUTFILE(ipodchap_file);
+
+	if (edlp_file && prev < start /* &&!last */ && end - start > 2) {
 		if (start < 5)
 			start = 0;
 		fprintf(edlp_file, "%.2f\t%.2f\t0\n", (double)start / fps + initial_pts/ 90000.0, (double)end / fps  + initial_pts/ 90000.0);
 	}
 	CLOSEOUTFILE(edlp_file);
 
-	if (bcf_file && prev < start /* &&!last */) {
+	if (bcf_file && prev < start /* &&!last */ && end - start > 2) {
 		fprintf(bcf_file, "1,%.0f,%.0f\n", (double)start * 1000.0 / fps , (double)end * 1000.0 / fps );
 	}
 	CLOSEOUTFILE(bcf_file);
 
 	if (edlx_file) {
-		if (prev < start /* &&!last */) {
+		if (prev < start /* &&!last */ && end - start > 2) {
 			fprintf(edlx_file, "<region start=\"%I64d\" end=\"%I64d\"/> \n", frame[start].goppos, frame[end].goppos);
 		}
 		if (last) {
@@ -5242,7 +5304,7 @@ void OutputCommercialBlock(int i, long prev, long start, long end, bool last) {
 	if (mpgtx_file) {
 		if (!last) {
 			if (start - prev > 0) {
-				fprintf(mpgtx_file, "[%s-",	(prev == 0 ? "":intSecondsToStrMinutes( (int) (prev/fps ))));
+				fprintf(mpgtx_file, "[%s-",	(prev < fps ? "":intSecondsToStrMinutes( (int) (prev/fps ))));
 				fprintf(mpgtx_file, "%s] ", intSecondsToStrMinutes( (int) (start/fps)));
 			}
 		} else {
@@ -5265,7 +5327,7 @@ void OutputCommercialBlock(int i, long prev, long start, long end, bool last) {
 	CLOSEOUTFILE(dvrcut_file);
 
 	if (dvrmstb_file) {
-		if (end - start > 0) {
+		if (end - start > 1) {
 			if (start == 1) start = 0;
 			fprintf(dvrmstb_file, "  <commercial start=\"%f\" end=\"%f\" />\n", start/fps, end/fps);
 		}
@@ -5276,7 +5338,7 @@ void OutputCommercialBlock(int i, long prev, long start, long end, bool last) {
 	CLOSEOUTFILE(dvrmstb_file);
 
 	if (mpeg2schnitt_file) {
-		if (end - start > 0) {
+		if (end - start > 1) {
 			fprintf(mpeg2schnitt_file, "/o%ld ",	start);
 			fprintf(mpeg2schnitt_file, "/i%ld ", end);
 		}
@@ -5497,6 +5559,9 @@ bool OutputBlocks(void) {
 
 #if 1
 
+
+
+
 	if (!(disable_heuristics & (1 << (6 - 1)))) {
 		
 		// Delete too long/short commercials
@@ -5563,8 +5628,8 @@ bool OutputBlocks(void) {
 	// Delete too short shows
 	for (k = commercial_count-1; k >= 0; k--) {
 		if ( commercial[k+1].start_frame - commercial[k].end_frame < min_show_segment_length / 2.5 * fps ||
-			 (commercial[k].end_frame > cblock[block_count-1].f_end * 1/6 &&
-			  commercial[k].end_frame < cblock[block_count-1].f_end * 5/6 &&
+			 (commercial[k].end_frame > after_start &&
+			  commercial[k].end_frame < before_end &&
 			  commercial[k+1].start_frame - commercial[k].end_frame < min_show_segment_length  * fps)
 			) {
 			for (i = commercial[k].end_block+1; i < commercial[k+1].start_block; i++) {
@@ -5589,8 +5654,8 @@ bool OutputBlocks(void) {
 	if (delete_show_after_last_commercial &&
 		commercial_count > -1 && 
 	//	( commercial[commercial_count].end_block == block_count - 2 || commercial[commercial_count].end_block == block_count - 3) && 
-		((delete_show_after_last_commercial == 1 && cblock[commercial[commercial_count].end_block].f_start > cblock[block_count-1].f_end * 8/9) ||
-		 (delete_show_after_last_commercial * fps > cblock[block_count-1].f_end - cblock[commercial[commercial_count].end_block].f_start) )
+		((delete_show_after_last_commercial == 1 && cblock[commercial[commercial_count].start_block].f_end > before_end) ||
+		 (delete_show_after_last_commercial * fps > cblock[block_count-1].f_end - cblock[commercial[commercial_count].start_block].f_start) )
 
 		&&
 		commercial[commercial_count].end_block < block_count-1
@@ -5614,8 +5679,8 @@ bool OutputBlocks(void) {
 	if (delete_show_before_first_commercial &&
 		commercial_count > -1 && 
 		commercial[0].start_block == 1 && 
-		((delete_show_before_first_commercial == 1 && cblock[0].f_end < cblock[block_count-1].f_end * 1/8) ||
-		(delete_show_before_first_commercial * fps > cblock[0].f_end))
+		((delete_show_before_first_commercial == 1 && cblock[commercial[commercial_count].end_block].f_end < after_start) ||
+		(delete_show_before_first_commercial * fps > cblock[commercial[commercial_count].end_block].f_end))
 		) {
 		commercial[0].start_block = 0;		
 		commercial[0].start_frame = cblock[0].f_start/* + (cblock[i + 1].bframe_count / 2)*/;
@@ -5911,9 +5976,9 @@ void OutputTraining() {
 
 #else
 
-#define TRAINING_LAYOUT	"%3d,%c,%c,%7.2f,%7.2f,%7li,%7li,%5.2f,%5.2f,\"%10s\",\"%10s\",\"%10s\",\"%s\"\n"
+#define TRAINING_LAYOUT	"%3d,%c,%c,%7.2f,%7.2f,%7.2f,%7.2f,%7.2f,%5.2f,%5.2f,\"%10s\",\"%10s\",\"%10s\",\"%s\"\n"
 
-	fprintf(training_file, "block, cm,rf, score, length, start, end, ar, logo, cause, less, more\n");
+	fprintf(training_file, "block, cm,rf, score, length, start, end, fromend ar, logo, cause, less, more\n");
 
 	for (i = 0; i < block_count; i++) {
 		if (output_training) {
@@ -5923,8 +5988,9 @@ void OutputTraining() {
 				CheckFramesForReffer(cblock[i].f_start+cblock[i].b_head,cblock[i].f_end - cblock[i].b_tail),
 				cblock[i].score,
 				cblock[i].length,
-				cblock[i].f_start,
-				cblock[i].f_end,
+				cblock[i].f_start/fps,
+				cblock[i].f_end/fps,
+				(cblock[block_count-1].f_end - cblock[i].f_end)/fps,
 				cblock[i].ar_ratio,
 				cblock[i].logo,
 				CauseString(cblock[i].cause),
@@ -6351,6 +6417,7 @@ void LoadIniFile() {
 		if ((tmp = FindNumber(data, "padding=", (double) padding)) > -1) padding = (int)tmp;
 		if ((tmp = FindNumber(data, "remove_before=", (double) remove_before)) > -1) remove_before = (int)tmp;
 		if ((tmp = FindNumber(data, "remove_after=", (double) remove_after)) > -1) remove_after = (int)tmp;
+		if ((tmp = FindNumber(data, "added_recording=", (double) added_recording)) > -1) added_recording = (int)tmp;
 		if ((tmp = FindNumber(data, "delete_show_after_last_commercial=", (double) delete_show_after_last_commercial)) > -1) delete_show_after_last_commercial = (int)tmp;
 		if ((tmp = FindNumber(data, "delete_show_before_first_commercial=", (double) delete_show_before_first_commercial)) > -1) delete_show_before_first_commercial = (int)tmp;
 		if ((tmp = FindNumber(data, "delete_show_before_or_after_current=", (double) delete_show_before_or_after_current)) > -1) delete_show_before_or_after_current = (int)tmp;
@@ -6445,6 +6512,7 @@ void LoadIniFile() {
 		if ((tmp = FindNumber(data, "output_mpgtx=", (double) output_mpgtx)) > -1) output_mpgtx = (bool) tmp;
 		if ((tmp = FindNumber(data, "output_dvrmstb=", (double) output_dvrmstb)) > -1) output_dvrmstb = (bool) tmp;
 		if ((tmp = FindNumber(data, "output_dvrcut=", (double) output_dvrcut)) > -1) output_dvrcut = (bool) tmp;
+		if ((tmp = FindNumber(data, "output_ipodchap=", (double) output_ipodchap)) > -1) output_ipodchap = (bool) tmp;
 		if ((tmp = FindNumber(data, "output_framearray=", (double) output_framearray)) > -1) output_framearray = (bool) tmp;
 		if ((tmp = FindNumber(data, "output_debugwindow=", (double) output_debugwindow)) > -1) output_debugwindow = (bool) tmp;
 		if ((tmp = FindNumber(data, "output_tuning=", (double) output_tuning)) > -1) output_tuning = (bool) tmp;
@@ -6516,7 +6584,7 @@ FILE* LoadSettings(int argc, char ** argv) {
 	FILE*				logo_file = NULL;
 	FILE*				log_file = NULL;
 	FILE*				test_file = NULL;
-	char *CEW_argv[2];
+	char *CEW_argv[10];
 	size_t				len = 0;
 	double				tmp;
 	int					i = 0;
@@ -6954,7 +7022,7 @@ FILE* LoadSettings(int argc, char ** argv) {
 	}
 
 	if (commDetectMethod & CUTSCENE) {
-		commDetectMethod &= ~SCENE_CHANGE;
+//		commDetectMethod &= ~SCENE_CHANGE;
 	}
 
 	if (commDetectMethod & SCENE_CHANGE) {
@@ -7018,7 +7086,7 @@ FILE* LoadSettings(int argc, char ** argv) {
 		}
 	}
 
-	out_file = plist_cutlist_file = zoomplayer_cutlist_file = zoomplayer_chapter_file = vcf_file = vdr_file = projectx_file = avisynth_file = cuttermaran_file = videoredo_file = btv_file = edl_file = edlp_file = edlx_file = mls_file = womble_file = mpgtx_file = dvrcut_file = dvrmstb_file = tuning_file = training_file = 0L;
+	out_file = plist_cutlist_file = zoomplayer_cutlist_file = zoomplayer_chapter_file = vcf_file = vdr_file = projectx_file = avisynth_file = cuttermaran_file = videoredo_file = btv_file = edl_file = ipodchap_file = edlp_file = edlx_file = mls_file = womble_file = mpgtx_file = dvrcut_file = dvrmstb_file = tuning_file = training_file = 0L;
 
 	if (cl_output_plist->count)
 		output_plist_cutlist = true;
@@ -7996,7 +8064,7 @@ void PrintLogoFrameGroups(void) {
 		if (f<0) f = 0;
 		if (t<0) t = 0;
 		if (t < 0) {
-			Debug (2, "Panic\n");
+			Debug (2, "Panic\n"); 
 			break;
 		}
 		if (f < 0) {
@@ -10966,9 +11034,10 @@ int baseXDS = 0;
 
 char *ratingSystem[4] = { "MPAA", "TPG", "CE", "CF" };
 
+#define MAXXDSBUFFER	1024
 void AddXDS(unsigned char hi, unsigned char lo)
 {
-	static unsigned char XDSbuf[256];
+	static unsigned char XDSbuf[MAXXDSBUFFER];
 	static int c = 0;
 	int i,j;
 	int newXDS = 0;
@@ -10990,6 +11059,14 @@ void AddXDS(unsigned char hi, unsigned char lo)
 		return;
 	if (hi == 0x86 && (lo == 0x02 || lo == 1))
 		return;
+	if (c >= MAXXDSBUFFER - 4)
+	{
+		for (i = 0; i < 256; i++)
+			XDSbuf[i]=0;
+		c = 0;
+		startXDS = 1;
+		return;
+	}
 	XDSbuf[c++] = hi;
 	XDSbuf[c++] = lo;
 	if (hi == 0x8f) {
@@ -12163,7 +12240,7 @@ void BuildCommListAsYouGo(void) {
 			}
 			if (output_edl) {
 				sprintf(filename, "%s.edl", basename);
-				edl_file = fopen(filename, "w");
+				edl_file = fopen(filename, "wb");
 				if (!edl_file) {
 					Sleep(50L);
 					edl_file = fopen(filename, "w");

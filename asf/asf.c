@@ -516,6 +516,10 @@ int ASF_Demux( demux_t *p_demux )
 	p_demux = &asf_demux;
     p_sys = p_demux->p_sys;
 
+	if (p_sys == 0) {
+        msg_Err( p_demux, "failed to find the stream" );
+		return 0;
+	}
     do
     {
         uint8_t *p_peek;

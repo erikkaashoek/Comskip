@@ -25,7 +25,7 @@
 
 #include "gettimeofday.h"
 
-#ifdef CUSTOM_GETTIMEOFDAY
+#ifdef WIN32
 
 #include <sys/timeb.h>
 

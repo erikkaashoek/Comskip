@@ -22,7 +22,9 @@
  */
 #ifdef _WIN32
 #include <windows.h>
+#include <stdio.h>
 #include <io.h>
+#include <conio.h>
 #include<excpt.h>
 #endif
 
@@ -43,7 +45,7 @@
 #endif
 #include <inttypes.h>
 
-#include "mpeg2.h"
+#include "libmpeg2/mpeg2.h"
 #include "AC3Dec/ac3.h"
 
 //#include "mpeg2convert.h"
@@ -248,6 +250,7 @@ static int max_volume_found = 0;
 int ms_audio_delay = 5;
 int tracks_without_sound = 0;
 int frames_without_sound = 0;
+#define MAX_FRAMES_WITHOUT_SOUND	50
 int frames_with_loud_sound = 0;
 
 extern int faad_sample_rate;
@@ -255,6 +258,7 @@ void sound_to_frames(short *buffer, int samples)
 {
 static __int64 expected_apts = 0;
 static int old_is_AC3 = -2;
+static int old_is_AAC = -2;
 	
 	int i;
 	int volume;
@@ -263,14 +267,15 @@ static int old_is_AC3 = -2;
 
 	if (!samples)
 		return;
-	if (old_is_AC3 != is_AC3) {
+	if (old_is_AC3 != is_AC3 || old_is_AAC != is_AAC) {
 		if (is_AAC)
-			Debug(6, "AAC sound at %d khz\n", sampling_rate/1000);
+			Debug(6, "AAC sound at %d khz\n", faad_sample_rate/1000);
 		else if (is_AC3)
 			Debug(6, "AC3 sound at %d khz\n", sampling_rate/1000);
 		else
 			Debug(6, "MPEG2 sound at %d khz\n", get_samplerate()/1000);
 		old_is_AC3 = is_AC3;
+		old_is_AAC = is_AAC;
 	}
 
 	if (is_AAC)
@@ -304,7 +309,7 @@ static int old_is_AC3 = -2;
 		
 		if (volume == 0)
 			frames_without_sound++;
-		if (volume > 10000) {
+		if (volume > 20000) {
 			if (volume > 256000)
 				volume = 220000;
 			frames_with_loud_sound++;
@@ -327,9 +332,9 @@ static int old_is_AC3 = -2;
 				DUMP_TIMING("a skip    ", (__int64)0,(__int64)0,apts);
 			}
 		}
-		
-		DUMP_TIMING("a         ", (__int64)0,(__int64)0,apts);
 
+
+		DUMP_TIMING("a         ", (__int64)0,(__int64)0,apts);
 
 		delta = (__int64)(apts/PTS_FRAME) - (__int64)(pts/PTS_FRAME);
 		if (-max_internal_repair_size < delta && delta < max_internal_repair_size && sound_frame_counter != delta + framenum) {
@@ -390,14 +395,14 @@ static int min_buffer = 4000;
 	}
 	avail_bytes = write_buf - read_buf;
 
-	if (frames_with_loud_sound > 50 && !is_AC3) {
-		frames_with_loud_sound = 0;
-		is_AC3 = 1;
-	}
-	if (tracks_without_sound > 2 ) {
-		tracks_without_sound = 0;
-		is_AC3 = ! is_AC3;
-	}
+//	if (frames_with_loud_sound > MAX_FRAMES_WITHOUT_SOUND && !is_AC3) {
+//		is_AC3 = 1;
+//		frames_with_loud_sound = 0;
+//	}
+//	if (tracks_without_sound > 2 ) {
+//		tracks_without_sound = 0;
+//		is_AC3 = ! is_AC3;
+//	}
 	done_bytes = 1;
 need_more:
 	while ( avail_bytes > min_buffer && done_bytes) {
@@ -406,17 +411,31 @@ need_more:
 //		if (faac_test_frame(read_buf, write_buf - read_buf)) {
 //			is_AAC = 1;
 //		} else 
-		if (test_AC3_frame(read_buf, write_buf))
+
+		if (test_AC3_frame(read_buf, write_buf)) {
 			is_AC3 = 1;
+			is_AAC = 0;
+		}
+		else
+		{
+			if (is_AC3)
+				is_AAC = 1;
+			is_AC3 = 0;
+		}
+
 		if (is_AAC) {
 			done_bytes = faac_decode_frame(audio_buffer_ptr, &samples, read_buf, write_buf - read_buf );		\
-			if (done_bytes < 0)
+			if (done_bytes < 0) {
+				if (done_bytes == -2)
+					is_AAC = 0;
 				done_bytes = write_buf - read_buf; 
+			}
 		}
 		else
 		if (is_AC3) {
 try_AC3:
-			done_bytes = ac3_decode_data(read_buf, write_buf - read_buf, &samples , audio_buffer_ptr);		\
+//			done_bytes = 0;
+			done_bytes = ac3_decode_data(read_buf, write_buf - read_buf, &samples , audio_buffer_ptr);		
 //			done_bytes = write_buf - read_buf;
 /*
 			if (samples == 0) {
@@ -653,7 +672,7 @@ void set_apts(__int64 new_apts)
 	if (((int)prev_new_apts/PTS_FRAME) != ((int)new_apts/PTS_FRAME)) {
 		prev_new_apts = new_apts;
 
-		if ((int)(apts/PTS_FRAME) < (int)(new_apts/PTS_FRAME) || 
+		if ((int)(apts/PTS_FRAME) < (int)(new_apts/PTS_FRAME)|| 
 			(int)(apts/PTS_FRAME) > (int)(new_apts/PTS_FRAME) + max_internal_repair_size ) {
 			apts = new_apts;
 		}
@@ -794,6 +813,7 @@ static int chars = 0;
 			pc = buffer[chars-1];
 			chars = chars - 5;
 //			Debug(10, "Submit h264 frame with %d bytes, first chars %d %d %d %d %d\n", chars, buffer[0], buffer[1], buffer[2], buffer[3], buffer[4]);
+
 			if (h264_decode_frame(buffer, chars))
 			{
 				frame_period = (double)900000*30 / (((double)pCodecCtx->time_base.den) / pCodecCtx->time_base.num );
@@ -802,20 +822,26 @@ static int chars = 0;
 //				if (pCodecCtx->time_base.num == 1 && pCodecCtx->time_base.den == 25)
 //					frame_period = 900000;
 
+				bitrate = pCodecCtx->bit_rate;
+				if (pFrame->linesize[0] > 2000 || pCodecCtx->height > 1200 || pFrame->linesize[0] < 100 || pCodecCtx->height < 100 || frame_period == 0 || bitrate == 0) {
+					//				printf("Panic: illegal height, width or frame period\n");
+					frame_ptr = NULL;
+					goto quit; // return; // exit(2);
+				}
+
 				if (frame_period == 450450 || frame_period == 900900 || frame_period == 900000 || frame_period == 1080000 || frame_period == 540000) {
 					if (height != pCodecCtx->height && pCodecCtx->height > 100 && pCodecCtx->height < 1200)
 						height= pCodecCtx->height;
 					if (width != pFrame->linesize[0] && pFrame->linesize[0] > 100 && pFrame->linesize[0]  < 2000)
 						width= pFrame->linesize[0];
-					bitrate = pCodecCtx->bit_rate;
-				}
-				if (width > 2000 || height > 1200 || frame_period == 0 || bitrate == 0) {
-					//				printf("Panic: illegal height, width or frame period\n");
-					goto quit; // return; // exit(2);
 				}
 				set_fps(frame_period);
 				infopos = headerpos;
 				frame_ptr = pFrame->data[0]; 
+				if (frame_ptr == NULL) 
+				{
+					goto quit; // return; // exit(2);
+				}
 
 				//		frame_period = info->sequence->frame_period;
 				/* draw current picture */
@@ -842,6 +868,14 @@ static int chars = 0;
 				set_pts(new_pts);
 				}
 				*/
+
+				if (pFrame->pict_type > 40)
+				{
+
+					frame_ptr = NULL;
+					goto quit;
+				}
+
 				new_pts = pFrame->pts;
 				set_pts(new_pts);
 
@@ -918,8 +952,8 @@ void decode_mpeg2 (uint8_t * current, uint8_t * end)
 	int f;
 	char ft;
 
-	if (end-current > 5 && current[0] == 0 && current[1] == 0 && current[2] == 0 && current[3] == 1 && current[4] == 9)
-		is_h264 = 1;
+//	if (end-current > 5 && current[0] == 0 && current[1] == 0 && current[2] == 0 && current[3] == 1 && current[4] == 9)
+//		is_h264 = 1;
 	if (csJumping)
 		return;
 	if (!reviewing)
@@ -1445,8 +1479,8 @@ continue_header:
 				}
 			} else if ((header[3] & 0xc0) == 0xc0 || header[3] == 0xbd) {
 pes_audio:
-			if (!is_AC3)
-				is_AC3 = (header[3] == 0xbd);
+//			if (!is_AC3)
+//				is_AC3 = (header[3] == 0xbd);
 			NEEDBYTES (7);
 			if ((header[6] & 0xc0) == 0x80) {	/* mpeg2 */
 				NEEDBYTES (9);
@@ -1480,10 +1514,12 @@ pes_audio:
 				DONEBYTES(len+4);
 				bytes -= 4;
 				if (current_audio_track != found_audio_track) {
-					if (frames_without_sound > 50) {
+					if (frames_without_sound > MAX_FRAMES_WITHOUT_SOUND) {
 						frames_without_sound = 0;
 						tracks_without_sound++;
 						current_audio_track = found_audio_track; // No sound, try another track
+						is_AAC = 0;
+						is_AC3 = 0;
 						Debug(6, "Switched to audio track %d because no sound\n", found_audio_track );
 					}
 				}
@@ -1663,7 +1699,7 @@ continue_header:
 		//		printf("Found MPEG header\n");
 		
 		headerpos = filepos + (int)(buf - buffer);
-		is_AC3 = (header[3] == 0xbd);
+//		is_AC3 = (header[3] == 0xbd);
 		NEEDBYTES (7);
 		if ((header[6] & 0xc0) == 0x80) {	/* mpeg2 */
 			NEEDBYTES (9);
@@ -1725,6 +1761,7 @@ static void ResetInputFile()
 	mpeg2dec = mpeg2_init ();
 	if (mpeg2dec == NULL)
 		exit (2);
+	if (output_srt || output_smi) CEW_reinit();
 	framenum = 0;	
 	framenum_infer = 0;
 //	frame_count = 0;
@@ -2036,10 +2073,10 @@ void GetPMT(uint8_t * buf, int pid)
 		Debug( 11,"%8i:ES[%2d] pid = %4x type = %3d pcr = %4x\n", (int) filepos, i, ES_pid[i], ES_type[i], pcr);
 		doffset += 5 + (((buf[doffset+3] & 0x0F) << 8) | buf[doffset+4]);
 		for (j = 0; j < last_pid; j++) {
-			if (pids[j] == ES_pid[i])
+			if (pids[j] == ES_pid[i]) // Does already exist?
 				break;
 		}
-		if (j == last_pid && pids[j] != ES_pid[i]) {
+		if (j == last_pid && pids[j] != ES_pid[i]) { //If first time found
 			Debug( 10,"[%4x] Added PMT[%4x] pid = %4x type = %3d\n", pid, pcr, ES_pid[i], ES_type[i]);
 			pids[last_pid] = ES_pid[i];
 			pid_type[last_pid] = ES_type[i];
@@ -2049,7 +2086,12 @@ void GetPMT(uint8_t * buf, int pid)
 				Debug(9,"Too many PID's, discarded\n");
 				last_pid--;
 			}
-
+		} else {
+			Debug( 11,"[%4x] Updated PMT[%4x] pid = %4x type = %3d\n", pid, pcr, ES_pid[i], ES_type[i]);
+			pids[j] = ES_pid[i];
+			pid_type[j] = ES_type[i];
+			pid_pcr[j] = pcr;
+			pid_pid[j] = pid;
 		}
 		i++;
 	}
@@ -2061,22 +2103,44 @@ void GetPMT(uint8_t * buf, int pid)
 	}
 	first_pmt = 0;
 	if (demux_pid != 1) {
-		for (i = 0; i < last_pid; i++) {
-			if (pids[i] == demux_pid) {
+		for (j = 0; j < last_pid; j++) {
+			if (pids[j] == demux_pid) {
 				if (selected_video_pid == 0) {
 					Debug( 8,"%8i:Found video pid = %4x\n", (int) filepos, demux_pid);
 					csRestart = 1;
 					selected_video_pid = demux_pid;
 				}
-				pcr = pid_pcr[i];
-				pid = pid_pid[i];
+				pcr = pid_pcr[j];
+				pid = pid_pid[j];
 				for (i = 0; i < last_pid; i++) {
-					if (pid_pid[i] == pid && pid_pcr[i] == pcr && (pid_type[i] == 15)) {
-						if ((selected_audio_pid == 0 || frames_without_sound > 50) && selected_audio_pid != pids[i]) {
+					if (pid_pid[i] == pid && pid_pcr[i] == pcr && (pid_type[i] == 3)) {
+						if ((selected_audio_pid == 0 || frames_without_sound > MAX_FRAMES_WITHOUT_SOUND) && selected_audio_pid != pids[i]) {
 							if (top_pid_count[pids[i]] != 0) {
 								frames_without_sound = 0;
 								selected_audio_pid = pids[i];
+								is_AC3 = 0;
 								if (pid_type[i] == 15)
+									is_AAC = 1;
+								Debug( 1,"%8i: Auto selected audio pid = %4x\n", (int)filepos, selected_audio_pid);
+								found_pids = 1;
+							//							csRestart = 1;
+								return;
+							}
+						}
+					}
+				}
+
+
+				for (i = 0; i < last_pid; i++) {
+					if (pid_pid[i] == pid && pid_pcr[i] == pcr && ((pid_type[i] == 15)|| (pid_type[i] == 17))) {
+						if ((selected_audio_pid == 0 || frames_without_sound > MAX_FRAMES_WITHOUT_SOUND) && selected_audio_pid != pids[i]) {
+							if (top_pid_count[pids[i]] != 0) {
+								frames_without_sound = 0;
+								selected_audio_pid = pids[i];
+								is_AC3 = 0;
+								if (pid_type[i] == 15)
+									is_AAC = 1;
+								if (pid_type[i] == 17)
 									is_AAC = 1;
 								Debug( 1,"%8i: Auto selected audio pid = %4x\n", (int)filepos, selected_audio_pid);
 								found_pids = 1;
@@ -2088,10 +2152,11 @@ void GetPMT(uint8_t * buf, int pid)
 				}
 				for (i = 0; i < last_pid; i++) {
 					if (pid_pid[i] == pid && pid_pcr[i] == pcr && (pid_type[i] == 129)) {
-						if ((selected_audio_pid == 0 || frames_without_sound > 50) && selected_audio_pid != pids[i]) {
+						if ((selected_audio_pid == 0 || frames_without_sound > MAX_FRAMES_WITHOUT_SOUND) && selected_audio_pid != pids[i]) {
 							if (top_pid_count[pids[i]] != 0) {
 								frames_without_sound = 0;
 								selected_audio_pid = pids[i];
+								is_AC3 = 0;
 								if (pid_type[i] == 15)
 									is_AAC = 1;
 								Debug( 1,"%8i: Auto selected audio pid = %4x\n", (int)filepos, selected_audio_pid);
@@ -2103,11 +2168,12 @@ void GetPMT(uint8_t * buf, int pid)
 					}
 				}
 				for (i = 0; i < last_pid; i++) {
-					if (pid_pid[i] == pid && pid_pcr[i] == pcr && (pid_type[i] == 3 || pid_type[i] == 4 || pid_type[i] == 6)) {
-						if ((selected_audio_pid == 0 || frames_without_sound > 50) && selected_audio_pid != pids[i]) {
+					if (pid_pid[i] == pid && pid_pcr[i] == pcr && (pid_type[i] == 4 || pid_type[i] == 6)) {
+						if ((selected_audio_pid == 0 || frames_without_sound > MAX_FRAMES_WITHOUT_SOUND) && selected_audio_pid != pids[i]) {
 							if (top_pid_count[pids[i]] != 0) {
 								frames_without_sound = 0;
 								selected_audio_pid = pids[i];
+								is_AC3 = 0;
 								if (pid_type[i] == 15)
 									is_AAC = 1;
 								Debug( 1,"%8i: Auto selected audio pid = %4x\n", (int)filepos, selected_audio_pid);
@@ -2118,6 +2184,7 @@ void GetPMT(uint8_t * buf, int pid)
 						}
 					}
 				}
+
 				
 			}
 		}
@@ -2308,11 +2375,15 @@ dosleep:
 				} else
 				for (i = 0; i < last_pid; i++) {
 					if (pid == pids[i] || selected_video_pid == pid) {
-						if (selected_video_pid != pid && (pid_type[i] == 3 || pid_type[i] == 4 ||  pid_type[i] == 6 || pid_type[i] == 15 || pid_type[i] == 129)) {
+						if (selected_video_pid != pid && (pid_type[i] == 3 || pid_type[i] == 4 ||  pid_type[i] == 6 || pid_type[i] == 15 || pid_type[i] == 17 || pid_type[i] == 129)) {
 
-							if (first_pmt && PMT_failed > 4 && selected_video_pid && selected_audio_pid == 0) {
+							if ( first_pmt && PMT_failed > 4 && selected_video_pid && selected_audio_pid == 0) {
 								selected_audio_pid = pid;
+								is_AC3 = 0;
+								is_AAC = 0;
 								if (pid_type[i] == 15)
+									is_AAC = 1;
+								if (pid_type[i] == 17)
 									is_AAC = 1;
 								if (pid_type[i] == 129)
 									is_AC3 = 1;
@@ -2327,7 +2398,7 @@ dosleep:
 								break;
 							}
 						} else
-						if (pid_type[i] == 1 || pid_type[i] == 2 || pid_type[i] == 27 || selected_video_pid == pid ) {
+						if (pid_type[i] == 1 || pid_type[i] == 2 || pid_type[i] == 27 || pid_type[i] == 128 || selected_video_pid == pid ) {
 							if (demux_pid == 1 && selected_video_pid != pid && top_pid_pid == pid) {
 								selected_video_pid = pid;
 								demux_pid = pid;
@@ -2579,17 +2650,19 @@ int main (int argc, char ** argv)
 		
 #ifdef _WIN32
 #ifdef HAVE_IO_H
-		_setmode (_fileno (stdin), O_BINARY);
-		_setmode (_fileno (stdout), O_BINARY);
+//		_setmode (_fileno (stdin), O_BINARY);
+//		_setmode (_fileno (stdout), O_BINARY);
 #endif
 #endif
 		
 		fprintf (stderr, PACKAGE"-"VERSION
 			" - by Michel Lespinasse <walken@zoy.org> and Aaron Holtzman\n");
-		
-		in_file = LoadSettings(argc, argv); 
 
 		Load_libavcodec();
+
+
+		in_file = LoadSettings(argc, argv); 
+
 
 		FSEEK(in_file, (__int64)0, SEEK_END);
 		fileendpos = FTELL(in_file);
@@ -2641,7 +2714,7 @@ int main (int argc, char ** argv)
             result = 3;
 			Debug(0,"Video PID not found, available video PID's ");
 			for (i = 0; i < last_pid; i++) {
-				if (pid_type[i] == 1 || pid_type[i] == 2 || pid_type[i] == 27 ) {
+				if (pid_type[i] == 1 || pid_type[i] == 2 || pid_type[i] == 27 || pid_type[i] == 128 ) {
 					Debug(0, "%x, ", pids[i]);
 				}
 			}

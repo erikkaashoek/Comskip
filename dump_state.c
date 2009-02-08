@@ -27,7 +27,7 @@
 #include <string.h>
 #include <inttypes.h>
 
-#include "mpeg2.h"
+#include "libmpeg2/mpeg2.h"
 
 static struct {
     const mpeg2_sequence_t * ptr;

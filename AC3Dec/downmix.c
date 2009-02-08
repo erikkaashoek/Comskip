@@ -44,7 +44,7 @@ __forceinline short SaturateRound(double flt)
 }
 #endif
 
-void drc_init()
+void asf_drc_init()
 {
 	int i;
 	DRC_Flag = 0;

@@ -1,5 +1,5 @@
 #ifndef COMSKIP  
 #define COMSKIP  
-#define COMSKIPVERSION "0.79" 
-#define SUBVERSION "143" 
+#define COMSKIPVERSION "0.80" 
+#define SUBVERSION "012" 
 #endif   

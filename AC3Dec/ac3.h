@@ -320,7 +320,7 @@ void coeff_unpack(bsi_t *bsi, audblk_t *audblk, stream_samples_t samples);
 int crc_process_frame(uint_8 *data,uint_32 num_bytes);
 
 /* downmix */
-void drc_init(void);
+void asf_drc_init(void);
 void downmix(audblk_t *audblk, bsi_t* bsi, stream_samples_t stream_samples, sint_16 *s16_samples);
 
 /* exponent */

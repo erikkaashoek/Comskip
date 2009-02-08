@@ -255,7 +255,7 @@ void InitialAC3()
 	ZeroMemory(&bsi, sizeof(bsi));
 	ZeroMemory(&audblk, sizeof(audblk));
 
-	drc_init();
+	asf_drc_init();
 	imdct_init();
 	exponent_init();
 	mantissa_init();

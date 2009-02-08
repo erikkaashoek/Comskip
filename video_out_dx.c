@@ -364,11 +364,14 @@ static long FAR PASCAL event_procedure (HWND hwnd, UINT message,
 				if (key == 'C')
 					if(PopFileDlg(hwnd, osname, SAVE_DMP) == 0)
 						key = 0;
+					else
+						key = 'C';
 			}
 			break;
 		case WM_SETFOCUS:
 		case WM_ACTIVATE:
-			key = '.';
+			if (key != 'C')
+				key = '.';
 			break;
 		default:
 			key = key;

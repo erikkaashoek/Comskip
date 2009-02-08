@@ -511,8 +511,10 @@ typedef int ( * vlc_callback_t ) ( vlc_object_t *,      /* variable's object */
 /**@}*/                                                                     \
 
 /* VLC_OBJECT: attempt at doing a clever cast */
-#define VLC_OBJECT( x ) \
-    ((vlc_object_t *)(x))+0*(x)->be_sure_to_add_VLC_COMMON_MEMBERS_to_struct
+//#define VLC_OBJECT( x ) \
+//    ((vlc_object_t *)(x))+0*(x)->be_sure_to_add_VLC_COMMON_MEMBERS_to_struct
+
+#define VLC_OBJECT( x ) ((vlc_object_t *)(x))
 
 /*****************************************************************************
  * Macros and inline functions
