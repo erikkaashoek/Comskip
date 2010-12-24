@@ -1,0 +1,42 @@
+<html>
+<body>
+<pre>
+<h1>Build Log</h1>
+<h3>
+--------------------Configuration: CCEXTRATORWIN - Win32 Debug--------------------
+</h3>
+<h3>Command Lines</h3>
+Creating temporary file "C:\Temp\RSP3A1.tmp" with contents
+[
+/nologo /MLd /W3 /Gm /GX /ZI /Od /D "WIN32" /D "_DEBUG" /D "_CONSOLE" /D "_MBCS" /D "undef" /FR"Debug/" /Fp"Debug/CCEXTRATORWIN.pch" /YX /Fo"Debug/" /Fd"Debug/" /FD /GZ /c 
+"C:\WORK\X\COMSKIP\SRC\CCEXTRATORWIN\ccextractor.c"
+]
+Creating command line "cl.exe @C:\Temp\RSP3A1.tmp" 
+Creating temporary file "C:\Temp\RSP3A2.tmp" with contents
+[
+kernel32.lib user32.lib gdi32.lib winspool.lib comdlg32.lib advapi32.lib shell32.lib ole32.lib oleaut32.lib uuid.lib odbc32.lib odbccp32.lib kernel32.lib user32.lib gdi32.lib winspool.lib comdlg32.lib advapi32.lib shell32.lib ole32.lib oleaut32.lib uuid.lib odbc32.lib odbccp32.lib /nologo /subsystem:console /incremental:yes /pdb:"Debug/CCEXTRATORWIN.pdb" /debug /machine:I386 /out:"Debug/CCEXTRATORWIN.exe" /pdbtype:sept 
+.\Debug\608.obj
+.\Debug\ccextractor.obj
+.\Debug\encoding.obj
+.\Debug\general_loop.obj
+.\Debug\myth.obj
+]
+Creating command line "link.exe @C:\Temp\RSP3A2.tmp"
+<h3>Output Window</h3>
+Compiling...
+ccextractor.c
+c:\work\x\comskip\src\ccextratorwin\ccextractor.c(259) : warning C4244: 'initializing' : conversion from '__int64 ' to 'long ', possible loss of data
+c:\work\x\comskip\src\ccextratorwin\ccextractor.c(260) : warning C4244: 'initializing' : conversion from '__int64 ' to 'long ', possible loss of data
+c:\work\x\comskip\src\ccextratorwin\ccextractor.c(438) : warning C4018: '>' : signed/unsigned mismatch
+Linking...
+Creating command line "bscmake.exe /nologo /o"Debug/CCEXTRATORWIN.bsc"  .\Debug\608.sbr .\Debug\ccextractor.sbr .\Debug\encoding.sbr .\Debug\general_loop.sbr .\Debug\myth.sbr"
+Creating browse info file...
+<h3>Output Window</h3>
+
+
+
+<h3>Results</h3>
+CCEXTRATORWIN.exe - 0 error(s), 3 warning(s)
+</pre>
+</body>
+</html>
