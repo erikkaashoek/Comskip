@@ -1,5 +1,0 @@
-SOURCES_asf = \
-	asf.c \
-	libasf.c \
-	libasf.h \
-	$(NULL)
