@@ -31,7 +31,7 @@
 
 void gettimeofday (struct timeval * tp, void * dummy)
 {
-    struct timeb tm;
+    struct _timeb tm;
     _ftime (&tm);
     tp->tv_sec = tm.time;
     tp->tv_usec = tm.millitm * 1000;
