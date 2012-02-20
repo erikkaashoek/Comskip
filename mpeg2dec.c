@@ -681,7 +681,7 @@ void DecodeOnePicture(FILE * f, double pts)
           is->seek_pos += is->video_st->start_time;
      }
 
-
+     Debug ( 5,  "Seek to %f\n", pts);
      frame_ptr = NULL;
      packet = &(is->audio_pkt);
 
