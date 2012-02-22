@@ -456,7 +456,7 @@ void audio_packet_process(VideoState *is, AVPacket *pkt)
      if(pkt->pts == AV_NOPTS_VALUE) {
           pts = 0.0;
      } else {
-          pts = av_q2d(is->audio_st->time_base)*pkt->pts;
+          pts = av_q2d(is->audio_st->time_base)* ( pkt->pts -  (is->video_st->start_time != AV_NOPTS_VALUE ? is->video_st->start_time : 0));
      }
 //	Debug(0 ,"apst[%3d] = %12.3f\n", framenum, pts);
      if (pts != 0) {
@@ -676,7 +676,7 @@ void DecodeOnePicture(FILE * f, double pts)
      reviewing = 1;
      is->seek_req = TRUE;
 //	is->seek_pos = av_q2d(is->video_st->codec->time_base)* ((int64_t)is->video_st->codec->ticks_per_frame) * (fp -1) / av_q2d(is->video_st->time_base);
-     is->seek_pos = pts * (int64_t)90000;
+     is->seek_pos = pts / av_q2d(is->video_st->time_base);
      if (is->video_st->start_time != AV_NOPTS_VALUE) {
           is->seek_pos += is->video_st->start_time;
      }
@@ -699,7 +699,7 @@ void DecodeOnePicture(FILE * f, double pts)
 
                int stream_index= -1;
 //			int64_t seek_target = av_q2d(is->video_st->codec->time_base)* is->video_st->codec->ticks_per_frame * (fp - 10 ) / av_q2d(is->video_st->time_base);;
-               int64_t seek_target = pts * (int64_t)90000;
+               int64_t seek_target = pts / av_q2d(is->video_st->time_base);
                if (is->video_st->start_time != AV_NOPTS_VALUE) {
                     seek_target += is->video_st->start_time;
                }
@@ -844,15 +844,14 @@ int video_packet_process(VideoState *is,AVPacket *packet)
           else {
                headerpos = is->pFrame->best_effort_timestamp;
                if (initial_pts_set == 0) {
-                    initial_pts = is->pFrame->best_effort_timestamp;
+                    initial_pts = is->pFrame->best_effort_timestamp - (is->video_st->start_time != AV_NOPTS_VALUE ? is->video_st->start_time : 0);
                     initial_pts_set = 1;
                     final_pts = 0;
                     pts_offset = 0.0;
 
                }
-
-               real_pts = av_q2d(is->video_st->time_base)* is->pFrame->best_effort_timestamp;
-               final_pts = is->pFrame->best_effort_timestamp;
+			   real_pts = av_q2d(is->video_st->time_base)* ( is->pFrame->best_effort_timestamp - (is->video_st->start_time != AV_NOPTS_VALUE ? is->video_st->start_time : 0)) ;
+			   final_pts = is->pFrame->best_effort_timestamp -  (is->video_st->start_time != AV_NOPTS_VALUE ? is->video_st->start_time : 0);
           }
 //		Debug(0 ,"pst[%3d] = %12.3f, inter = %d, rep = %d, ticks = %d\n", framenum, pts/frame_delay, is->pFrame->interlaced_frame, is->pFrame->repeat_pict, is->video_st->codec->ticks_per_frame);
 
