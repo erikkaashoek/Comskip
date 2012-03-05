@@ -1,4 +1,5 @@
 /*
+/*
  * mpeg2dec.c
  * Copyright (C) 2000-2003 Michel Lespinasse <walken@zoy.org>
  * Copyright (C) 1999-2000 Aaron Holtzman <aholtzma@ess.engr.uvic.ca>
@@ -30,6 +31,7 @@
 
 //#include "config.h"
 
+#define SELFTEST
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -45,6 +47,9 @@
 #endif
 #include <inttypes.h>
 
+
+int pass = 0;
+double test_pts = 0.0;
 
 
 
@@ -80,7 +85,7 @@ typedef struct VideoPicture {
 
 typedef struct VideoState {
      AVFormatContext *pFormatCtx;
-     int             videoStream, audioStream;
+     int             videoStream, audioStream, subtitleStream;
 
      int             av_sync_type;
 //     double          external_clock; /* external clock base */
@@ -141,6 +146,7 @@ int have_frame_rate ;
 int stream_index;
 
 
+     __int64 best_effort_timestamp;
 
 
 
@@ -193,6 +199,8 @@ int found_pids=0;
 __int64 pts;
 __int64 initial_pts;
 __int64 final_pts;
+double pts_offset = 0.0;
+
 int initial_pts_set = 0;
 double initial_apts;
 int initial_apts_set = 0;
@@ -221,9 +229,9 @@ char field_t;
 char tempstring[512];
 
 #define DUMP_OPEN if (output_timing) { sprintf(tempstring, "%s.timing.csv", basename); timing_file = fopen(tempstring, "w"); DUMP_HEADER }
-#define DUMP_HEADER if (timing_file) fprintf(timing_file, "type   ,pts         ,clock       ,delta       ,vframe    ,aframe    ,field\n");
-#define DUMP_TIMING(T, P, C) if (timing_file && !csStepping && !csJumping && !csStartJump) fprintf(timing_file, "%7s, %12.3f, %12.3f, %12.3f,%u, %u, %c \n", \
-	T, (double) (P), (double) (C), (double) (P) - (double) (C), framenum, sound_frame_counter, field_t);
+#define DUMP_HEADER if (timing_file) fprintf(timing_file, "type   ,dts         ,pts         ,clock       ,delta       ,offset\n");
+#define DUMP_TIMING(T, D, P, C) if (timing_file && !csStepping && !csJumping && !csStartJump) fprintf(timing_file, "%7s, %12.3f,%12.3f, %12.3f, %12.3f, %12.3f,\n", \
+	T, (double) (D)/frame_delay, (double) (P)/frame_delay, (double) (C)/frame_delay, ((double) (P) - (double) (C))/frame_delay, pts_offset/frame_delay );
 #define DUMP_CLOSE if (timing_file) { fclose(timing_file); timing_file = NULL; }
 
 
@@ -233,6 +241,8 @@ extern int lowres;
 static int sigint = 0;
 
 static int verbose = 0;
+
+extern int selftest;
 
 #ifdef _DEBUG
 static int dump_seek = 1;		// Set to 1 to dump the seeking process
@@ -418,7 +428,7 @@ void sound_to_frames(VideoState *is, short *b, int s)
                Debug(1, "Audio PTS jumped %d frames at frame %d\n", -sound_frame_counter + delta + framenum, framenum);
                sound_frame_counter = delta + framenum;
           }
-          DUMP_TIMING("a frame", apts, is->video_clock);
+//		  DUMP_TIMING("a frame", apts, is->video_clock);
           set_frame_volume((demux_asf?ms_audio_delay:0)+sound_frame_counter++, volume);
 
           apts += (double)s_per_frame/(double)n;
@@ -440,6 +450,7 @@ static short storage_buf[STORAGE_SIZE];
 
 void audio_packet_process(VideoState *is, AVPacket *pkt)
 {
+     double frame_delay = 1.0;
      int len1, data_size, n;
      AVPacket *pkt_temp = &is->audio_pkt_temp;
      double pts;
@@ -448,9 +459,16 @@ void audio_packet_process(VideoState *is, AVPacket *pkt)
           dump_audio((char *)pkt->data,(char *) (pkt->data + pkt->size));
      }
 
-
      pkt_temp->data = pkt->data;
      pkt_temp->size = pkt->size;
+ /*  Try to align on packet boundary as some demuxers don't do that, in particular dvr-ms
+	 if (is->audio_st->codec->codec_id == CODEC_ID_MP1) {
+	 while (pkt_temp->size > 2 && (pkt_temp->data[0] != 0xff || pkt_temp->data[1] != 0xe0) ) {
+		 pkt_temp->data++;
+		 pkt_temp->size--;
+	 }
+	 }
+*/
      n = 2 * is->audio_st->codec->channels * is->audio_st->codec->sample_rate;
      /* if update, update the audio clock w/pts */
      if(pkt->pts == AV_NOPTS_VALUE) {
@@ -458,25 +476,27 @@ void audio_packet_process(VideoState *is, AVPacket *pkt)
      } else {
           pts = av_q2d(is->audio_st->time_base)* ( pkt->pts -  (is->video_st->start_time != AV_NOPTS_VALUE ? is->video_st->start_time : 0));
      }
+     pts = pts + pts_offset;
+
 //	Debug(0 ,"apst[%3d] = %12.3f\n", framenum, pts);
      if (pts != 0) {
           if (is->audio_clock  != 0) {
                if ((pts - is->audio_clock) < -0.999  || (pts - is->audio_clock) > max_repair_size/get_fps() ) {
                     Debug(1 ,"Audio jumped by %6.3f at frame %d\n", (pts - is->audio_clock), framenum);
-                    DUMP_TIMING("a   set", pts, is->audio_clock);
+//                    DUMP_TIMING("a   set", pts, is->audio_clock);
                     is->audio_clock = pts;
 
                } else {
-                    DUMP_TIMING("a  free", pts, is->audio_clock);
+//                    DUMP_TIMING("a  free", pts, is->audio_clock);
                     // Do nothing
                }
           } else {
-               DUMP_TIMING("a   set", pts, is->audio_clock);
+//               DUMP_TIMING("ajmpset", pts, is->audio_clock);
                is->audio_clock = pts;
           }
      } else {
           /* if we aren't given a pts, set it to the clock */
-          DUMP_TIMING("a  tick", pts, is->audio_clock);
+//          DUMP_TIMING("a  tick", pts, is->audio_clock);
           pts = is->audio_clock;
      }
      //		fprintf(stderr, "sac = %f\n", is->audio_clock);
@@ -570,7 +590,7 @@ static void print_fps (int final)
 
      fprintf (stderr, "%s - %d frames in %.2f sec(%.2f fps), "
               "%.2f sec(%.2f fps), %d%%\r", cur_pos, frame_counter,
-              total_elapsed / 100.0, tfps, elapsed / 100.0, fps, (int) (100.0 * ((double)(framenum) / get_fps()) / (av_q2d(global_video_state->video_st->time_base)* global_video_state->video_st->duration)));
+              total_elapsed / 100.0, tfps, elapsed / 100.0, fps, (int) (100.0 * ((double)(framenum) / get_fps()) / global_video_state->duration));
      fflush(stderr);
      last_count = frame_counter;
 }
@@ -585,7 +605,28 @@ void SetField(char t)
 }
 
 
+static void ResetInputFile()
+{
+     global_video_state->seek_req = TRUE;
+     global_video_state->seek_pos = 0;
+     ;
 
+#ifdef PROCESS_CC
+     if (output_srt || output_smi) CEW_reinit();
+#endif
+     framenum = 0;
+//	frame_count = 0;
+     sound_frame_counter = 0;
+     initial_pts = 0;
+     initial_pts_set = 0;
+     initial_apts_set = 0;
+     initial_apts = 0;
+     audio_samples = 0;
+#ifndef _DEBUG
+//     DUMP_CLOSE
+//     DUMP_OPEN
+#endif
+}
 
 
 int SubmitFrame(AVStream        *video_st, AVFrame         *pFrame , double pts)
@@ -626,6 +667,22 @@ int SubmitFrame(AVStream        *video_st, AVFrame         *pFrame , double pts)
      else
           SetField('P');
 
+
+     if (framenum == 0 && pass == 0 && test_pts == 0.0)
+          test_pts = pts;
+     if (framenum == 0 && pass > 0 && test_pts != pts)
+          Debug(1,"Reset File Failed, initial pts = %6.3f, seek pts = %6.3f, pass = %d\n", test_pts, pts, pass+1);
+     if (framenum == 0)
+          pass++;
+#ifdef SELFTEST
+     if (selftest == 2 && framenum > 20) {
+          if (pass > 1)
+               exit(1);
+          ResetInputFile();
+     }
+#endif
+
+
      if (!reviewing) {
 
           print_fps (0);
@@ -638,31 +695,11 @@ int SubmitFrame(AVStream        *video_st, AVFrame         *pFrame , double pts)
      return (res);
 }
 
-static void ResetInputFile()
-{
-     global_video_state->seek_req = TRUE;
-     global_video_state->seek_pos = 0;
-     ;
 
-#ifdef PROCESS_CC
-     if (output_srt || output_smi) CEW_reinit();
-#endif
-     framenum = 0;
-//	frame_count = 0;
-     sound_frame_counter = 0;
-     initial_pts = 0;
-     initial_pts_set = 0;
-     initial_apts_set = 0;
-     initial_apts = 0;
-     audio_samples = 0;
-#ifndef _DEBUG
-     DUMP_CLOSE
-     DUMP_OPEN
-#endif
-}
 
 void DecodeOnePicture(FILE * f, double pts)
 {
+     double frame_delay = 1.0;
      VideoState *is = global_video_state;
      AVPacket *packet;
      int ret;
@@ -680,8 +717,9 @@ void DecodeOnePicture(FILE * f, double pts)
      if (is->video_st->start_time != AV_NOPTS_VALUE) {
           is->seek_pos += is->video_st->start_time;
      }
+     pts_offset = 0.0;
 
-     Debug ( 5,  "Seek to %f\n", pts);
+//     Debug ( 5,  "Seek to %f\n", pts);
      frame_ptr = NULL;
      packet = &(is->audio_pkt);
 
@@ -699,32 +737,41 @@ void DecodeOnePicture(FILE * f, double pts)
 
                int stream_index= -1;
 //			int64_t seek_target = av_q2d(is->video_st->codec->time_base)* is->video_st->codec->ticks_per_frame * (fp - 10 ) / av_q2d(is->video_st->time_base);;
-               int64_t seek_target = pts / av_q2d(is->video_st->time_base);
+               int64_t seek_target = (pts - 1.0)/ av_q2d(is->video_st->time_base);
                if (is->video_st->start_time != AV_NOPTS_VALUE) {
                     seek_target += is->video_st->start_time;
                }
                if     (is->videoStream >= 0) stream_index = is->videoStream;
                else if(is->audioStream >= 0) stream_index = is->audioStream;
-
+               DUMP_TIMING("v  seek", pts, pts, is->video_clock);
                if(stream_index>=0) {
                     //				   av_q2d(is->video_st->time_base)*
                     //                   seek_target= av_rescale_q(seek_target, AV_TIME_BASE_Q, is->pFormatCtx->streams[stream_index]->time_base);
                }
+               ret = -1;
 //			is->seek_pos = is->seek_pos * AV_TIME_BASE;
-//            if (!(is->pFormatCtx->iformat->flags & AVFMT_TS_DISCONT))
+               if (!(is->pFormatCtx->iformat->flags & AVFMT_TS_DISCONT)) {
+//                    ret = av_seek_frame(is->pFormatCtx, stream_index, seek_target, AVSEEK_FLAG_BYTE);
+               }
                //           {
                //             is->seek_flags = AVSEEK_FLAG_BYTE;
                //       }
-               ret = av_seek_frame(is->pFormatCtx, stream_index, seek_target, AVSEEK_FLAG_BACKWARD);
+                //            ret = av_seek_frame(is->pFormatCtx, stream_index, is->seek_pos, is->seek_flags);
+//              ret = avformat_seek_file(is->pFormatCtx, stream_index, INT64_MIN, seek_target, INT64_MAX, is->seek_flags);
+//              if (ret< 0) {
+                    ret = av_seek_frame(is->pFormatCtx, stream_index, seek_target, AVSEEK_FLAG_BACKWARD);
+ //              }
                if (ret< 0) {
                     ret = av_seek_frame(is->pFormatCtx, stream_index, seek_target, AVSEEK_FLAG_BYTE);
                }
 //			ret = av_seek_frame(is->pFormatCtx, is->videoStream, seek_target, is->seek_flags);
-               avcodec_flush_buffers(is->video_st->codec);
+//               avcodec_flush_buffers(is->video_st->codec);
+               is->video_clock = 0.0;
+//			   avcodec_flush_buffers(is->audio_st->codec);
+               is->audio_clock = 0.0;
 //			ret = av_seek_frame(is->pFormatCtx, is->videoStream, av_rescale_q(is->seek_pos, AV_TIME_BASE_Q, is->video_st->time_base), AVSEEK_FLAG_BACKWARD);
 
                //            ret = avformat_seek_file(is->pFormatCtx, stream_index, INT64_MIN, seek_target, INT64_MAX, is->seek_flags);
-               //            ret = av_seek_frame(is->pFormatCtx, stream_index, is->seek_pos, is->seek_flags);
                if(ret < 0) {
 
 
@@ -760,22 +807,33 @@ void DecodeOnePicture(FILE * f, double pts)
                pack_pts = comp_pts; // av_rescale_q(comp_pts, is->video_st->time_base, AV_TIME_BASE_Q);
                pack_duration = packet->duration; //av_rescale_q(packet->duration, is->video_st->time_base, AV_TIME_BASE_Q);
                comp_pts += packet->duration;
-
+				pass = 0;
                video_packet_process(is, packet);
 
 
                if (frame_ptr != NULL) {
-//				Debug(0, "Search step %d : Field=%c cur=%d, till=%d, clock = %10.2f\n", count++, field_t, (int)is->pFrame->best_effort_timestamp, (int)is->seek_pos,is->video_clock);
+//				Debug(0, "Search step %d : Field=%c cur=%d, till=%d, clock = %10.2f\n", count++, field_t, (int)best_effort_timestamp, (int)is->seek_pos,is->video_clock);
                     // If we got the time exactly, or we are already past the seek time,
                     // this is the frame we want
+ //                   best_effort_timestamp = av_opt_ptr(avcodec_get_frame_class(), is->pFrame, "best_effort_timestamp");
 
-                    if (is->pFrame->best_effort_timestamp >= is->seek_pos) {
+//                Debug(10,"Search step: terget = %6.3f, pos = %6.3f\n", pts, is->video_clock );
+				   if ( is->video_clock < pts - 2.0 || is->video_clock > pts + 2.0 )
+                    {
+                        Debug(1,"Search step failed, error too big: target = %6.3f, pos = %6.3f\n", pts, is->video_clock );
+                         av_free_packet(packet);
+                         break;
+
+                    } else if (is->video_clock >= pts) {
+//                    if (best_effort_timestamp >= is->seek_pos) {
 //				if (pack_pts >= is->seek_pos) {
                          av_free_packet(packet);
                          break;
                     }
                     // If the next frame will be past our seek_time, this is the frame we want
                     else if ( pack_pts + pack_duration > is->seek_pos ) {
+                         av_free_packet(packet);
+                         break;
                          //	av_free_packet(packet);
                          //	break;
                     }
@@ -816,9 +874,8 @@ int video_packet_process(VideoState *is,AVPacket *packet)
 {
      double frame_delay;
      int len1, frameFinished;
-     double pts;
+     double pts, dts;
      double real_pts;
-     static double pts_offset = 0.0;
      static int summed_repeat = 0;
 
      if (!reviewing) {
@@ -835,55 +892,66 @@ int video_packet_process(VideoState *is,AVPacket *packet)
      // Did we get a video frame?
      if(frameFinished) {
 
+
           if (is->video_st->codec->ticks_per_frame<1)
                is->video_st->codec->ticks_per_frame = 1;
           frame_delay = av_q2d(is->video_st->codec->time_base)* is->video_st->codec->ticks_per_frame;         // <------------------------ frame delay is the time in seconds till the next frame
 
-          if (is->pFrame->best_effort_timestamp == AV_NOPTS_VALUE)
+          best_effort_timestamp = *(__int64 *)av_opt_ptr(avcodec_get_frame_class(), is->pFrame, "best_effort_timestamp");
+
+
+          if (best_effort_timestamp == AV_NOPTS_VALUE)
                real_pts = 0;
           else {
-               headerpos = is->pFrame->best_effort_timestamp;
+               headerpos = best_effort_timestamp;
                if (initial_pts_set == 0) {
-                    initial_pts = is->pFrame->best_effort_timestamp - (is->video_st->start_time != AV_NOPTS_VALUE ? is->video_st->start_time : 0);
+                    initial_pts = best_effort_timestamp - (is->video_st->start_time != AV_NOPTS_VALUE ? is->video_st->start_time : 0);
                     initial_pts_set = 1;
                     final_pts = 0;
                     pts_offset = 0.0;
 
                }
-			   real_pts = av_q2d(is->video_st->time_base)* ( is->pFrame->best_effort_timestamp - (is->video_st->start_time != AV_NOPTS_VALUE ? is->video_st->start_time : 0)) ;
-			   final_pts = is->pFrame->best_effort_timestamp -  (is->video_st->start_time != AV_NOPTS_VALUE ? is->video_st->start_time : 0);
+               real_pts = av_q2d(is->video_st->time_base)* ( best_effort_timestamp - (is->video_st->start_time != AV_NOPTS_VALUE ? is->video_st->start_time : 0)) ;
+               final_pts = best_effort_timestamp -  (is->video_st->start_time != AV_NOPTS_VALUE ? is->video_st->start_time : 0);
           }
+          dts =  av_q2d(is->video_st->time_base)* ( is->pFrame->pkt_dts - (is->video_st->start_time != AV_NOPTS_VALUE ? is->video_st->start_time : 0)) ;
+
 //		Debug(0 ,"pst[%3d] = %12.3f, inter = %d, rep = %d, ticks = %d\n", framenum, pts/frame_delay, is->pFrame->interlaced_frame, is->pFrame->repeat_pict, is->video_st->codec->ticks_per_frame);
 
           pts = real_pts + pts_offset;
           if(pts != 0) {
                /* if we have pts, set video clock to it */
                if (is->video_clock != 0) {
-                    if ((pts - is->video_clock)/frame_delay < -0.999  || (pts - is->video_clock)/frame_delay > max_repair_size ) {
-                         if (!reviewing) Debug(1 ,"Video jumped by %6.3f at frame %d, inter = %d, rep = %d, ticks = %d\n",
+                    if ((pts - is->video_clock)/frame_delay < -0.99 || (pts - is->video_clock)/frame_delay > max_repair_size ) {
+                         if (!reviewing) Debug(1 ,"Video jumped by %6.1f at frame %d, inter = %d, rep = %d, ticks = %d\n",
                                                     (pts - is->video_clock)/frame_delay, framenum, is->pFrame->interlaced_frame, is->pFrame->repeat_pict, is->video_st->codec->ticks_per_frame);
-                         DUMP_TIMING("v   set", pts, is->video_clock);
-//					pts_offset = is->video_clock - real_pts;
+                         // Calculate offset for jump
+                        pts_offset = is->video_clock - real_pts/* set to mid of free window */;
                          pts = real_pts + pts_offset;
                          is->video_clock = pts;
+                         DUMP_TIMING("v   set",real_pts, pts, is->video_clock);
                     } else if ((pts - is->video_clock)/frame_delay > 5 ) {
-//					if (!reviewing) Debug(1 ,"Video jumped by %6.3f at frame %d, repairing timeline, inter = %d, rep = %d, ticks = %d\n",
-//							(pts - is->video_clock)/frame_delay, framenum, is->pFrame->interlaced_frame, is->pFrame->repeat_pict, is->video_st->codec->ticks_per_frame);
+					if (!reviewing) Debug(1 ,"Video jumped by %6.1f frames at frame %d, repairing timeline\n",
+							(pts - is->video_clock)/frame_delay, framenum);
 //					is->pFrame->repeat_pict += is->video_st->codec->ticks_per_frame * (pts - is->video_clock)/frame_delay;
                          is->video_clock = pts;
-                         DUMP_TIMING("v  free", pts, is->video_clock);
+                         DUMP_TIMING("vfollow", real_pts, pts, is->video_clock);
                     } else {
-                         DUMP_TIMING("v  free", pts, is->video_clock);
+                         DUMP_TIMING("v  free",real_pts,  pts, is->video_clock);
                          // Do nothing
                     }
                } else {
-                    is->video_clock = pts;
+                    is->video_clock = pts - (5.0 / 2.0) * frame_delay;
+                    DUMP_TIMING("v  init", real_pts, pts, is->video_clock);
                }
           } else {
                /* if we aren't given a pts, set it to the clock */
-               DUMP_TIMING("v clock", pts, is->video_clock);
+               DUMP_TIMING("v clock", real_pts, pts, is->video_clock);
                pts = is->video_clock;
           }
+
+
+
 
           frame_period = (double)900000*30 / (((double)is->video_st->codec->time_base.den) / is->video_st->codec->time_base.num );
           if (is->video_st->codec->ticks_per_frame >= 1)
@@ -903,7 +971,7 @@ int video_packet_process(VideoState *is,AVPacket *packet)
 
           summed_repeat += is->pFrame->repeat_pict;
           while (summed_repeat >= is->video_st->codec->ticks_per_frame) {
-               DUMP_TIMING("vrepeat", pts, is->video_clock);
+               DUMP_TIMING("vrepeat", dts, pts, is->video_clock);
                if (SubmitFrame (is->video_st, is->pFrame, is->video_clock)) {
                     is->seek_req = 1;
                     is->seek_pos = 0;
@@ -954,7 +1022,7 @@ int stream_component_open(VideoState *is, int stream_index)
                is_h264 = 1;
           else {
                codecCtx->lowres = lowres;
-               if(lowres) codecCtx->flags |= CODEC_FLAG_EMU_EDGE;
+            /* if(lowres) */ codecCtx->flags |= CODEC_FLAG_EMU_EDGE;
           }
 //        codecCtx->flags2 |= CODEC_FLAG2_FAST;
           if (codecCtx->codec_id != CODEC_ID_MPEG1VIDEO)
@@ -972,6 +1040,7 @@ int stream_component_open(VideoState *is, int stream_index)
 
      switch(codecCtx->codec_type) {
      case AVMEDIA_TYPE_SUBTITLE:
+        is->subtitleStream = stream_index;
           is->subtitle_st = pFormatCtx->streams[stream_index];
           if (demux_pid)
                selected_subtitle_pid = is->subtitle_st->id;
@@ -1061,8 +1130,9 @@ void file_open()
      int subtitle_index= -1, audio_index= -1, video_index = -1;
      int i;
 
-     if (global_video_state != NULL)
-          return;
+     if (global_video_state == NULL)
+    {
+
 
      is = av_mallocz(sizeof(VideoState));
 
@@ -1073,17 +1143,22 @@ void file_open()
      // Register all formats and codecs
      av_register_all();
 
+     global_video_state = is;
+
 
      is->videoStream=-1;
      is->audioStream=-1;
-
-     global_video_state = is;
+     is->subtitleStream = -1;
+          is->pFormatCtx = NULL;
+     } else
+        is = global_video_state;
      // will interrupt blocking functions if we quit!
 
 //	 avformat_network_init();
 
      // Open video file
 
+     if (     is->pFormatCtx == NULL) {
      pFormatCtx = avformat_alloc_context();
 
      if(avformat_open_input(&pFormatCtx, is->filename, NULL, NULL)!=0) {
@@ -1107,8 +1182,9 @@ void file_open()
      av_dump_format(is->pFormatCtx, 0, is->filename, 0);
 
      // Find the first video stream
+     }
 
-
+    if (     is->videoStream == -1) {
      video_index = av_find_best_stream(is->pFormatCtx, AVMEDIA_TYPE_VIDEO, -1, -1, NULL, 0);
      if(video_index >= 0
 //        &&
@@ -1123,8 +1199,10 @@ void file_open()
           exit(-1);
      }
 
-     is->duration =  ((float)pFormatCtx->duration) / AV_TIME_BASE;
-     is->duration =  av_q2d(is->video_st->time_base)* is->video_st->duration;
+     if ( is->video_st->duration == AV_NOPTS_VALUE ||  is->video_st->duration < 0)
+         is->duration =  ((float)pFormatCtx->duration) / AV_TIME_BASE;
+     else
+         is->duration =  av_q2d(is->video_st->time_base)* is->video_st->duration;
 
 
      /* Calc FPS */
@@ -1134,15 +1212,22 @@ void file_open()
           is->fps = 1/av_q2d(is->video_st->codec->time_base);
      }
 
+    }
 
-
+    if (is->audioStream== -1) {
 
      audio_index = av_find_best_stream(is->pFormatCtx, AVMEDIA_TYPE_AUDIO, -1, video_index, NULL, 0);
      if(audio_index >= 0) {
           stream_component_open(is, audio_index);
+
+     if (is->audioStream < 0) {
+          Debug(1,"Could not open audio decoder or no audio present\n");
+     }
      }
 
-
+    }
+ /*
+    if (is->subtitleStream == -1) {
      subtitle_index = av_find_best_stream(is->pFormatCtx, AVMEDIA_TYPE_SUBTITLE, -1, video_index, NULL, 0);
      if(subtitle_index >= 0) {
           is->subtitle_st = pFormatCtx->streams[subtitle_index];
@@ -1150,17 +1235,25 @@ void file_open()
                selected_subtitle_pid = is->subtitle_st->id;
      }
 
-     if(is->videoStream < 0) {
-          Debug(0, "Could not open video codec\n");
-          fprintf(stderr, "%s: could not open video codec\n", is->filename);
-          exit(-1);
-     }
-
-     if (is->audioStream < 0) {
-          Debug(1,"Could not open audio decoder or no audio present\n");
-     }
+    }
+*/
 }
 
+
+
+void file_close()
+{
+          is = global_video_state;
+
+    avcodec_close(is->pFormatCtx->streams[is->videoStream]->codec);
+    is->videoStream = -1;
+    avcodec_close(is->pFormatCtx->streams[is->audioStream]->codec);
+    is->audioStream = -1;
+//    avcodec_close(is->pFormatCtx->streams[is->subtitleStream]->codec);
+    is->subtitleStream = -1;
+   av_close_input_file(is->pFormatCtx);
+   is->pFormatCtx = NULL;
+};
 
 int main (int argc, char ** argv)
 {
@@ -1172,9 +1265,12 @@ int main (int argc, char ** argv)
      int audio_index = -1;
      int result = 0;
      int i;
+     int ret;
 //	fpos_t		fileendpos;
 
-
+#ifdef SELFTEST
+     int tries = 0;
+#endif
 
      char *ptr;
      size_t len;
@@ -1254,37 +1350,67 @@ int main (int argc, char ** argv)
                }
                // seek stuff goes here
                if(is->seek_req) {
-                    int stream_index= -1;
+
+#ifdef SELFTEST
+				   int stream_index= -1;
                     int64_t seek_target = is->seek_pos;
+                    if (selftest == 1) {
+                    if (!(is->seek_flags & AVSEEK_FLAG_BYTE )&& is->video_st->start_time != AV_NOPTS_VALUE) {
+                         seek_target += is->video_st->start_time;
+                    }
 
-                    if     (is->videoStream >= 0) stream_index = is->videoStream;
-                    else if(is->audioStream >= 0) stream_index = is->audioStream;
+//                    if (!!(is->pFormatCtx->iformat->flags & AVFMT_TS_DISCONT))
+//                         is->seek_flags = AVSEEK_FLAG_BYTE;
+//                    else
+//                         is->seek_flags = 0;
 
-//               if(stream_index>=0) {
+
+                    pts_offset = 0.0;
+                    is->video_clock = 0.0;
+                    is->audio_clock = 0.0;
+// FIXME the +-2 is due to rounding being not done in the correct direction in generation
+//      of the seek_pos/seek_rel variables
+
+//                    ret = avformat_seek_file(is->pFormatCtx, -1, INT64_MIN, /* seek_target */ seek_target, INT64_MAX, is->seek_flags);
+					ret = av_seek_frame(is->pFormatCtx, is->videoStream, seek_target, is->seek_flags);
+                    if (ret < 0){
+				   sample_file = fopen("v:\\seektest.log", "a+");
+                    fprintf(sample_file, "seek pts  failed: , size=%8.1f \"%s\"\n", is->duration, is->filename);
+                    fclose(sample_file);
+                    }
+                    if(ret < 0)
+                        ret = av_seek_frame(is->pFormatCtx, is->videoStream, seek_target, AVSEEK_FLAG_BYTE);
+                    if (ret < 0){
+				   sample_file = fopen("v:\\seektest.log", "a+");
+                    fprintf(sample_file, "seek byte failed: , size=%8.1f \"%s\"\n", is->duration, is->filename);
+                    fclose(sample_file);
+                    }
+                    is->seek_req=0;
+//               if(stream_index>=0) {is->video_st->start_time
 //                    seek_target= av_rescale_q(seek_target, AV_TIME_BASE_Q, is->pFormatCtx->streams[stream_index]->time_base);
 //               }
-                    is->seek_flags = AVSEEK_FLAG_BACKWARD;
-//              if (strcmp(is->pFormatCtx->iformat->name,"wtv")==0)
+//                    is->seek_flags = AVSEEK_FLAG_BACKWARD;
+//              if (strcmp(is->pFormatCtx->iformat->name,"wtv")==0)is->video_st->start_time
 //                is->seek_flags = AVSEEK_FLAG_BACKWARD;
-                    if(av_seek_frame(is->pFormatCtx, stream_index, seek_target, AVSEEK_FLAG_BACKWARD) < 0) {
-                         if(av_seek_frame(is->pFormatCtx, stream_index, seek_target, AVSEEK_FLAG_BYTE) < 0) {
+//					seek_target = 0;
+//                 if(strcmp(is->pFormatCtx->iformat->name,"wtv")==0 || av_seek_frame(is->pFormatCtx, stream_index, seek_target, AVSEEK_FLAG_BYTE) < 0) {
+//                    if(av_seek_frame(is->pFormatCtx, stream_index, seek_target, AVSEEK_FLAG_BACKWARD) < 0) {
+//                         if(av_seek_frame(is->pFormatCtx, stream_index, seek_target, AVSEEK_FLAG_BYTE) < 0) {
 
-
-                              if (is->pFormatCtx->iformat->read_seek) {
-                                   printf("format specific\n");
-                              } else if(is->pFormatCtx->iformat->read_timestamp) {
-                                   printf("frame_binary\n");
-                              } else {
-                                   printf("generic\n");
-                              }
-
-                              fprintf(stderr, "%s: error while seeking. target: %d, stream_index: %d\n", is->pFormatCtx->filename, (int) seek_target, stream_index);
+                    if (ret < 0) {
+                         if (is->pFormatCtx->iformat->read_seek) {
+                              printf("format specific\n");
+                         } else if(is->pFormatCtx->iformat->read_timestamp) {
+                              printf("frame_binary\n");
+                         } else {
+                              printf("generic\n");
                          }
+
+                         fprintf(stderr, "%s: error while seeking. target: %d, stream_index: %d\n", is->pFormatCtx->filename, (int) seek_target, stream_index);
                     }
-                    avcodec_flush_buffers(is->video_st->codec);
+//                    avcodec_flush_buffers(is->video_st->codec);
+//                    avcodec_flush_buffers(is->audio_st->codec);
 //                else {
-//					is->video_clock = 0;
-//					is->audio_clock = 0;
 //                   if(is->audioStream >= 0) {
 //                         packet_queue_flush(&is->audioq);
 //                         packet_queue_put(&is->audioq, &flush_pkt);
@@ -1294,7 +1420,31 @@ int main (int argc, char ** argv)
 //                         packet_queue_put(&is->videoq, &flush_pkt);
                     //              }
                     //         }
+                    //avcodec_default_free_buffers(is->video_st->codec);
+                    } else
+#endif
+                    {
+
+
                     is->seek_req = 0;
+                    framenum = 0;
+                    pts_offset = 0.0;
+                    is->video_clock = 0.0;
+                    is->audio_clock = 0.0;
+                    file_close();
+                    file_open();
+				    sound_frame_counter = 0;
+     initial_pts = 0;
+     initial_pts_set = 0;
+     initial_apts_set = 0;
+     initial_apts = 0;
+     audio_samples = 0;
+                    }
+	 //                   best_effort_timestamp = AV_NOPTS_VALUE;
+ //                   is->pFrame->pkt_pts = AV_NOPTS_VALUE;
+//                    is->pFrame->pkt_dts = AV_NOPTS_VALUE;
+
+
                }
                if(av_read_frame(is->pFormatCtx, packet) < 0) {
                     /*
@@ -1304,8 +1454,33 @@ int main (int argc, char ** argv)
                     */			   {
                          break;
                     }
-               }
-               if(packet->stream_index == is->videoStream) {
+
+
+			 }
+#ifdef SELFTEST
+			   if (selftest==1 && framenum > 30 && packet->pts != AV_NOPTS_VALUE) {
+
+				   sample_file = fopen("v:\\seektest.log", "a+");
+			  fprintf(sample_file, "target=%8.1f, result=%8.1f, error=%6.3f, size=%8.1f, \"%s\"\n",
+                (double)av_q2d(is->video_st->time_base)* is->seek_pos,
+                (double) av_q2d(is->video_st->time_base)* (packet->pts - (is->video_st->start_time != AV_NOPTS_VALUE ? is->video_st->start_time:0)),
+                (double) av_q2d(is->video_st->time_base)* ((double)(packet->pts - (is->video_st->start_time != AV_NOPTS_VALUE ? is->video_st->start_time:0) - is->seek_pos )),
+                 is->duration,
+                 is->filename);
+			  fclose(sample_file);
+/*
+                if (tries ==  0 && fabs((double) av_q2d(is->video_st->time_base)* ((double)(packet->pts - is->video_st->start_time - is->seek_pos ))) > 2.0) {
+ 				   is->seek_req=1;
+				   is->seek_pos = 20.0 / av_q2d(is->video_st->time_base);
+				   is->seek_flags = AVSEEK_FLAG_BYTE;
+				   tries++;
+               } else
+ */
+               exit(1);
+			   }
+#endif
+
+			   if(packet->stream_index == is->videoStream) {
                     video_packet_process(is, packet);
                } else if(packet->stream_index == is->audioStream) {
                     audio_packet_process(is, packet);
@@ -1322,6 +1497,14 @@ int main (int argc, char ** argv)
                     */
                }
                av_free_packet(packet);
+#ifdef SELFTEST
+			   if (selftest == 1 && is->seek_req == 0 && framenum == 30) {
+				   is->seek_req=1;
+				   is->seek_pos = 20.0 / av_q2d(is->video_st->time_base);
+				   is->seek_flags = AVSEEK_FLAG_BACKWARD;
+				   framenum++;
+			   }
+#endif
           }
 
           Debug( 10,"\nParsed %d video frames and %d audio frames of %4.2f fps\n", framenum, sound_frame_counter, get_fps());
@@ -1332,7 +1515,7 @@ int main (int argc, char ** argv)
           print_fps (1);
 
           in_file = 0;
-          if (framenum>0)	{
+          if (framenum>0) {
                byterate = fileendpos / framenum;
                if(BuildMasterCommList()) {
                     result = 1;
