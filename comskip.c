@@ -476,6 +476,7 @@ int haslogo[MAXWIDTH*MAXHEIGHT];
 // unsigned char		oldframe[MAXWIDTH*MAXHEIGHT];
 
 // variables defining options with defaults
+int					selftest = 0;
 int					verbose = 0;						// show extra info
 double				fps = 25.0;						// frames per second (NTSC=29.970, PAL=25)
 int					border = 10;						// border around edge of video to ignore
@@ -637,7 +638,10 @@ bool				aggressive_logo_rejection = false;
 unsigned int		min_black_frames_for_break = 1;
 bool				detectBlackFrames;
 bool				detectSceneChanges;
+int             dummy1;
 unsigned char*		frame_ptr;
+int dummy2;
+
 // bool				frameIsBlack;
 bool				sceneHasChanged;
 int					sceneChangePercent;
@@ -2656,6 +2660,8 @@ int DetectCommercials(int f, double pts)
 //	frame_count++;
      frame_count = framenum_real = framenum+1;
 
+if (frame_count == 116)
+frame_count = frame_count;
 //Debug(1, "Frame info f=%d, framenum=%d, framenum_real=%d, frame_count=%d\n",f, framenum, framenum_real, frame_count, max_frame_count);
 
 
@@ -6937,6 +6943,7 @@ FILE* LoadSettings(int argc, char ** argv)
      struct arg_file*	cl_logo					= arg_filen(NULL, "logo", NULL, 0, 1, "Logo file to use");
      struct arg_file*	cl_cut					= arg_filen(NULL, "cut", NULL, 0, 1, "CutScene file to use");
      struct arg_file*	cl_work					= arg_filen(NULL, "output", NULL, 0, 1, "Folder to use for all output files");
+     struct arg_int*	cl_selftest					= arg_intn(NULL, "selftest", NULL, 0, 1, "Execute a selftest");
      struct arg_file*	in						= arg_filen(NULL, NULL, NULL, 1, 1, "Input file");
      struct arg_file*	out						= arg_filen(NULL, NULL, NULL, 0, 1, "Output folder for cutlist");
      struct arg_end*		end						= arg_end(20);
@@ -6963,6 +6970,7 @@ FILE* LoadSettings(int argc, char ** argv)
           cl_logo,
           cl_cut,
           cl_work,
+          cl_selftest,
           in,
           out,
           end
@@ -7259,6 +7267,11 @@ FILE* LoadSettings(int argc, char ** argv)
      if (cl_verbose->count) {
           verbose = cl_verbose->ival[0];
           printf("Setting verbose level to %i as per command line.\n", verbose);
+     }
+
+     if (cl_selftest->count) {
+          selftest = cl_selftest->ival[0];
+          printf("Setting selftest to %i as per command line.\n", selftest);
      }
 
      if (cl_debugwindow->count || loadingTXT) {
@@ -10076,9 +10089,9 @@ void InitLogoBuffers(void)
      if(!logoFrameBuffer) logoFrameBuffer = malloc(num_logo_buffers * sizeof(unsigned char *));
      if (!(logoFrameBuffer == NULL)) {
 
-          logoFrameBufferSize = width * height * sizeof(frame_ptr[0]);
-          lheight = height;
-          lwidth = width;
+          lheight = MAXHEIGHT;
+          lwidth = MAXWIDTH;
+          logoFrameBufferSize = lwidth * lheight * sizeof(frame_ptr[0]);
           for (i = 0; i < num_logo_buffers; i++) {
                logoFrameBuffer[i] = malloc(logoFrameBufferSize);
                if (logoFrameBuffer[i] == NULL) {
@@ -13056,6 +13069,9 @@ static int max_fill = 0;
           }
      }
      Debug (1, "Panic volume buffer\n");
+     for (i = 0; i < MAX_SAVED_VOLUMES; i++) {
+          volumes[i].frame = 0;
+	 }
      max_fill = 0;
 }
 
