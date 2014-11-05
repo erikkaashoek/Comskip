@@ -77,6 +77,11 @@
 #define SAVE_DMP	3
 #define SAVE_INI	4
 
+#ifdef DONATOR
+#define COMSKIPPUBLIC "donator"
+#else
+#define COMSKIPPUBLIC "public"
+#endif
 
 // max number of frames that can be marked
 #define MAX_IDENTIFIERS 300000
@@ -765,7 +770,7 @@ unsigned char cvert_edgemask[MAXHEIGHT*MAXWIDTH];
 
 int					play_nice_start = -1;
 int					play_nice_end = -1;
-long				play_nice_sleep = 10L;
+long				play_nice_sleep = 2L;
 FILE *dump_data_file = (FILE *)NULL;
 uint8_t				ccData[500];
 int					ccDataLen;
@@ -5771,7 +5776,7 @@ void OpenOutputFiles()
     }
 
 
-    if (output_videoredo)
+    if (output_videoredo && !output_videoredo3)
     {
 //<Version>2
 //<Filename>G:\comskip79_46\mpg\MXC_20060518_00000030.mpg
@@ -6234,14 +6239,15 @@ void OutputCommercialBlock(int i, long prev, long start, long end, bool last)
             fprintf(videoredo3_file, "<InputPIDList><VideoStreamPID>%d</VideoStreamPID>\n<AudioStreamPID>%d</AudioStreamPID><SubtitlePID1>%d</SubtitlePID1></InputPIDList>\n", selected_video_pid, selected_audio_pid, selected_subtitle_pid);
         s_start = max(start-videoredo_offset-1,0);
         s_end = max(end - videoredo_offset-1,0);
-        fprintf(videoredo3_file, "<Cut><CutTimeStart>%.0f</CutTimeStart> <CutTimeEnd>%.0f</CutTimeEnd> </cut>\n", s_start / fps * 10000000, s_end / fps * 10000000);
+        fprintf(videoredo3_file, "<Cut><CutTimeStart>%.0f</CutTimeStart> <CutTimeEnd>%.0f</CutTimeEnd> </Cut>\n", s_start / fps * 10000000, s_end / fps * 10000000);
 
     }
     if (videoredo3_file)
     {
         if (last)
         {
-            fprintf(videoredo3_file, "</cutlist></VideoReDoProject>\n");
+//            fprintf(videoredo3_file, "</cutlist></VideoReDoProject>\n");
+            fprintf(videoredo3_file, "</CutList>\n");
         }
     }
     CLOSEOUTFILE(videoredo3_file);
@@ -6964,10 +6970,16 @@ bool OutputBlocks(void)
         videoredo3_file = myfopen(filename, "a+");
         if (videoredo3_file)
         {
+            fprintf(videoredo3_file, "<SceneList>\n");
             for (i = 0; i < block_count; i++)
             {
-//                   fprintf(videoredo3_file, "<SceneMarker %d>%.0f\n", i, F2T(max(cblock[i].f_end-videoredo_offset-1,0)) * 10000000);
+// <SceneList>
+//   <SceneMarker Sequence="1" Timecode="00:00:56;00">560560112</SceneMarker>
+// </SceneList>
+                   fprintf(videoredo3_file, "<SceneMarker Sequence=\"%d\" Timecode=\"%s\">%.0f</SceneMarker>\n", i, dblSecondsToStrMinutes(F2T(max(cblock[i].f_end-videoredo_offset-1,0))) , F2T(max(cblock[i].f_end-videoredo_offset-1,0)) * 10000000);
             }
+            fprintf(videoredo3_file, "</SceneList>\n");
+            fprintf(videoredo3_file, "</VideoReDoProject>\n");
             fclose(videoredo3_file);
         }
     }
@@ -7814,7 +7826,7 @@ void LoadIniFile()
         if ((tmp = FindNumber(data, "output_projectx=", (double) output_projectx)) > -1) output_projectx = (bool) tmp;
         if ((tmp = FindNumber(data, "output_avisynth=", (double) output_avisynth)) > -1) output_avisynth = (bool) tmp;
         if ((tmp = FindNumber(data, "output_videoredo=", (double) output_videoredo)) > -1) output_videoredo = (bool) tmp;
-        if ((tmp = FindNumber(data, "output_videoredo3=", (double) output_videoredo3)) > -1) output_videoredo3 = (bool) tmp;
+        if ((tmp = FindNumber(data, "output_videoredo3=", (double) output_videoredo3)) > -1)  { if (tmp) { output_videoredo3 = (bool) tmp; } ; if (output_videoredo3) output_videoredo = false; }
         if ((tmp = FindNumber(data, "videoredo_offset=", (double) videoredo_offset)) != -1) videoredo_offset = (int) tmp;
         if ((tmp = FindNumber(data, "output_btv=", (double) output_btv)) > -1) output_btv = (bool) tmp;
         if ((tmp = FindNumber(data, "output_edl=", (double) output_edl)) > -1) output_edl = (bool) tmp;
@@ -7990,6 +8002,7 @@ FILE* LoadSettings(int argc, char ** argv)
     struct arg_lit*		cl_output_zp_cutlist	= arg_lit0(NULL, "zpcut", "Outputs a ZoomPlayer cutlist");
     struct arg_lit*		cl_output_zp_chapter	= arg_lit0(NULL, "zpchapter", "Outputs a ZoomPlayer chapter file");
     struct arg_lit*		cl_output_vredo			= arg_lit0(NULL, "videoredo", "Outputs a VideoRedo cutlist");
+    struct arg_lit*		cl_output_vredo3		= arg_lit0(NULL, "videoredo3", "Outputs a VideoRedo3 cutlist");
     struct arg_lit*		cl_output_csv			= arg_lit0(NULL, "csvout", "Outputs a csv of the frame array");
     struct arg_lit*		cl_output_training		= arg_lit0(NULL, "quality", "Outputs a csv of false detection segments");
     struct arg_lit*		cl_output_plist	= arg_lit0(NULL, "plist", "Outputs a mac-style plist for addition to an EyeTV archive as the 'markers' property");
@@ -8021,6 +8034,7 @@ FILE* LoadSettings(int argc, char ** argv)
         cl_output_zp_cutlist,
         cl_output_zp_chapter,
         cl_output_vredo,
+        cl_output_vredo3,
         cl_output_csv,
         cl_output_training,
         cl_output_plist,
@@ -8488,7 +8502,7 @@ FILE* LoadSettings(int argc, char ** argv)
         {
             log_file = myfopen(logfilename, "w");
             fprintf(log_file, "################################################################\n");
-            fprintf(log_file, "Generated using Comskip %s.%s\n", COMSKIPVERSION,SUBVERSION);
+            fprintf(log_file, "Generated using %s Comskip %s.%s\n", COMSKIPPUBLIC, COMSKIPVERSION,SUBVERSION);
             fprintf(log_file, "Loading comskip csv file - %s\n", in->filename[0]);
             fprintf(log_file, "Time at start of run:\n%s", ctime(&ltime));
             fprintf(log_file, "################################################################\n");
@@ -8510,7 +8524,7 @@ FILE* LoadSettings(int argc, char ** argv)
         {
             log_file = myfopen(logfilename, "w");
             fprintf(log_file, "################################################################\n");
-            fprintf(log_file, "Generated using Comskip %s.%s\n", COMSKIPVERSION,SUBVERSION);
+            fprintf(log_file, "Generated using %s Comskip %s.%s\n", COMSKIPPUBLIC, COMSKIPVERSION,SUBVERSION);
             fprintf(log_file, "Time at start of run:\n%s", ctime(&ltime));
             fprintf(log_file, "################################################################\n");
             fclose(log_file);
@@ -8655,6 +8669,11 @@ FILE* LoadSettings(int argc, char ** argv)
         output_zoomplayer_chapter = true;
     if (cl_output_vredo->count)
         output_videoredo = true;
+    if (cl_output_vredo3->count)
+    {
+        output_videoredo3 = true;
+        output_videoredo = false;
+    }
     if (cl_output_plist->count)
         output_plist_cutlist = true;
 
@@ -10189,7 +10208,11 @@ double CheckStationLogoEdge(unsigned char* testFrame)
     int goodEdges = 0;
 
     currentGoodEdge = 0.0;
-    if (aggressive_logo_rejection == 1)
+    if (videowidth < clogoMinX || height < clogoMinY)
+    {
+        // No logo possible as frame size if different from where logo was found
+    }
+    else if (aggressive_logo_rejection == 1)
     {
         for (y = clogoMinY; y <= clogoMaxY; y += edge_step)
         {
@@ -15012,13 +15035,30 @@ double get_fps()
 }
 
 
-void set_fps(unsigned int fp)
+void set_fps(double fp,double dfps, int ticks)
 {
     double old_fps = fps;
     static int showed_fps=0;
-    fps = (double)900000* 30 / (double)fp;
-    if (/* old_fps != fps && */ showed_fps++ < 4)
+    fps = (double)1.0 / fp;
+    if (fps != old_fps)
+        showed_fps=0.0;
+    if (fabs(old_fps-fps) > 0.0001 /* && showed_fps++ < 4 */ ) {
         Debug(1, "Frame Rate set to %5.3f f/s\n", fps);
+        if (ticks > 1)
+            Debug(1, "Ticks per frame = %d\n", ticks);
+        if (fabs(fps - dfps) > 0.1) {
+            Debug(1, "DFps[%d]<> %5.3f f/s\n", ticks, dfps);
+        } else {
+//            Debug(1, "DFps[%d]== %5.3f f/s\n", ticks, dfps);
+        }
+    }
+    if ( fps < 15.0 || fps > 100 || fps == 0.0 / 0.0)
+    {
+        fps = dfps;
+        if (/* old_fps != fps && */ showed_fps < 4)
+        Debug(1, "Frame Rate corrected to %5.3f f/s\n", fps);
+    }
+
 }
 
 #define MAX_SAVED_VOLUMES	10000
@@ -15030,7 +15070,7 @@ static struct
 } volumes[MAX_SAVED_VOLUMES];
 static int max_fill = 0;
 
-                      void SaveVolume (int f,int v)
+void SaveVolume (int f,int v)
 {
     int i;
     for (i = 0; i < MAX_SAVED_VOLUMES; i++)
@@ -15045,6 +15085,12 @@ static int max_fill = 0;
         }
     }
     Debug (1, "Panic volume buffer\n");
+    if (f > 8 * 60 * 60 * 50)  // max 8 hours with fps of 50
+    {
+        Debug(1, "Too many volume panic's, protected file?\n");
+        exit(103);   // exit as probably protected file .
+    }
+
     for (i = 0; i < MAX_SAVED_VOLUMES; i++)
     {
         volumes[i].frame = 0;
@@ -15064,6 +15110,18 @@ int RetreiveVolume (int f)
         }
     }
     return(-1);
+}
+
+
+void ClearVolumeBuffer ()
+{
+    int i;
+    for (i = 0; i <= max_fill; i++)
+    {
+        volumes[i].frame = 0;
+        volumes[i].volume = 0;
+    }
+    max_fill = 0;
 }
 
 
