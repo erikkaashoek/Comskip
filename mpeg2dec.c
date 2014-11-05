@@ -321,14 +321,14 @@ extern int live_tv_retries;
 extern int dvrms_live_tv_retries;
 int retries;
 
-static unsigned int frame_period;
-extern void set_fps(unsigned int frame_period);
+static double frame_period;
+extern void set_fps(double frame_period, double dfps, int ticks);
 extern void dump_video (char *start, char *end);
 extern void dump_audio (char *start, char *end);
 extern void	Debug(int level, char* fmt, ...);
 extern void dump_video_start(void);
 extern void dump_audio_start(void);
-
+void ClearVolumeBuffer();
 void file_open();
 int DetectCommercials(int, double);
 int BuildMasterCommList(void);
@@ -1014,6 +1014,8 @@ int video_packet_process(VideoState *is,AVPacket *packet)
         if (is->video_st->codec->ticks_per_frame<1)
             is->video_st->codec->ticks_per_frame = 1;
         frame_delay = av_q2d(is->video_st->codec->time_base)* is->video_st->codec->ticks_per_frame;         // <------------------------ frame delay is the time in seconds till the next frame
+        if (frame_delay < 0.01)
+            frame_delay = (1.0/av_q2d(is->video_st->r_frame_rate) ) /* * is->video_st->codec->ticks_per_frame */;         // <------------------------ frame delay is the time in seconds till the next frame
 
         pev_best_effort_timestamp = best_effort_timestamp;
 
@@ -1034,6 +1036,14 @@ int video_packet_process(VideoState *is,AVPacket *packet)
             if (initial_pts_set == 0)
             {
                 initial_pts = best_effort_timestamp - (is->video_st->start_time != AV_NOPTS_VALUE ? is->video_st->start_time : 0);
+                Debug( 10,"\nInitial pts = %f\n", av_q2d(is->video_st->time_base)* initial_pts);
+
+                if (fabs(av_q2d(is->video_st->time_base)* initial_pts) > 2.0)
+                {
+                    is->video_st->start_time = best_effort_timestamp;
+                    initial_pts = best_effort_timestamp - (is->video_st->start_time != AV_NOPTS_VALUE ? is->video_st->start_time : 0);
+                }
+
                 initial_pts_set = 1;
                 final_pts = 0;
                 pts_offset = 0.0;
@@ -1062,11 +1072,11 @@ int video_packet_process(VideoState *is,AVPacket *packet)
                     is->video_clock = pts;
                     DUMP_TIMING("v   set",real_pts, pts, is->video_clock);
                 }
-                else if ((pts - is->video_clock)/frame_delay > 0.99 )
+                else if ((pts - is->video_clock)/frame_delay >= 1.0 )
                 {
                     if (!reviewing) Debug(1 ,"Video jumped by %6.1f frames at frame %d, repairing timeline\n",
                                               (pts - is->video_clock)/frame_delay, framenum);
-                    summed_repeat += is->video_st->codec->ticks_per_frame *(int) ((pts - is->video_clock)/frame_delay );
+                    summed_repeat +=  is->video_st->codec->ticks_per_frame * (int) ((pts - is->video_clock)/frame_delay );
                     //      is->video_clock = pts;
                     DUMP_TIMING("vfollow", real_pts, pts, is->video_clock);
                 }
@@ -1097,13 +1107,17 @@ int video_packet_process(VideoState *is,AVPacket *packet)
 
 
 
-        frame_period = (double)900000*30 / (((double)is->video_st->codec->time_base.den) / is->video_st->codec->time_base.num );
+        frame_period = (double)1.0 / (((double)is->video_st->codec->time_base.den) / is->video_st->codec->time_base.num );
         if (is->video_st->codec->ticks_per_frame >= 1)
             frame_period *= is->video_st->codec->ticks_per_frame;
         else
             is->video_st->codec->ticks_per_frame = 1;
+        if (frame_period < 0.01)
+            frame_period = (1.0/av_q2d(is->video_st->r_frame_rate) ) /* * is->video_st->codec->ticks_per_frame */;         // <------------------------ frame delay is the time in seconds till the next frame
 
-        set_fps(frame_period);
+
+//        Debug(1, "Decoder frame rate is %5.3f f/s\n", is->fps);
+        set_fps(frame_period, is->fps, is->video_st->codec->ticks_per_frame);
 
         is->video_clock_submitted = is->video_clock;
         if (is->video_clock - is->seek_pts > -frame_delay / 2.0)
@@ -1364,6 +1378,7 @@ void file_open()
 //        pFormatCtx->max_analyze_duration *= 40;
 //        pFormatCtx->probesize = 40000000;
 again:
+        ClearVolumeBuffer();
         if(avformat_open_input(&pFormatCtx, is->filename, NULL, NULL)!=0)
         {
             fprintf(stderr, "%s: Can not open file\n", is->filename);
@@ -1436,6 +1451,7 @@ again:
         {
             is->fps = 1/av_q2d(is->video_st->codec->time_base);
         }
+
 
     }
 
@@ -1579,8 +1595,8 @@ int main (int argc, char ** argv)
         {
 #ifdef _WIN32
             //added windows specific
-//			SetPriorityClass(GetCurrentProcess(), IDLE_PRIORITY_CLASS);
-//			SetThreadPriority(GetCurrentThread(), THREAD_PRIORITY_HIGHEST);
+			SetPriorityClass(GetCurrentProcess(), IDLE_PRIORITY_CLASS);
+			SetThreadPriority(GetCurrentThread(), THREAD_PRIORITY_HIGHEST);
 #endif
         }
         //get path to executable
@@ -1609,6 +1625,12 @@ int main (int argc, char ** argv)
 
         fprintf (stderr, "Comskip %s.%s, made using avcodec\n", COMSKIPVERSION,SUBVERSION);
 
+#ifndef DONATOR
+        fprintf (stderr, "Public build\n");
+#else
+        fprintf (stderr, "Donator build\n");
+#endif
+
 #ifdef _WIN32
 #ifdef HAVE_IO_H
 //		_setmode (_fileno (stdin), O_BINARY);
@@ -1622,6 +1644,21 @@ int main (int argc, char ** argv)
 //		if (!live_tv) SetThreadPriority(GetCurrentThread(), /* THREAD_MODE_BACKGROUND_BEGIN */ 0x00010000); // This will fail in XP but who cares
 
 #endif
+
+#define ES_AWAYMODE_REQUIRED    0x00000040
+#define ES_CONTINUOUS           0x80000000
+#define ES_SYSTEM_REQUIRED      0x00000001
+
+#include <winbase.h>
+
+#if (_WIN32_WINNT >= 0x0500 || _WIN32_WINDOWS >= 0x0410)
+
+SetThreadExecutionState(ES_CONTINUOUS | ES_SYSTEM_REQUIRED | ES_AWAYMODE_REQUIRED);
+#endif
+
+//
+// Wait until recording is complete...
+//
 
 
 
@@ -1819,7 +1856,7 @@ again:
 #ifdef SELFTEST
             if (selftest == 1 && is->seek_req == 0 && framenum == 500)
             {
-                double frame_delay = av_q2d(is->video_st->codec->time_base)* is->video_st->codec->ticks_per_frame;         // <------------------------ frame delay is the time in seconds till the next frame
+                double frame_delay = 1/ get_fps();         // <------------------------ frame delay is the time in seconds till the next frame
                 Set_seek(is, 30.0, 10000.0);
                 framenum++;
             }
@@ -1879,6 +1916,14 @@ again:
 //		exit(result);
 //	}
 #endif
+
+//
+// Clear EXECUTION_STATE flags to disable away mode and allow the system to idle to sleep normally.
+//
+#if (_WIN32_WINNT >= 0x0500 || _WIN32_WINDOWS >= 0x0410)
+SetThreadExecutionState(ES_CONTINUOUS);
+#endif
+
     exit (result);
 }
 
