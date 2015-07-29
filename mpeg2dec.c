@@ -1976,7 +1976,7 @@ again:
             {
                  if (ret == AVERROR_EOF || is->pFormatCtx->pb->eof_reached)
                  {
-                if (retries < live_tv_retries /* && ( url_feof (is->pFormatCtx->pb) || selftest != 0) */) {
+                if (live_tv && retries < live_tv_retries /* && ( url_feof (is->pFormatCtx->pb) || selftest != 0) */) {
                     if (retries==0) retry_target = is->video_clock;
                     file_close();
                     Debug( 1,"\nRetry=%d at frame=%d, time=%8.2f seconds\n", retries, framenum, retry_target);
