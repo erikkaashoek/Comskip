@@ -1,4 +1,6 @@
 // comskip.c
+// comskip.c
+// comskip.c
 // Copyright (C) 2004 Scott Michael
 // Based on the work of Chris Pinkham of MythTV
 // comskip is free software; you can redistribute it and/or modify
@@ -13,7 +15,10 @@
 // along with this program; if not, write to the Free Software
 // Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
 #include <stdio.h>
+
+
 #ifdef _WIN32
+
 #include <conio.h>
 #include <windows.h>									// needed for sleep command
 #include <direct.h>										// needed for getcwd
@@ -104,6 +109,7 @@ FILE*			videoredo_file = NULL;
 FILE*			videoredo3_file = NULL;
 FILE*			btv_file = NULL;
 FILE*			edl_file = NULL;
+FILE*			live_file = NULL;
 FILE*			ipodchap_file = NULL;
 FILE*			edlp_file = NULL;
 FILE*			bcf_file = NULL;
@@ -177,10 +183,13 @@ typedef struct
     int    cutscenematch;
     double logo_filter;
     int    xds;
+    int cur_segment;
 #ifdef FRAME_WITH_HISTOGRAM
     int		histogram[256];
 #endif
 } frame_info;
+
+extern int debug_cur_segment;
 
 frame_info*			frame = NULL;
 long				frame_count = 0;
@@ -425,6 +434,7 @@ struct
 double	dominant_ar;
 
 int                     thread_count = 2;
+int                     hardware_decode = 0;
 int						skip_B_frames = 0;
 int						lowres = 0;
 bool					live_tv = false;
@@ -505,7 +515,7 @@ int haslogo[MAXWIDTH*MAXHEIGHT];
 // variables defining options with defaults
 int					selftest = 0;
 int					verbose = 0;						// show extra info
-double				fps = 25.0;						// frames per second (NTSC=29.970, PAL=25)
+double				fps = 22.0;						// frames per second (NTSC=29.970, PAL=25)
 int					border = 10;						// border around edge of video to ignore
 int					ticker_tape=0, ticker_tape_percentage=0;						// border from bottom to ignore
 int					ignore_side=0;
@@ -548,6 +558,7 @@ bool				play_nice = false;
 double				global_threshold = 1.05;
 bool				intelligent_brightness = false;
 double				logo_threshold = 0.80;
+double				logo_percentage_threshold = 0.25;
 double				logo_max_percentage_of_screen = 0.12;
 int					logo_filter = 0;
 int					non_uniformity = 500;
@@ -592,6 +603,7 @@ int					videoredo_offset = 2;
 int					edl_offset = 0;
 int                 edl_skip_field = 0;
 bool				output_edl = false;
+bool				output_live = false;
 bool				output_edlp = false;
 bool				output_bsplayer = false;
 bool				output_edlx = false;
@@ -908,6 +920,7 @@ void				OutputHistogram(int *histogram, int scale, char *title, bool truncate);
 int					FindBlackThreshold(double percentile);
 int					FindUniformThreshold(double percentile);
 void				OutputFrameArray(bool screenOnly);
+void                OutputBlackArray();
 void				OutputFrame();
 void				OpenOutputFiles();
 void				InitializeFrameArray(long i);
@@ -1934,7 +1947,8 @@ int oldfrm = -1;
 int zstart = 0;
 int zfactor = 1;
 int show_XDS=0;
-
+int show_silence=0;
+#define _WIN32 1
 
 void OutputDebugWindow(bool showVideo, int frm, int grf)
 {
@@ -1952,6 +1966,7 @@ void OutputDebugWindow(bool showVideo, int frm, int grf)
     char x4[80];
     char x5[80];
     char *tt[40];
+    char tbuf[80][80];
     char frametext[80];
     bool	blackframe, bothtrue, haslogo, uniformframe;
     int silence=0;
@@ -1972,12 +1987,14 @@ void OutputDebugWindow(bool showVideo, int frm, int grf)
             {
                 oheight = height / 2;
                 owidth = width / 2 ;
+                owidth = videowidth / 2 ;
                 divider = 2;
             }
             else
             {
                 oheight = height;
                 owidth = width;
+                owidth = videowidth;
                 divider = 1;
             }
             oheight = (oheight + 31) & -32;
@@ -2493,6 +2510,16 @@ void OutputDebugWindow(bool showVideo, int frm, int grf)
             tt[6] = 0;
             ShowHelp(tt);
         }
+        else if (show_silence)
+        {
+            for (i=0; i<25; i++)
+            {
+                tt[i] = tbuf[i];
+                sprintf(tt[i],"volume[%i] = %i", i, silenceHistogram[i]);
+            }
+            tt[i] = 0;
+            ShowHelp(tt);
+        }
         else
             ShowDetails(t);
     }
@@ -2901,6 +2928,12 @@ bool ReviewResult()
                 oldfrm = -1;
             }
 
+            if (key == 'V')
+            {
+                show_silence = !show_silence;
+                oldfrm = -1;
+            }
+
             if (key == 'G')
             {
                 grf++;
@@ -3001,6 +3034,7 @@ int DetectCommercials(int f, double pts)
         frame[frame_count].volume = curvolume;
         frame[frame_count].goppos = headerpos;
         frame[frame_count].pts = pts;
+        frame[frame_count].cur_segment = debug_cur_segment;
         if (frame_count == 1)
             frame[0].pts = pts;
     }
@@ -3345,6 +3379,7 @@ bool BuildMasterCommList(void)
     int		volume_delta;
     int		p_vol, n_vol;
     int		plataus;
+    int		platauHistogram[256];
 
     double	length;
     long	totalFrames = 0;
@@ -3414,7 +3449,7 @@ try_again:
         {
 
             for (i = 0; i < 255; i++)
-                silenceHistogram[i] = 0;
+                platauHistogram[i] = 0;
             plataus = 0;
             j = 1;
             for (i = VOLUME_PLATAU_SIZE; i < frame_count-VOLUME_PLATAU_SIZE;)
@@ -3475,18 +3510,18 @@ try_again:
 //							frame[j].isblack |= C_v;
 
                         plataus++;
-                        silenceHistogram[frame[i].volume/10]++;
+                        platauHistogram[frame[i].volume/10]++;
                     }
                 }
                 i += a;
             }
             a = 0;
-            Debug(9, "Vol: Frames\n", i*10, silenceHistogram[i]);
+            Debug(9, "Vol : #Frames\n");
             for (i = 0; i < 255; i++)
             {
-                a += silenceHistogram[i];
-                if (silenceHistogram[i] > 0)
-                    Debug(9, "%3d: %d\n", i*10, silenceHistogram[i]);
+                a += platauHistogram[i];
+                if (platauHistogram[i] > 0)
+                    Debug(9, "%3d : %d\n", i*10, platauHistogram[i]);
 
             }
             a = a * 6 / 10;
@@ -3494,7 +3529,7 @@ try_again:
             i = 0;
             while (j < a)
             {
-                j += silenceHistogram[i++];
+                j += platauHistogram[i++];
             }
             ms = i*10;
             Debug(7, "Calculated silence level = %d\n", ms);
@@ -4191,6 +4226,7 @@ again:
     }
 
     if (output_framearray) OutputFrameArray(false);
+    if (output_framearray) OutputBlackArray();
 
     BuildBlocks(false);
     if (commDetectMethod & LOGO)
@@ -4797,7 +4833,7 @@ expand:
         // if logo detected in cblock, score = 10%
         if (commDetectMethod & LOGO)
         {
-            if (cblock[i].logo > 0.20)
+            if (cblock[i].logo > logo_percentage_threshold)
             {
                 Debug(2, "Block %i has logo.\n", i);
                 Debug(3, "Block %i score:\tBefore - %.2f\t", i, cblock[i].score);
@@ -4818,7 +4854,7 @@ expand:
             				cblock[i].cause |= C_LOGO;
             				cblock[i].less |= C_LOGO;
             			}
-            */			else if (punish_no_logo && cblock[i].logo < 0.05 && logoPercentage > logo_fraction)
+            */			else if (punish_no_logo && cblock[i].logo < logo_percentage_threshold && logoPercentage > logo_fraction)
             {
                 Debug(2, "Block %i has no logo.\n", i);
                 Debug(3, "Block %i score:\tBefore - %.2f\t", i, cblock[i].score);
@@ -5711,7 +5747,22 @@ void OpenOutputFiles()
             output_edl = true;
         }
     }
-
+/*
+    if (output_live)
+    {
+        sprintf(filename, "%s.live", outbasename);
+        live_file = myfopen(filename, "wb");
+        if (!live_file)
+        {
+            fprintf(stderr, "%s - could not create file %s\n", strerror(errno), filename);
+            exit(6);
+        }
+        else
+        {
+            output_live = true;
+        }
+    }
+*/
     if (output_ipodchap)
     {
         sprintf(filename, "%s.chap", outbasename);
@@ -6283,6 +6334,24 @@ void OutputCommercialBlock(int i, long prev, long start, long end, bool last)
         }
     }
     CLOSEOUTFILE(edl_file);
+
+    if (live_file && prev < start /* &&!last */ && end - start > 2)
+    {
+        if (start < 5)
+            start = 0;
+        s_start = max(start-edl_offset,0);
+        s_end = max(end - edl_offset,0);
+
+        if (demux_pid && enable_mencoder_pts)
+        {
+            fprintf(live_file, "%.2f\t%.2f\t%d\n", (double)s_start / fps + frame[1].pts, (double)s_end / fps  + frame[1].pts, edl_skip_field);
+        }
+        else
+        {
+            fprintf(live_file, "%.2f\t%.2f\t%d\n", (double)s_start / fps , (double)s_end / fps , edl_skip_field);
+        }
+    }
+    CLOSEOUTFILE(live_file);
 
     if (ipodchap_file && prev < start /* &&!last */ && end - start > 2)
     {
@@ -6998,11 +7067,13 @@ bool OutputBlocks(void)
         }
     }
 
-    reffer_count = commercial_count;
-    for (i = 0; i <= commercial_count; i++)
-    {
-        reffer[i].start_frame = commercial[i].start_frame;
-        reffer[i].end_frame = commercial[i].end_frame;
+    if (reffer_count == -1) {
+        reffer_count = commercial_count;
+        for (i = 0; i <= commercial_count; i++)
+        {
+            reffer[i].start_frame = commercial[i].start_frame;
+            reffer[i].end_frame = commercial[i].end_frame;
+        }
     }
 
     InputReffer(".ref", false);
@@ -7700,6 +7771,8 @@ void LoadIniFile()
         if ((tmp = FindNumber(data, "disable_heuristics=", (double) disable_heuristics)) > -1) disable_heuristics = (int)tmp;
         AddIniString("[CPU Load Reduction]\n");
         if ((tmp = FindNumber(data, "thread_count=", (double) thread_count)) > -1) thread_count = (int)tmp;
+        if ((tmp = FindNumber(data, "hardware_decode=", (double) hardware_decode)) > -1) hardware_decode = (int)tmp;
+
         if ((tmp = FindNumber(data, "play_nice_start=", (double) play_nice_start)) > -1) play_nice_start = (int)tmp;
         if ((tmp = FindNumber(data, "play_nice_end=", (double) play_nice_end)) > -1) play_nice_end = (int)tmp;
         if ((tmp = FindNumber(data, "play_nice_sleep=", (double) play_nice_sleep)) > -1) play_nice_sleep = (long)tmp;
@@ -7770,6 +7843,7 @@ void LoadIniFile()
         if ((tmp = FindNumber(data, "subtitles=", (double) subtitles)) > -1) subtitles = (int)tmp;
         if ((tmp = FindNumber(data, "logo_at_bottom=", (double) logo_at_bottom)) > -1) logo_at_bottom = (int)tmp;
         if ((tmp = FindNumber(data, "logo_threshold=", (double) logo_threshold)) > -1) logo_threshold = (double)tmp;
+        if ((tmp = FindNumber(data, "logo_percentage_threshold=", (double) logo_percentage_threshold)) > -1) logo_percentage_threshold = (double)tmp;
         if ((tmp = FindNumber(data, "logo_filter=", (double) logo_filter)) > -1) logo_filter = (int)tmp;
         if ((tmp = FindNumber(data, "aggressive_logo_rejection=", (double) aggressive_logo_rejection)) > -1) aggressive_logo_rejection = (bool)tmp;
         if ((tmp = FindNumber(data, "edge_level_threshold=", (double) edge_level_threshold)) > -1) edge_level_threshold = (int)tmp;
@@ -7830,6 +7904,7 @@ void LoadIniFile()
         if ((tmp = FindNumber(data, "videoredo_offset=", (double) videoredo_offset)) != -1) videoredo_offset = (int) tmp;
         if ((tmp = FindNumber(data, "output_btv=", (double) output_btv)) > -1) output_btv = (bool) tmp;
         if ((tmp = FindNumber(data, "output_edl=", (double) output_edl)) > -1) output_edl = (bool) tmp;
+        if ((tmp = FindNumber(data, "output_live=", (double) output_live)) > -1) output_live = (bool) tmp;
         if ((tmp = FindNumber(data, "edl_offset=", (double) edl_offset)) != -1) edl_offset = (int) tmp;
         if ((tmp = FindNumber(data, "edl_skip_field=", (double) edl_skip_field)) != -1) edl_skip_field = (int) tmp;
         if ((tmp = FindNumber(data, "output_edlp=", (double) output_edlp)) > -1) output_edlp = (bool) tmp;
@@ -8171,7 +8246,7 @@ FILE* LoadSettings(int argc, char ** argv)
         		}
         */
 
-
+/*
         i = mystat(( char *)in->filename[0], &instat);
         if (i <0)
                {
@@ -8179,7 +8254,7 @@ FILE* LoadSettings(int argc, char ** argv)
                    exit(3);
 
                }
-
+*/
         sprintf(basename, "%.*s", (int)strlen(in->filename[0]) - (int)strlen(in->extension[0]), in->filename[0]);
         i = strlen(basename);
         while (i>0 && basename[i-1] != '\\' && basename[i-1] != '/')
@@ -8327,7 +8402,6 @@ FILE* LoadSettings(int argc, char ** argv)
         sprintf(inifilename, cl_ini->filename[0]);
         printf("Setting ini file to %s as per commandline\n", inifilename);
     }
-
     ini_file = myfopen(inifilename, "r");
 
     if (cl_work->count)
@@ -8659,7 +8733,7 @@ FILE* LoadSettings(int argc, char ** argv)
         }
     }
 
-    out_file = plist_cutlist_file = zoomplayer_cutlist_file = zoomplayer_chapter_file = vcf_file = vdr_file = projectx_file = avisynth_file = cuttermaran_file = videoredo_file = videoredo3_file = btv_file = edl_file = ipodchap_file = edlp_file = edlx_file = mls_file = womble_file = mpgtx_file = dvrcut_file = dvrmstb_file = tuning_file = training_file = 0L;
+    out_file = plist_cutlist_file = zoomplayer_cutlist_file = zoomplayer_chapter_file = vcf_file = vdr_file = projectx_file = avisynth_file = cuttermaran_file = videoredo_file = videoredo3_file = btv_file = edl_file = live_file = ipodchap_file = edlp_file = edlx_file = mls_file = womble_file = mpgtx_file = dvrcut_file = dvrmstb_file = tuning_file = training_file = 0L;
 
     if (cl_output_plist->count)
         output_plist_cutlist = true;
@@ -9712,6 +9786,18 @@ bool CheckSceneHasChanged(void)
     }
     if (frame[frame_count].cutscenematch < cutscenedelta)
         cause |= C_t;
+
+    if (commDetectMethod & SILENCE)
+    {
+        if (0 <= frame[frame_count].volume && frame[frame_count].volume < max_silence && min_silence == 1)
+        {
+            cause |= C_v;
+        }
+        if (0 == frame[frame_count].volume)
+        {
+            cause |= C_v;
+        }
+    }
 
     if (cause != 0)
         InsertBlackFrame(framenum_real,brightness,uniform,curvolume,cause);
@@ -11198,6 +11284,7 @@ bool CheckFramesForLogo(int start, int end)
 {
     int		i;
     int		j;
+#ifdef OLD_LIVE_TV
     for (i = start; i <= end; i++)
     {
         for (j = 0; j < logo_block_count; j++)
@@ -11210,6 +11297,19 @@ bool CheckFramesForLogo(int start, int end)
     }
 
     return (reverseLogoLogic);
+#else
+    double sum = 0.0;
+    j = 0;
+    for (i = start; i <= end; i++)
+        sum += (frame[i].currentGoodEdge > logo_threshold ? 1 : 0);
+
+    sum = sum / (end - start + 1);
+    if (sum > logo_percentage_threshold)
+        return(true);
+    return(false);
+
+#endif
+
 }
 
 double CalculateLogoFraction(int start, int end)
@@ -11296,7 +11396,8 @@ void SaveLogoMaskData(void)
     {
         fprintf(stderr, "%s - could not create file %s\n", strerror(errno), logofilename);
         Debug(1, "%s - could not create file %s\n", strerror(errno), logofilename);
-        exit(7);
+        if(startOverAfterLogoInfoAvail)
+            exit(7);
     }
 
     fprintf(logo_file, "logoMinX=%i\n", clogoMinX);
@@ -11758,6 +11859,8 @@ void InitComSkip(void)
     for (i = 0; i < 256; i++) brightHistogram[i] = 0;
     for (i = 0; i < 256; i++) uniformHistogram[i] = 0;
     for (i = 0; i < 256; i++) volumeHistogram[i] = 0;
+    for (i = 0; i < 256; i++) silenceHistogram[i] = 0;
+
     if (framearray)
     {
         if(!initialized)
@@ -11806,7 +11909,6 @@ void InitComSkip(void)
 //		}
         memset(max_br,   0, sizeof(max_br));
         memset(min_br, 255, sizeof(min_br));
-
     }
 
     if (commDetectMethod & SCENE_CHANGE)
@@ -11930,6 +12032,7 @@ void InitComSkip(void)
     frames_with_logo = 0;
     framenum = 0;
     lastLogoTest = FALSE;
+    commercial_count = -1;
 
     logoTrendCounter = 0;
 //	audio_framenum = 0;
@@ -12362,10 +12465,13 @@ int InputReffer(char *extension, int setfps)
     int     frames;
     char	co,re;
     FILE*    raw2=NULL;
+
     sprintf(array, "%.*s%s", (int)(strlen(logfilename) - 4), logfilename,extension);
     raw = myfopen(array, "r");
     if (!raw)
     {
+        if (output_live)
+            goto noreffer;
         return(0);
     }
 
@@ -12437,6 +12543,7 @@ int InputReffer(char *extension, int setfps)
         }
     }
     fclose(raw);
+noreffer:
     if (reffer_count >= 0)
     {
         if (frames == 0)
@@ -12701,6 +12808,52 @@ void OutputAspect(void)
 
 
 
+
+void OutputBlackArray()
+{
+    int		i;
+#ifdef FRAME_WITH_HISTOGRAM
+    int		k;
+#endif
+//	long	j;
+    char	array[MAX_PATH];
+    FILE*	raw;
+    char	lp[10];
+
+return;
+
+    sprintf(array, "%.*s.black.csv", (int)(strlen(logfilename) - 4), logfilename);
+//	Debug(5, "Expanding logo blocks into frame array\n");
+//	for (i = 0; i < logo_block_count; i++) {
+//		for (j = logo_block[i].start; j <= logo_block[i].end; j++) {
+//			frame[j].logo_present = TRUE;
+//		}
+//	}
+//	Debug(5, "Expanded logo blocks into frame array\n");
+    raw = myfopen(array, "w");
+    if (!raw)
+    {
+        Debug(1, "Could not open raw output file.\n");
+        return;
+    }
+    fprintf(raw, "black,frame,brightness,cause,uniform,volume\n");
+    for (i = 1; i < black_count; i++)
+    {
+        fprintf(raw, "%i,%i,%i,%i,%i,%i\n",
+                    i,
+                    black[i].frame,
+                    black[i].brightness,
+                    black[i].cause,
+                    black[i].uniform,
+                    black[i].volume
+                   );
+    }
+
+    fclose(raw);
+}
+
+
+
 void OutputFrameArray(bool screenOnly)
 {
     int		i;
@@ -12743,10 +12896,10 @@ void OutputFrameArray(bool screenOnly)
         }
         else
         {
-            fprintf(raw, "%i,%i,%i,%i,%i,%i,%i,%i,%i,%i,%i,%i,%i,%i,%i,%i,%f",
+            fprintf(raw, "%i,%i,%i,%i,%i,%i,%i,%i,%i,%i,%i,%i,%i,%i,%i,%i,%f, %i",
                     i, frame[i].brightness, frame[i].schange_percent*5, frame[i].logo_present,
                     frame[i].uniform, frame[i].volume,  frame[i].minY,frame[i].maxY,(int)((frame[i].ar_ratio)*100),
-                    (int)(frame[i].currentGoodEdge * 500), frame[i].isblack,(int)frame[i].cutscenematch,  frame[i].minX,frame[i].maxX,frame[i].hasBright,frame[i].dimCount, frame[i].pts
+                    (int)(frame[i].currentGoodEdge * 500), frame[i].isblack,(int)frame[i].cutscenematch,  frame[i].minX,frame[i].maxX,frame[i].hasBright,frame[i].dimCount, frame[i].pts, frame[i].cur_segment
                    );
 #ifdef FRAME_WITH_HISTOGRAM
             for (k = 0; k < 32; k++)
@@ -13210,7 +13363,9 @@ ccagain:
         if (frame[i].volume >= 0)
         {
             volumeHistogram[(frame[i].volume/volumeScale < 255 ? frame[i].volume/volumeScale : 255)]++;
+            silenceHistogram[(frame[i].volume < 255 ? frame[i].volume : 255)]++;
         }
+
 
 
         framenum_real = i;
@@ -13328,6 +13483,18 @@ ccagain:
         if (frame[i].isblack & C_v)
             frame[i].isblack &= ~C_v;
 
+        if (commDetectMethod & SILENCE)
+        {
+            if (0 <= frame[i].volume && frame[i].volume < max_silence && min_silence == 1)
+            {
+                frame[i].isblack |= C_v;
+            }
+            if (frame[i].volume < 6)
+            {
+                frame[i].isblack |= C_v;
+            }
+        }
+
 
         if (frame[i].isblack)
         {
@@ -13381,6 +13548,11 @@ ccagain:
     }
     framenum_real = frame_count;
     framesprocessed = frame_count;
+
+    if (output_live) {
+        OutputBlackArray();
+        BuildCommListAsYouGo();
+    }
 
     BuildMasterCommList();
 
@@ -14745,14 +14917,23 @@ void BuildCommListAsYouGo(void)
 
     if (framenum_real - lastFrameCommCalculated <= 15 * fps) return;
 
+#ifdef OLD_LIVE_TV
+
     local_blacklevel = min_brightness_found + brightness_buffer;
 
     if (local_blacklevel < max_avg_brightness)
         local_blacklevel = max_avg_brightness;
+#else
+    local_blacklevel = max_avg_brightness;
+#endif
 
-    if ((black[black_count-1].brightness <= local_blacklevel) &&
+    if (black_count > 0
+#ifdef OLD_LIVE_TV
+        && (black[black_count-1].brightness <= local_blacklevel)
+         &&   (framenum_real > lastFrame)
+#endif
             /*(black[black_count-1].frame == framenum_real) &&*/
-            (framenum_real > lastFrame))
+        )
     {
 
         lastFrameCommCalculated = framenum_real;
@@ -14764,13 +14945,47 @@ void BuildCommListAsYouGo(void)
             exit(8);
         }
 
+#ifdef OLD_LIVE_TV
         Debug(7, "Building list of all frames with a brightness less than %i.\n", local_blacklevel);
-        for (i = 0; i < black_count; i++)
+#endif
+        for (i = 1; i < black_count; i++) // Skip first black frame
         {
+#ifdef OLD_LIVE_TV
             if (black[i].brightness <= local_blacklevel)
+#else
+            k = false;
+            if ((black[i].cause & C_v) || (black[i].cause & C_b) || (black[i].cause & C_u) )
             {
-                onTheFlyBlackFrame[onTheFlyBlackCount] = black[i].frame;
-                onTheFlyBlackCount++;
+
+                for (j=max(1,black[i].frame - shrink_logo * fps); j < min(framenum_real, black[i].frame + shrink_logo * fps ); j++ )
+                {
+
+                    if (!frame[j].logo_present)
+                    {
+                        k = true;
+                        Debug(11, "[%d] Cutpoint %s without logo\n",black[i].frame, CauseString(black[i].cause));
+                        break;
+                    }
+                }
+                if (k == false && (black[i].cause & C_v) )
+                {
+                    for (j=max(1,black[i].frame - volume_slip * fps); j < min(framenum_real, black[i].frame + volume_slip * fps ); j++ )
+                    {
+                        if (frame[j].isblack & C_b)
+                        {
+                            Debug(11, "[%d] Silence and dark\n",black[i].frame);
+                            k = true;
+                        }
+                    }
+                }
+//          if (frame[black[i].frame].currentGoodEdge < logo_threshold)
+                if (k)
+//            if (!frame[black[i].frame].logo_present)
+#endif
+                {
+                    onTheFlyBlackFrame[onTheFlyBlackCount] = black[i].frame;
+                    onTheFlyBlackCount++;
+                }
             }
         }
 
@@ -14802,7 +15017,7 @@ void BuildCommListAsYouGo(void)
                     // look for segments in multiples of 5 seconds
                     if (oldbreak)
                     {
-                        if (CheckFramesForLogo(onTheFlyBlackFrame[x - 1], onTheFlyBlackFrame[x]) && useLogo)
+                        if (CheckFramesForLogo(onTheFlyBlackFrame[x - 1], onTheFlyBlackFrame[x]) && useLogo && logo_present_modifier != 1)
                         {
 
                             c_end[commercials - 1] = onTheFlyBlackFrame[x - 1];
@@ -14832,10 +15047,10 @@ void BuildCommListAsYouGo(void)
                     }
                     else
                     {
-                        if (CheckFramesForLogo(onTheFlyBlackFrame[i], onTheFlyBlackFrame[x]) && useLogo)
+                        if (CheckFramesForLogo(onTheFlyBlackFrame[i], onTheFlyBlackFrame[x]) && useLogo && logo_present_modifier != 1)
                         {
                             Debug(
-                                6,
+                                11,
                                 "Logo detected between frames %i and %i.  Skipping to next i.\n",
                                 onTheFlyBlackFrame[i],
                                 onTheFlyBlackFrame[x]
@@ -14875,7 +15090,7 @@ void BuildCommListAsYouGo(void)
 
 
         // print out commercial breaks skipping those that are too small or too large
-        if (output_default || output_edl || output_dvrmstb)
+        if (output_default || output_edl || output_live || output_dvrmstb)
         {
             if (output_default)
             {
@@ -14907,6 +15122,21 @@ void BuildCommListAsYouGo(void)
                     }
                 }
             }
+            if (output_live)
+            {
+                sprintf(filename, "%s.live", outbasename);
+                live_file = myfopen(filename, "wb");
+                if (!live_file)
+                {
+                    Sleep(50L);
+                    live_file = myfopen(filename, "wb");
+                    if (!live_file)
+                    {
+                        Debug(0, "ERROR writing to %s\n", filename);
+                        exit(103);
+                    }
+                }
+            }
             dvrmstb_file = 0;
             if (output_dvrmstb)
             {
@@ -14923,12 +15153,14 @@ void BuildCommListAsYouGo(void)
                     exit(6);
                 }
             }
+            reffer_count = -1;
+            commercial_count = -1;
             for (i = 0; i < commercials; i++)
             {
                 len = c_end[i] - c_start[i];
                 if ((len >= (int)min_commercialbreak * fps) && (len <= (int)max_commercialbreak * fps))
                 {
-
+#ifdef ADAPT_LIVE_COMMERCIAL
                     // find the middle of the scene change, max 3 seconds.
                     j = ic_start[i];
                     while ((j > 0) && ((onTheFlyBlackFrame[j] - onTheFlyBlackFrame[j - 1]) == 1))
@@ -14971,8 +15203,8 @@ void BuildCommListAsYouGo(void)
                     }
                     x = k + (int)((j - k) / 2);
                     c_end[i] = onTheFlyBlackFrame[x] - 1;
+#endif
                     Debug(2, "Output: %i - start: %i   end: %i\n", i, c_start[i], c_end[i]);
-
                     commercial_count++;
                     if (commercial_count >= MAX_COMMERCIALS)
                     {
@@ -14983,10 +15215,18 @@ void BuildCommListAsYouGo(void)
                     commercial[commercial_count].end_frame = c_end[i] - padding*fps + remove_after*fps;
                     commercial[commercial_count].length = c_end[i]-2*padding - c_start[i] + remove_before + remove_after;
 
+                    if (output_live) {
+                        reffer_count++;
+                        reffer[reffer_count].start_frame = commercial[reffer_count].start_frame;
+                        reffer[reffer_count].end_frame = commercial[reffer_count].end_frame;
+                    }
+
                     if (out_file)
                         fprintf(out_file, "%li\t%li\n", c_start[i] + padding, c_end[i] - padding);
                     if (edl_file)
                         fprintf(edl_file, "%.2f\t%.2f\t%d\n", (double) max(c_start[i] + padding - edl_offset,0) / fps , (double) max(c_end[i] - padding - edl_offset,0) / fps, edl_skip_field );
+                    if (live_file)
+                        fprintf(live_file, "%.2f\t%.2f\t%d\n", (double) max(c_start[i] + padding - edl_offset,0) / fps , (double) max(c_end[i] - padding - edl_offset,0) / fps, edl_skip_field );
                     if (dvrmstb_file)
                         fprintf(dvrmstb_file, "  <commercial start=\"%f\" end=\"%f\" />\n", (double) (c_start[i] + padding) / fps , (double) (c_end[i] - padding) / fps);
                 }
@@ -14997,6 +15237,9 @@ void BuildCommListAsYouGo(void)
             if (edl_file) fflush(edl_file);
             if (edl_file) fclose(edl_file);
             edl_file = 0;
+            if (live_file) fflush(live_file);
+            if (live_file) fclose(live_file);
+            live_file = 0;
             if (dvrmstb_file)
             {
                 fprintf(dvrmstb_file, " </root>\n");
@@ -15052,7 +15295,7 @@ void set_fps(double fp,double dfps, int ticks)
 //            Debug(1, "DFps[%d]== %5.3f f/s\n", ticks, dfps);
         }
     }
-    if ( fps < 15.0 || fps > 100 || fps == 0.0 / 0.0)
+    if ( fps < 12.0 || fps > 100 )
     {
         fps = dfps;
         if (/* old_fps != fps && */ showed_fps < 4)
@@ -15087,7 +15330,7 @@ void SaveVolume (int f,int v)
     Debug (1, "Panic volume buffer\n");
     if (f > 8 * 60 * 60 * 50)  // max 8 hours with fps of 50
     {
-        Debug(1, "Too many volume panic's, protected file?\n");
+        Debug(0, "Too many volume panic's, protected file?\n");
         exit(103);   // exit as probably protected file .
     }
 
@@ -15141,13 +15384,20 @@ void set_frame_volume(unsigned int f, int volume)
             {
                 if (frame[act_framenum].brightness > 5)
                     frame[act_framenum].volume = volume;
-                if (volume > 0)
+                if (volume >= 0)
                 {
                     volumeHistogram[(volume/volumeScale < 255 ? volume/volumeScale : 255)]++;
+                    silenceHistogram[(volume < 255 ? volume : 255)]++;
                 }
             }
-        if (act_framenum > frame_count)
+        if (act_framenum > frame_count) {
             SaveVolume(act_framenum, volume);
+            if (act_framenum  > frame_count + 10000) // too many audio frames without video
+            {
+                Debug(0, "Too much audio without video, protected file or bug?\n");
+                exit(103);   // exit as probably protected file .
+            }
+        }
         i = black_count-1;
         while (i > 0 && black[i].frame > act_framenum)
             i--;

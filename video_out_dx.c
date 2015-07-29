@@ -58,7 +58,6 @@ char osname[1024];
 #include "ddraw.h"
 #include <initguid.h>
 
-
 #include <wingdi.h>
 
 static HDC hdc;
@@ -116,7 +115,7 @@ static void dx_draw_frame (vo_instance_t * , uint8_t * const * , void * );
 
 /*
 
-char *ExtFilter[] = 
+char *ExtFilter[] =
 {
 	".avi", ".d2s", ".d2v", ".wav"
 };
@@ -124,7 +123,7 @@ char *ExtFilter[] =
 
 BOOL PopFileDlg(PTSTR pstrFileName, HWND hOwner, int Status)
 {
-	static char *szFilter, *ext;	
+	static char *szFilter, *ext;
 	int count = 0;
 
 	switch (Status)
@@ -150,7 +149,7 @@ BOOL PopFileDlg(PTSTR pstrFileName, HWND hOwner, int Status)
 			szFilter = TEXT ("DVD2AVI Project File (*.d2v)\0*.d2v\0")  \
 				TEXT ("All Files (*.*)\0*.*\0");
 			break;
-		
+
 		case OPEN_SESS:
 			szFilter = TEXT ("DVD2AVI Session File (*.d2s)\0*.d2s\0")  \
 				TEXT ("All Files (*.*)\0*.*\0");
@@ -318,7 +317,7 @@ static long FAR PASCAL About(HWND hDlg, UINT message, WPARAM wParam, LPARAM lPar
      return FALSE;
 }
 
- 
+
 
 static long FAR PASCAL event_procedure (HWND hwnd, UINT message,
                                         WPARAM wParam, LPARAM lParam)
@@ -473,7 +472,7 @@ static long FAR PASCAL event_procedure (HWND hwnd, UINT message,
 
 GetDumpFileName()
 {
-   PopFileDlg(hWind, osname, SAVE_DMP);
+    PopFileDlg(hWind, osname, SAVE_DMP);
 }
 
 

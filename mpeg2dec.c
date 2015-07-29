@@ -20,7 +20,10 @@
  * along with this program; if not, write to the Free Software
  * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
  */
+
+
 #ifdef _WIN32
+
 #include <windows.h>
 #include <stdio.h>
 #include <io.h>
@@ -37,7 +40,7 @@
 #include <string.h>
 #include <errno.h>
 #include <signal.h>
-#include <getopt.h>
+#include "getopt.h"
 #ifdef HAVE_IO_H
 #include <fcntl.h>
 #endif
@@ -56,10 +59,33 @@ double test_pts = 0.0;
 #include <libavformat/avformat.h>
 #include <libavcodec/avcodec.h>
 #include <libavutil/avutil.h>
+#include <libavutil/pixdesc.h>
 
 #include <libavutil/samplefmt.h>
 
-int av_log_level;
+
+#include <ffmpeg.h>
+
+
+
+const HWAccel hwaccels[] = {
+#if HAVE_VDPAU_X11
+    { "vdpau", vdpau_init, HWACCEL_VDPAU, AV_PIX_FMT_VDPAU },
+#endif
+#if HAVE_DXVA2_LIB
+    { "dxva2", dxva2_init, HWACCEL_DXVA2, AV_PIX_FMT_DXVA2_VLD },
+#endif
+#if CONFIG_VDA
+    { "vda",   vda_init,   HWACCEL_VDA,   AV_PIX_FMT_VDA },
+#endif
+    { 0 },
+};
+
+static InputStream inputs;
+static InputStream *ist = &inputs;
+
+extern int      hardware_decode;
+int av_log_level=AV_LOG_INFO;
 #undef AV_TIME_BASE_Q
 static AVRational AV_TIME_BASE_Q = {1, AV_TIME_BASE};
 
@@ -88,6 +114,7 @@ typedef struct VideoPicture
 typedef struct VideoState
 {
     AVFormatContext *pFormatCtx;
+    AVCodecContext *dec_ctx;
     int             videoStream, audioStream, subtitleStream;
 
     int             av_sync_type;
@@ -101,7 +128,7 @@ typedef struct VideoState
     AVStream        *audio_st;
     AVStream        *subtitle_st;
 
-    DECLARE_ALIGNED(16, uint8_t, audio_buf[(AVCODEC_MAX_AUDIO_FRAME_SIZE * 3) / 2]);
+    //DECLARE_ALIGNED(16, uint8_t, audio_buf[(AVCODEC_MAX_AUDIO_FRAME_SIZE * 3) / 2]);
     unsigned int    audio_buf_size;
     unsigned int    audio_buf_index;
     AVPacket        audio_pkt;
@@ -177,7 +204,7 @@ static FILE * in_file;
 static FILE * sample_file;
 static FILE * timing_file = 0;
 
-
+extern int lastFrameCommCalculated;
 
 extern int thread_count;
 int is_AC3;
@@ -370,49 +397,55 @@ int frames_without_sound = 0;
 #define MAX_FRAMES_WITHOUT_SOUND	100
 int frames_with_loud_sound = 0;
 
-void sound_to_frames(VideoState *is, short *b, int s, int format)
+void sound_to_frames(VideoState *is, short **b, int s, int c, int format)
 {
-    int i,n;
+    int i,n,l;
     int volume;
     int delta = 0;
     int s_per_frame;
     short *buffer;
-    float *fb;
-
+    float *(fb[16]);
+    short *(sb[16]);
 
     audio_samples = audio_buffer_ptr - audio_buffer;
 
     n = is->audio_st->codec->channels * is->audio_st->codec->sample_rate;
     base_apts = (is->audio_clock - ((double)audio_samples /(double)(n)));
-
-    s_per_frame = (int) ((double)(is->audio_st->codec->sample_rate) * (double) is->audio_st->codec->channels / get_fps());
+//    DUMP_TIMING("a frame", apts, base_apts, is->audio_clock);
+    s_per_frame = (int) ((double)(is->audio_st->codec->sample_rate)/ get_fps());
     if (s_per_frame == 0)
         return;
 
 
-    if (format == AV_SAMPLE_FMT_FLTP)
-    {
-        fb = (float*)b;
-        if (s > 0)
-        {
-            for (i = 0; i < s; i++)
-            {
-                *audio_buffer_ptr++ = (short) ((*fb++) * 64000);
-                if ((long) audio_buffer_ptr > (long) &audio_buffer[AUDIOBUFFER-10])
-                    break;
-            }
-        }
-    }
-    else
-    {
-        if (s > 0)
-        {
-            for (i = 0; i < s; i++)
-            {
-                *audio_buffer_ptr++ = *b++;
-            }
-        }
 
+    if (s > 0)
+    {
+        if (format == AV_SAMPLE_FMT_FLTP)
+        {
+            for (l=0;l < is->audio_st->codec->channels;l++ )
+            {
+                fb[l] = (float*)b[l];
+            }
+            for (i = 0; i < s; i++)
+            {
+                volume = 0;
+                for (l=0;l < is->audio_st->codec->channels;l++ ) volume += *((fb[l])++) * 64000;
+                *audio_buffer_ptr++ = volume / is->audio_st->codec->channels;
+            }
+        }
+        else
+        {
+            for (l=0;l < is->audio_st->codec->channels;l++ )
+            {
+                sb[l] = (short*)b[l];
+            }
+            for (i = 0; i < s; i++)
+            {
+                volume = 0;
+                for (l=0;l < is->audio_st->codec->channels;l++ ) volume += *((sb[l])++);
+                *audio_buffer_ptr++ = volume / is->audio_st->codec->channels;
+            }
+        }
     }
 
 
@@ -433,9 +466,6 @@ void sound_to_frames(VideoState *is, short *b, int s, int format)
         volume = volume/s_per_frame;
         audio_samples -= s_per_frame;
 
-
-        if (sound_frame_counter == 8)
-            sound_frame_counter = sound_frame_counter;
 
         if (volume == 0)
         {
@@ -469,7 +499,7 @@ void sound_to_frames(VideoState *is, short *b, int s, int format)
 //		  DUMP_TIMING("a frame", apts, is->video_clock);
         set_frame_volume((demux_asf?ms_audio_delay:0)+sound_frame_counter++, volume);
 
-        base_apts += (double)s_per_frame/(double)n;
+        base_apts += (double)s_per_frame/(double)is->audio_st->codec->sample_rate;
     }
     audio_buffer_ptr = audio_buffer;
     if (audio_samples > 0)
@@ -480,17 +510,18 @@ void sound_to_frames(VideoState *is, short *b, int s, int format)
         }
     }
 }
-
-#define STORAGE_SIZE 1000000
-
-static short storage_buf[STORAGE_SIZE];
-
+#define AC3_BUFFER_SIZE 100000
+static uint8_t ac3_packet[AC3_BUFFER_SIZE];
+static int ac3_packet_index = 0;
+int data_size;
 
 void audio_packet_process(VideoState *is, AVPacket *pkt)
 {
     int prev_codec_id = -1;
     double frame_delay = 1.0;
     int len1, data_size, n;
+    uint8_t *pp;
+    int      rps,ps;
     int dec_channel_layout;
     AVPacket *pkt_temp = &is->audio_pkt_temp;
     double pts;
@@ -501,82 +532,70 @@ void audio_packet_process(VideoState *is, AVPacket *pkt)
         dump_audio((char *)pkt->data,(char *) (pkt->data + pkt->size));
     }
 
+
     pkt_temp->data = pkt->data;
     pkt_temp->size = pkt->size;
-    /*  Try to align on packet boundary as some demuxers don't do that, in particular dvr-ms
-     if (is->audio_st->codec->codec_id == CODEC_ID_MP1) {
-     while (pkt_temp->size > 2 && (pkt_temp->data[0] != 0xff || pkt_temp->data[1] != 0xe0) ) {
-    	 pkt_temp->data++;
-    	 pkt_temp->size--;
-     }
-     }
-    */
-    n = (is->audio_st->codec->bits_per_coded_sample / 8) * is->audio_st->codec->channels * is->audio_st->codec->sample_rate;
 
-#ifdef OLD_AUDIO_PTS_HANDLING
-
-    /* if update, update the audio clock w/pts */
-    if(pkt->pts == AV_NOPTS_VALUE)
-    {
-        pts = 0.0;
-    }
-    else
-    {
-        pts = av_q2d(is->audio_st->time_base)* ( pkt->pts -  (is->video_st->start_time != AV_NOPTS_VALUE ? is->video_st->start_time : 0));
-    }
-    pts = pts + pts_offset;
-
-//	Debug(0 ,"apst[%3d] = %12.3f\n", framenum, pts);
-    if (pts != 0)
-    {
-        if (is->audio_clock  != 0)
+    if (0 && is->audio_st->codec->codec_id == AV_CODEC_ID_AC3) {
+        if (ac3_packet_index + pkt_temp->size >= AC3_BUFFER_SIZE )
         {
-            if ((pts - is->audio_clock) < -0.999  || (pts - is->audio_clock) > max_repair_size/get_fps() )
-            {
-                Debug(1 ,"Audio jumped by %6.3f at frame %d\n", (pts - is->audio_clock), framenum);
-//                    DUMP_TIMING("a   set", pts, is->audio_clock);
-                is->audio_clock = pts;
-
-            }
-            else
-            {
-//                    DUMP_TIMING("a  free", pts, is->audio_clock);
-                // Do nothing
-            }
+            Debug(1,"AC3 sync error\n");
+            return;
+        }
+        memcpy(&ac3_packet[ac3_packet_index], pkt_temp->data, pkt_temp->size);
+        pkt_temp->data = ac3_packet;
+        pkt_temp->size += ac3_packet_index;
+        ac3_packet_index = pkt_temp->size;
+        while (pkt_temp->size >= 2 && (pkt_temp->data[0] != 0x0b || pkt_temp->data[1] != 0x77) ) {
+            pkt_temp->data++;
+            pkt_temp->size--;
+        }
+        if (pkt_temp->size < 2)
+            return; // No packet start found
+        pp = pkt_temp->data;
+        ps = 2;
+        rps = pkt_temp->size-2;
+        while (rps > 1 && (pp[rps] != 0x0b || pp[rps+1] != 0x77) ) {
+            rps--;
+        }
+        if (rps >= 2)
+        {
+            pkt_temp->size = rps;
         }
         else
         {
-//               DUMP_TIMING("ajmpset", pts, is->audio_clock);
-            is->audio_clock = pts;
+            // No complete packet found;
+            rps = pkt_temp->size;
+            pp = &pkt_temp->data[0];
+            pkt_temp->size = 0;
+            return;
         }
+
     }
-    else
-    {
-        /* if we aren't given a pts, set it to the clock */
-//          DUMP_TIMING("a  tick", pts, is->audio_clock);
-        pts = is->audio_clock;
-    }
-#else
+
+    /*  Try to align on packet boundary as some demuxers don't do that, in particular dvr-ms */
+
+
+
+
+    n = (is->audio_st->codec->bits_per_coded_sample / 8) * is->audio_st->codec->channels * is->audio_st->codec->sample_rate;
     if (pkt->pts != AV_NOPTS_VALUE)
     {
         is->audio_clock = av_q2d(is->audio_st->time_base)*( pkt->pts -  (is->video_st->start_time != AV_NOPTS_VALUE ? is->video_st->start_time : 0));
     }
 
-#endif
-
-
     //		fprintf(stderr, "sac = %f\n", is->audio_clock);
     while(pkt_temp->size > 0)
     {
-        data_size = STORAGE_SIZE;
+ //       data_size = STORAGE_SIZE;
 
-        if (!is->frame)
-        {
-            if (!(is->frame = avcodec_alloc_frame()))
+//        if (!is->frame)
+//        {
+            if (!(is->frame = av_frame_alloc()))
                 return -1;
-        }
-        else
-            avcodec_get_frame_defaults(is->frame);
+ //       }
+ //       else
+ //           avcodec_get_frame_defaults(is->frame);
 
         len1 = avcodec_decode_audio4(is->audio_st->codec, is->frame, &got_frame, pkt_temp);
         if (prev_codec_id != -1 && prev_codec_id != is->audio_st->codec->codec_id)
@@ -588,6 +607,8 @@ void audio_packet_process(VideoState *is, AVPacket *pkt)
         {
             /* if error, we skip the frame */
             pkt_temp->size = 0;
+            if (is->audio_st->codec->codec_id == AV_CODEC_ID_AC3) ac3_packet_index = 0;
+
             break;
         }
 
@@ -602,17 +623,31 @@ void audio_packet_process(VideoState *is, AVPacket *pkt)
         data_size = av_samples_get_buffer_size(NULL, is->frame->channels,
                                                is->frame->nb_samples,
                                                is->frame->format, 1);
+/*
         dec_channel_layout =
             (is->frame->channel_layout && is->frame->channels == av_get_channel_layout_nb_channels(is->frame->channel_layout)) ?
             is->frame->channel_layout : av_get_default_channel_layout(is->frame->channels);
+*/
+        DUMP_TIMING("a frame", apts, base_apts, is->audio_clock);
 //		fprintf(stderr, "Audio %f\n", is->audio_clock);
         if (data_size > 0)
         {
-            sound_to_frames(is, (short *)is->frame->data[0], data_size / av_get_bytes_per_sample(is->frame->format), is->frame->format);
+            sound_to_frames(is, (short **)is->frame->data, is->frame->nb_samples ,is->frame->channels, is->frame->format);
         }
-
         is->audio_clock += (double)data_size /
                            (is->frame->channels * is->frame->sample_rate * av_get_bytes_per_sample(is->frame->format));
+        av_frame_free(&(is->frame));
+    }
+
+    if (0 && is->audio_st->codec->codec_id == AV_CODEC_ID_AC3) {
+        ps = 0;
+        while (0 < ac3_packet_index - rps)
+        {
+            ac3_packet[ps] = ac3_packet[rps];
+            ps++;
+            rps++;
+        }
+        ac3_packet_index = ps;
     }
 }
 
@@ -1120,6 +1155,19 @@ int video_packet_process(VideoState *is,AVPacket *packet)
         set_fps(frame_period, is->fps, is->video_st->codec->ticks_per_frame);
 
         is->video_clock_submitted = is->video_clock;
+
+
+
+        if (ist->hwaccel_retrieve_data && is->pFrame->format == ist->hwaccel_pix_fmt) {
+            if (ist->hwaccel_retrieve_data(ist->dec_ctx, is->pFrame) < 0)
+                goto quit;
+        }
+        ist->hwaccel_retrieved_pix_fmt = is->pFrame->format;
+
+
+
+
+
         if (is->video_clock - is->seek_pts > -frame_delay / 2.0)
         {
             retries = 0;
@@ -1160,7 +1208,65 @@ quit:
 }
 
 
+extern int dxva2_init(AVCodecContext *s);
 
+static const HWAccel *get_hwaccel(enum AVPixelFormat pix_fmt)
+{
+    int i;
+    for (i = 0; hwaccels[i].name; i++)
+        if (hwaccels[i].pix_fmt == pix_fmt)
+            return &hwaccels[i];
+    return NULL;
+}
+
+static enum AVPixelFormat get_format(AVCodecContext *s, const enum AVPixelFormat *pix_fmts)
+{
+    InputStream *ist = s->opaque;
+    const enum AVPixelFormat *p;
+    int ret;
+
+    for (p = pix_fmts; *p != -1; p++) {
+        const AVPixFmtDescriptor *desc = av_pix_fmt_desc_get(*p);
+        const HWAccel *hwaccel;
+
+        if (!(desc->flags & AV_PIX_FMT_FLAG_HWACCEL))
+            break;
+
+        hwaccel = get_hwaccel(*p);
+        if (!hwaccel ||
+            (ist->active_hwaccel_id && ist->active_hwaccel_id != hwaccel->id) ||
+            (ist->hwaccel_id != HWACCEL_AUTO && ist->hwaccel_id != hwaccel->id))
+            continue;
+
+        ret = hwaccel->init(s);
+        if (ret < 0) {
+            if (ist->hwaccel_id == hwaccel->id) {
+                av_log(NULL, AV_LOG_FATAL,
+                       "%s hwaccel requested for input stream #%d:%d, "
+                       "but cannot be initialized.\n", hwaccel->name,
+                       ist->file_index, ist->st->index);
+                return AV_PIX_FMT_NONE;
+            }
+            continue;
+        }
+        ist->active_hwaccel_id = hwaccel->id;
+        ist->hwaccel_pix_fmt   = *p;
+        break;
+    }
+
+    return *p;
+}
+
+static int get_buffer(AVCodecContext *s, AVFrame *frame, int flags)
+{
+    InputStream *ist = s->opaque;
+
+    if (ist->hwaccel_get_buffer && frame->format == ist->hwaccel_pix_fmt)
+        return ist->hwaccel_get_buffer(s, frame, flags);
+
+    return avcodec_default_get_buffer2(s, frame, flags);
+}
+//???
 int stream_component_open(VideoState *is, int stream_index)
 {
 
@@ -1195,18 +1301,48 @@ int stream_component_open(VideoState *is, int stream_index)
     {
 
         codecCtx->flags |= CODEC_FLAG_GRAY;
-        if (codecCtx->codec_id == CODEC_ID_H264)
+
+        is->dec_ctx = codecCtx;
+
+        ist->dec_ctx = codecCtx;
+        ist->dec_ctx->opaque = ist;
+        ist->dec_ctx->get_format            = get_format;
+        ist->dec_ctx->get_buffer2           = get_buffer;
+        ist->dec_ctx->thread_safe_callbacks = 1;
+        ist->hwaccel_id = -1; //HWACCEL_AUTO;
+        if (hardware_decode) {
+#ifdef DONATOR
+            ist->hwaccel_id = HWACCEL_AUTO;
+#else
+            Debug(0, "Hardware accelerated video decoding is only available in the Donator version\n");
+#endif
+        }
+
+//        codecCtx->flags2 |= CODEC_FLAG2_FAST;
+        if (codecCtx->codec_id != CODEC_ID_MPEG1VIDEO)
+#ifdef DONATOR
+            codecCtx->thread_count= thread_count;
+#else
+            codecCtx->thread_count= 1;
+#endif
+
+
+        if (codecCtx->codec_id == CODEC_ID_H264) {
+
+
 #ifdef DONATOR
             is_h264 = 1;
+//            dxva2_init(codecCtx);
 #else
-        {
+
 
             is_h264 = 1;
             {
                 Debug(0, "h.264 video can only be processed at full speed by the Donator version\n");
             }
-        }
+
 #endif
+        }
         else
         {
 #ifdef DONATOR
@@ -1256,7 +1392,7 @@ int stream_component_open(VideoState *is, int stream_index)
             selected_audio_pid = is->audio_st->id;
 
 
-        memset(&is->audio_pkt, 0, sizeof(is->audio_pkt));
+ //       memset(&is->audio_pkt, 0, sizeof(is->audio_pkt));
         break;
     case AVMEDIA_TYPE_VIDEO:
         is->videoStream = stream_index;
@@ -1335,6 +1471,28 @@ int stream_component_open(VideoState *is, int stream_index)
     return(0);
 }
 
+static void log_callback_report(void *ptr, int level, const char *fmt, va_list vl)
+{
+    va_list vl2;
+    int l;
+    char line[1024];
+    static int print_prefix = 1;
+
+    l = av_log_get_level();
+    if (level > av_log_level)
+        return;
+    va_copy(vl2, vl);
+ //   av_log_default_callback(ptr, level, fmt, vl);
+    av_log_format_line(ptr, level, fmt, vl2, line, sizeof(line), &print_prefix);
+    va_end(vl2);
+    Debug(10, line);
+
+ //   fputs(line, report_file);
+ //   fflush(report_file);
+}
+
+
+
 void file_open()
 {
     VideoState *is;
@@ -1353,8 +1511,17 @@ void file_open()
 
 
         strcpy(is->filename, mpegfilename);
+
         // Register all formats and codecs
-        av_register_all();
+    av_log_level=AV_LOG_INFO;
+    av_log_set_callback(log_callback_report);
+
+    av_log_set_flags(AV_LOG_SKIP_REPEATED);
+    avcodec_register_all();
+//    avfilter_register_all();
+    av_register_all();
+    avformat_network_init();
+
 
         global_video_state = is;
 
@@ -1368,21 +1535,20 @@ void file_open()
         is = global_video_state;
     // will interrupt blocking functions if we quit!
 
-//	 avformat_network_init();
 
     // Open video file
 
     if (     is->pFormatCtx == NULL)
     {
         pFormatCtx = avformat_alloc_context();
-//        pFormatCtx->max_analyze_duration *= 40;
-//        pFormatCtx->probesize = 40000000;
+        pFormatCtx->max_analyze_duration *= 4;
+//        pFormatCtx->probesize = 400000;
 again:
         ClearVolumeBuffer();
         if(avformat_open_input(&pFormatCtx, is->filename, NULL, NULL)!=0)
         {
             fprintf(stderr, "%s: Can not open file\n", is->filename);
-            if (retries++ < 2)
+            if (retries++ < live_tv_retries)
             {
                 Sleep(1000L);
                 goto again;
@@ -1390,15 +1556,25 @@ again:
             exit(-1);
 
         }
-
         is->pFormatCtx = pFormatCtx;
+// #if def _DEBUG
+//        if (is->duration < 5*60 && retries++ < live_tv_retries)
+//        {
+//            Sleep(4000L);
+//            goto again;
+//        }
+// #en dif
+
+
+
+
 
 //     pFormatCtx->max_analyze_duration = 320000000;
 
 //    pFormatCtx->thread_count= 2;
 
         // Retrieve stream information
-        if(av_find_stream_info(is->pFormatCtx)<0)
+        if(avformat_find_stream_info(is->pFormatCtx, 0L )<0)
         {
             fprintf(stderr, "%s: Can not find stream info\n", is->filename);
             exit(-1);
@@ -1451,6 +1627,7 @@ again:
         {
             is->fps = 1/av_q2d(is->video_st->codec->time_base);
         }
+//        Debug(1, "Stream frame rate is %5.3f f/s\n", is->fps);
 
 
     }
@@ -1482,6 +1659,7 @@ again:
         }
 
     }
+    av_log_level=AV_LOG_ERROR;
 }
 
 
@@ -1490,14 +1668,22 @@ void file_close()
 {
     is = global_video_state;
 
-    avcodec_close(is->pFormatCtx->streams[is->videoStream]->codec);
+    av_frame_free(&is->frame);
+//    av_freep(&ist->hwaccel_device);
+
+    avformat_close_input(&is->pFormatCtx);
+    ist->hwaccel_ctx = NULL;
+   //avcodec_close(is->pFormatCtx->streams[is->videoStream]->codec);
+//    avcodec_free_context(&is->pFormatCtx->streams[is->videoStream]->codec);
     is->videoStream = -1;
-    if (is->audioStream != -1) avcodec_close(is->pFormatCtx->streams[is->audioStream]->codec);
+//    if (is->audioStream != -1) avcodec_close(is->pFormatCtx->streams[is->audioStream]->codec);
     is->audioStream = -1;
 //    avcodec_close(is->pFormatCtx->streams[is->subtitleStream]->codec);
     is->subtitleStream = -1;
-    av_close_input_file(is->pFormatCtx);
-    is->pFormatCtx = NULL;
+
+//    is->pFormatCtx = NULL;
+
+    avformat_network_deinit();
 //  global_video_state = NULL;
 };
 
@@ -1544,7 +1730,8 @@ int main (int argc, char ** argv)
     int i;
     int ret;
     double retry_target;
-
+    double old_clock = 0.0;
+                    int empty_packet_count = 0;
 
 //	fpos_t		fileendpos;
 
@@ -1644,11 +1831,11 @@ int main (int argc, char ** argv)
 //		if (!live_tv) SetThreadPriority(GetCurrentThread(), /* THREAD_MODE_BACKGROUND_BEGIN */ 0x00010000); // This will fail in XP but who cares
 
 #endif
-
+/*
 #define ES_AWAYMODE_REQUIRED    0x00000040
 #define ES_CONTINUOUS           0x80000000
 #define ES_SYSTEM_REQUIRED      0x00000001
-
+*/
 #include <winbase.h>
 
 #if (_WIN32_WINNT >= 0x0500 || _WIN32_WINDOWS >= 0x0410)
@@ -1660,8 +1847,10 @@ SetThreadExecutionState(ES_CONTINUOUS | ES_SYSTEM_REQUIRED | ES_AWAYMODE_REQUIRE
 // Wait until recording is complete...
 //
 
-
-
+//        av_log_set_level(AV_LOG_WARNING);
+//        av_log_set_flags(AV_LOG_SKIP_REPEATED);
+//        av_log_set_callback(log_callback_report);
+//        av_log_set_level(AV_LOG_WARNING);
         in_file = LoadSettings(argc, argv);
 
         file_open();
@@ -1671,10 +1860,18 @@ SetThreadExecutionState(ES_CONTINUOUS | ES_SYSTEM_REQUIRED | ES_AWAYMODE_REQUIRE
         csRestart = 0;
         framenum = 0;
 
-        DUMP_OPEN
-        av_log_set_level(AV_LOG_WARNING);
-        av_log_set_flags(AV_LOG_SKIP_REPEATED);
+//        DUMP_OPEN
 
+        if (output_timing)
+        {
+            sprintf(tempstring, "%s.timing.csv", basename);
+            timing_file = myfopen(tempstring, "w");
+            DUMP_HEADER
+        }
+
+        av_log_set_level(AV_LOG_INFO);
+//        av_log_set_flags(AV_LOG_SKIP_REPEATED);
+//        av_log_set_callback(log_callback_report);
         is = global_video_state;
         packet = &(is->audio_pkt);
 
@@ -1853,6 +2050,14 @@ again:
                 */
             }
             av_free_packet(packet);
+            if (is->video_clock == old_clock) {
+                empty_packet_count++;
+                if (empty_packet_count > 1000)
+                    Debug(0, "Empty input\n");
+            } else {
+                old_clock = is->video_clock;
+                empty_packet_count = 0;
+            }
 #ifdef SELFTEST
             if (selftest == 1 && is->seek_req == 0 && framenum == 500)
             {
@@ -1862,6 +2067,11 @@ again:
             }
 #endif
         }
+  if (live_tv)
+    {
+        lastFrameCommCalculated = 0;
+        BuildCommListAsYouGo();
+    }
 
         Debug( 10,"\nParsed %d video frames and %d audio frames of %4.2f fps\n", framenum, sound_frame_counter, get_fps());
         Debug( 10,"\nMaximum Volume found is %d\n", max_volume_found);
