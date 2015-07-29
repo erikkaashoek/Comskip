@@ -846,7 +846,7 @@ int SubmitFrame(AVStream        *video_st, AVFrame         *pFrame , double pts)
     return (res);
 }
 
-Set_seek(VideoState *is, double pts, double length)
+void Set_seek(VideoState *is, double pts, double length)
 {
     AVFormatContext *ic = is->pFormatCtx;
 
