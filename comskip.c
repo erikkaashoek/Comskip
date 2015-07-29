@@ -148,7 +148,7 @@ extern struct _stati64 instat;
 #define filesize stat.st_size
 
 
-extern __int64 headerpos;
+extern int64_t headerpos;
 int				vo_init_done = 0;
 extern int soft_seeking;
 
@@ -172,7 +172,7 @@ typedef struct
     bool	logo_present;
     bool	commercial;
     bool	isblack;
-    __int64		goppos;
+    int64_t		goppos;
     double	pts;
     int		minX;
     int		maxX;
@@ -468,8 +468,8 @@ int						curvolume = -1;
 extern int						framenum;
 //unsigned int			frame_period;
 //int						audio_framenum = 0;
-//extern __int64			pts;
-extern __int64			initial_pts;
+//extern int64_t			pts;
+extern int64_t			initial_pts;
 extern int				initial_pts_set;
 
 int			ascr,scr;
@@ -7339,7 +7339,7 @@ static unsigned char MPEG2SysHdr[] = {0x00, 0x00, 0x01, 0xBB, 00, 0x12, 0x80, 0x
     FILE *infile=0;
     int inf, outf;
     int i,j,c;
-    __int64 startpos=0, endpos=0, begin=0;
+    int64_t startpos=0, endpos=0, begin=0;
     int len;
     int prevperc,curperc;
     char *Buf;//[65536];
@@ -13091,7 +13091,7 @@ void ProcessCSV(FILE *in_file)
     int		col;
     int		curframe;
     int		ccDataFrame;
-//	__int64 fileendpos;
+//	int64_t fileendpos;
 
     double	cur_ar_ratio;
 //	time_t	ltime;

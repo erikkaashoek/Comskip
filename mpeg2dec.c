@@ -123,7 +123,7 @@ typedef struct VideoState
     int             seek_req;
     double           seek_pts;
     int             seek_flags;
-    __int64          seek_pos;
+    int64_t          seek_pos;
     double          audio_clock;
     AVStream        *audio_st;
     AVStream        *subtitle_st;
@@ -172,7 +172,7 @@ VideoState *global_video_state;
 AVPacket flush_pkt;
 
 
-__int64 pev_best_effort_timestamp = 0;
+int64_t pev_best_effort_timestamp = 0;
 
 
 int video_stream_index = -1;
@@ -182,7 +182,7 @@ int have_frame_rate ;
 int stream_index;
 
 
-__int64 best_effort_timestamp;
+int64_t best_effort_timestamp;
 
 
 
@@ -232,9 +232,9 @@ int selected_subtitle_pid=0;
 int selection_restart_count = 0;
 int found_pids=0;
 
-__int64 pts;
-__int64 initial_pts;
-__int64 final_pts;
+int64_t pts;
+int64_t initial_pts;
+int64_t final_pts;
 double pts_offset = 0.0;
 
 int initial_pts_set = 0;
@@ -254,8 +254,8 @@ int muxrate,byterate=10000;
 #define   FTELL    _ftelli64
 // The following two functions are undocumented and not included in any public header,
 // so we need to declare them ourselves
-extern int  _fseeki64(FILE *, __int64, int);
-extern __int64 _ftelli64(FILE *);
+extern int  _fseeki64(FILE *, int64_t, int);
+extern int64_t _ftelli64(FILE *);
 
 int soft_seeking=0;
 extern char	basename[];
@@ -302,7 +302,7 @@ int	framenum;
 fpos_t		filepos;
 fpos_t		fileendpos;
 extern int		standoff;
-__int64			goppos,infopos,packpos,ptspos,headerpos,frompos,SeekPos;
+int64_t			goppos,infopos,packpos,ptspos,headerpos,frompos,SeekPos;
 
 extern int max_repair_size;
 extern int variable_bitrate;
@@ -489,7 +489,7 @@ void sound_to_frames(VideoState *is, short **b, int s, int c, int format)
         apts = base_apts;
         delta = (base_apts - is->video_clock) * get_fps();
 
-//		delta = (__int64)(apts/PTS_FRAME) - (__int64)(pts/PTS_FRAME);
+//		delta = (int64_t)(apts/PTS_FRAME) - (int64_t)(pts/PTS_FRAME);
 
         if (-max_internal_repair_size < delta && delta < max_internal_repair_size && abs( sound_frame_counter - delta - framenum) > 20 )
         {
@@ -1054,7 +1054,7 @@ int video_packet_process(VideoState *is,AVPacket *packet)
 
         pev_best_effort_timestamp = best_effort_timestamp;
 
-//          best_effort_timestamp = *(__int64 *)av_opt_ptr(avcodec_get_frame_class(), is->pFrame, "best_effort_timestamp");
+//          best_effort_timestamp = *(int64_t *)av_opt_ptr(avcodec_get_frame_class(), is->pFrame, "best_effort_timestamp");
         best_effort_timestamp = av_frame_get_best_effort_timestamp(is->pFrame);
 //            best_effort_timestamp = is->pFrame->pkt_pts;
 
