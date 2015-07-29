@@ -1974,7 +1974,7 @@ again:
             if ((selftest == 3 && retries==0 && is->video_clock >=30.0)) ret=AVERROR_EOF;
             if(ret < 0 )
             {
-                 if (ret == AVERROR_EOF || url_feof(is->pFormatCtx->pb))
+                 if (ret == AVERROR_EOF || is->pFormatCtx->pb->eof_reached)
                  {
                 if (retries < live_tv_retries /* && ( url_feof (is->pFormatCtx->pb) || selftest != 0) */) {
                     if (retries==0) retry_target = is->video_clock;
