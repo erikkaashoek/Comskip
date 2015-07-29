@@ -187,7 +187,7 @@ typedef struct
 #endif
 } frame_info;
 
-extern int debug_cur_segment;
+int debug_cur_segment;
 
 frame_info*			frame = NULL;
 long				frame_count = 0;
@@ -7321,8 +7321,7 @@ void OutputTraining()
                     CauseString(cblock[i].cause),
                     CauseString(cblock[i].less),
                     CauseString(cblock[i].more),
-                    basename,
-                    "a","b");
+                    basename);
 
         }
     }
@@ -8397,14 +8396,14 @@ FILE* LoadSettings(int argc, char ** argv)
     }
     if (cl_ini->count)
     {
-        sprintf(inifilename, cl_ini->filename[0]);
+        sprintf(inifilename, "%s", cl_ini->filename[0]);
         printf("Setting ini file to %s as per commandline\n", inifilename);
     }
     ini_file = myfopen(inifilename, "r");
 
     if (cl_work->count)
     {
-        sprintf(outputdirname, cl_work->filename[0]);
+        sprintf(outputdirname, "%s", cl_work->filename[0]);
         i = strlen(outputdirname);
         if (outputdirname[i-1] == '\\')
             outputdirname[i-1] = 0;
@@ -8780,7 +8779,7 @@ FILE* LoadSettings(int argc, char ** argv)
             printf("Incompatible TXT file\n");
             exit(2);
         }
-        framearray = NULL;
+        framearray = false;
         printf("Close window or hit ESCAPE when done\n");
         output_debugwindow = true;
         ReviewResult();
