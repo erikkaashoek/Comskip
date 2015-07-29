@@ -11847,6 +11847,8 @@ void InitLogoBuffers(void)
 #endif
 }
 
+void Init_XDS_block();
+
 void InitComSkip(void)
 {
     int i, j;
