@@ -316,7 +316,7 @@ logo_block_info*			logo_block = NULL;
 long						logo_block_count = 0;		// How many groups have already been identified. Increment after fill.
 long						max_logo_block_count;
 
-extern bool					processCC = false;
+bool					processCC = false;
 extern int					reorderCC;
 
 typedef struct
