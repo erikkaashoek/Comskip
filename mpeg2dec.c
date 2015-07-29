@@ -592,7 +592,7 @@ void audio_packet_process(VideoState *is, AVPacket *pkt)
 //        if (!is->frame)
 //        {
             if (!(is->frame = av_frame_alloc()))
-                return -1;
+                return;
  //       }
  //       else
  //           avcodec_get_frame_defaults(is->frame);
