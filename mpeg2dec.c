@@ -750,7 +750,7 @@ void SetField(char t)
 
 static void ResetInputFile()
 {
-    global_video_state->seek_req = TRUE;
+    global_video_state->seek_req = true;
     global_video_state->seek_pos = 0;
     global_video_state->seek_pts = 0.0;
     pev_best_effort_timestamp = 0;
@@ -852,7 +852,7 @@ Set_seek(VideoState *is, double pts, double length)
 
     is->seek_flags = AVSEEK_FLAG_ANY;
     is->seek_flags = AVSEEK_FLAG_BACKWARD;
-    is->seek_req = TRUE;
+    is->seek_req = true;
     if (is->duration <= 0)
     {
         uint64_t size =  avio_size(ic->pb);
