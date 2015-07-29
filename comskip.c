@@ -13630,7 +13630,7 @@ long					max_XDS_block_count;
 */
 
 
-Init_XDS_block()
+void Init_XDS_block()
 {
     if(!XDS_block)
     {
@@ -13652,7 +13652,7 @@ Init_XDS_block()
     }
 }
 
-Add_XDS_block()
+void Add_XDS_block()
 {
     if (XDS_block_count < max_XDS_block_count)
     {
