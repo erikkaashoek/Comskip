@@ -13676,7 +13676,7 @@ int lastXDS = 0;
                                              char *ratingSystem[4] = { "MPAA", "TPG", "CE", "CF" };
 
 #define MAXXDSBUFFER	1024
-                                                     void AddXDS(unsigned char hi, unsigned char lo)
+void AddXDS(unsigned char hi, unsigned char lo)
 {
     static unsigned char XDSbuf[MAXXDSBUFFER];
     static int c = 0;
