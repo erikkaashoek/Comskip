@@ -1,6 +1,4 @@
 // comskip.c
-// comskip.c
-// comskip.c
 // Copyright (C) 2004 Scott Michael
 // Based on the work of Chris Pinkham of MythTV
 // comskip is free software; you can redistribute it and/or modify
