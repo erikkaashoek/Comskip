@@ -7780,7 +7780,7 @@ void LoadIniFile()
         if ((tmp = FindNumber(data, "volume_slip=", (double) volume_slip)) > -1) volume_slip = (int)tmp;
         if ((tmp = FindNumber(data, "variable_bitrate=", (double) variable_bitrate)) > -1) variable_bitrate = (int)tmp;
         if ((tmp = FindNumber(data, "lowres=", (double) lowres)) > -1) lowres = (int)tmp;
-#ifdef DONATORS
+#ifdef DONATOR
         if ((tmp = FindNumber(data, "skip_b_frames=", (double) skip_B_frames)) > -1) skip_B_frames = (int)tmp;
 //		if (skip_B_frames != 0 && max_repair_size == 0) max_repair_size = 40;
 #else
@@ -13561,7 +13561,7 @@ ccagain:
 #ifdef DEBUG
         skip_B_frames=0;
 #endif
-#ifdef DONATORS
+#ifdef DONATOR
         skip_B_frames=0;
 #endif
         processCC = 0;
