@@ -7539,7 +7539,7 @@ bool IsStandardCommercialLength(double length, double tolerance, bool strict)
 
 double FindNumber(char* str1, char* str2, double v)
 {
-    boolean negative=false;
+    bool negative=false;
     char  tmp[255];
     int i;
     double res = -1;
@@ -7587,7 +7587,7 @@ char * FindString(char* str1, char* str2, char *v)
     static char foundText[1024];
     char  tmp[255];
     char *t;
-    boolean negative=false;
+    bool negative=false;
     double res;
     int found = 0;
     if (str1 == 0)
@@ -8514,7 +8514,7 @@ FILE* LoadSettings(int argc, char ** argv)
     }
     if (cl_timing->count)
     {
-        output_timing = TRUE;
+        output_timing = true;
     }
     if (cl_show->count)
     {
@@ -12029,7 +12029,7 @@ void InitComSkip(void)
     framenum_real = 0;
     frames_with_logo = 0;
     framenum = 0;
-    lastLogoTest = FALSE;
+    lastLogoTest = false;
     commercial_count = -1;
 
     logoTrendCounter = 0;
@@ -12824,7 +12824,7 @@ return;
 //	Debug(5, "Expanding logo blocks into frame array\n");
 //	for (i = 0; i < logo_block_count; i++) {
 //		for (j = logo_block[i].start; j <= logo_block[i].end; j++) {
-//			frame[j].logo_present = TRUE;
+//			frame[j].logo_present = true;
 //		}
 //	}
 //	Debug(5, "Expanded logo blocks into frame array\n");
@@ -12866,7 +12866,7 @@ void OutputFrameArray(bool screenOnly)
 //	Debug(5, "Expanding logo blocks into frame array\n");
 //	for (i = 0; i < logo_block_count; i++) {
 //		for (j = logo_block[i].start; j <= logo_block[i].end; j++) {
-//			frame[j].logo_present = TRUE;
+//			frame[j].logo_present = true;
 //		}
 //	}
 //	Debug(5, "Expanded logo blocks into frame array\n");
