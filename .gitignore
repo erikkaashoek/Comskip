@@ -1,0 +1,10 @@
+*.o
+/comskip
+/comskip.exe
+/comskip.depend
+/comskip.ini
+/bin/
+/ffmpeg/
+/votest
+/votest.exe
+/*.dSYM
