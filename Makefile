@@ -55,9 +55,15 @@ ifneq (,$(findstring Windows,$(OS)))
 	PLATFORMLIBS = -L./vendor -lgdi32 -lcomdlg32
 	PLATFORMINCS = -I./vendor
 else
-	SOURCES += video_out_sdl.c
-	OBJECTS += video_out_sdl.o
-	PLATFORMLIBS += -lsdl
+	ifneq (,$(shell sdl-config --cflags))
+		SOURCES += video_out_sdl.c
+		OBJECTS += video_out_sdl.o
+		PLATFORMLIBS += $(shell sdl-config --libs)
+	endif
+endif
+
+ifneq (,$(DEBUG))
+	CFLAGS += -ggdb -O0
 endif
 
 ####### Implicit rules

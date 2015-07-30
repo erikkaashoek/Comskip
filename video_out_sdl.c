@@ -34,6 +34,10 @@ typedef struct {
      int dummy;
 } vo_setup_result_t;
 
+extern int key;
+extern int xPos,yPos,lMouseDown;
+extern char osname[1024];
+
 #ifdef LIBVO_SDL
 
 #include <stdio.h>
@@ -51,7 +55,6 @@ typedef struct {
     SDL_Surface * rgb;
     Uint32 sdlflags;
     Uint8 bpp;
-    char title[256];
 } sdl_instance_t;
 
 static void sdl_setup_fbuf (vo_instance_t * _instance,
@@ -120,9 +123,7 @@ static int sdl_setup (vo_instance_t * _instance, unsigned int width,
           unsigned int height, unsigned int chroma_width,
           unsigned int chroma_height, vo_setup_result_t * result)
 {
-    sdl_instance_t * instance;
-
-    instance = (sdl_instance_t *) _instance;
+    sdl_instance_t * instance = (sdl_instance_t *) _instance;
 
     instance->width = width;
     instance->height = height;
@@ -202,6 +203,26 @@ void ShowDetails(char *t)
   printf("%s\n", t);
 }
 
+void handle_event(SDL_Event event) {
+  switch (event.type) {
+    case SDL_QUIT:
+      exit(0);
+      break;
+
+    case SDL_KEYDOWN:
+      switch (event.key.keysym.sym) {
+        case SDLK_ESCAPE:
+        case SDLK_q:
+          key = event.key.keysym.sym;
+#ifdef TEST
+          exit(0);
+#endif
+          break;
+      }
+      break;
+  }
+}
+
 #define MAXHEIGHT	1200
 #define MAXWIDTH	2000
 
@@ -213,46 +234,17 @@ vo_setup_result_t result;
 void vo_init(int width, int height, char *title)
 {
   instance = vo_sdl_open();
-  sdl_setup( instance, width, height, width, height, &result);
-
-  sdl_instance_t *sdl_instance = (sdl_instance_t *) instance;
-  strcpy(sdl_instance->title, title);
-  SDL_WM_SetCaption(title, NULL);
-  //sdl_setup_fbuf(instance, NULL, &sdl_instance->overlay);
+  SDL_WM_SetCaption(title, "comskip");
+  sdl_setup(instance, width, height, width, height, &result);
 }
 
 void vo_draw(unsigned char * buf)
 {
   sdl_instance_t *sdl_instance = (sdl_instance_t *) instance;
-  /*
-  uint8_t * dest[3];
-  int width, i;
-  SDL_Overlay *overlay = (SDL_Overlay *)sdl_instance->overlay;
-
-  buffer[0] = buf;
-
-  sdl_start_fbuf(instance, NULL, overlay);
-  dest[0] = overlay->pixels[0];
-  dest[1] = overlay->pixels[1];
-  dest[2] = overlay->pixels[2];
-
-  width = sdl_instance->width;
-  for (i = 0; i < sdl_instance->height >> 1; i++) {
-    memcpy (dest[0], buffer[0] + 2 * i * width, width);
-    dest[0] += overlay->pitches[0];
-    memcpy (dest[0], buffer[0] + (2 * i + 1) * width, width);
-    dest[0] += overlay->pitches[0];
-    memcpy (dest[1], buffer[1] + i * (width >> 1), width >> 1);
-    dest[1] += overlay->pitches[1];
-    memcpy (dest[2], buffer[2] + i * (width >> 1), width >> 1);
-    dest[2] += overlay->pitches[2];
-  }
-  sdl_discard(instance, NULL, overlay);
-  sdl_draw_frame(instance, NULL, overlay);
-  */
-
   SDL_Event event;
-  while (SDL_PollEvent (&event));
+  while (SDL_PollEvent (&event)) {
+    handle_event(event);
+  }
 
   SDL_Surface *rgb = sdl_instance->rgb;
   SDL_LockSurface( rgb );
@@ -261,7 +253,6 @@ void vo_draw(unsigned char * buf)
 
   SDL_Surface *screen = sdl_instance->surface;
   SDL_BlitSurface(rgb, NULL, screen, NULL);
-  //SDL_UpdateRect(screen, 0, 0, 0, 0);
   SDL_Flip(screen);
 }
 
@@ -289,7 +280,6 @@ void vo_close()
 
 #ifdef TEST
 
-#undef main
 int main(int argc, char **argv)
 {
      int r,g,b;
