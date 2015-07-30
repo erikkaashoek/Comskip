@@ -1900,8 +1900,18 @@ void InitHasLogo()
 
 #define DEBUGFRAMES 80000
 
-#define PIXEL(X,Y) graph[(((oheight+30) -(Y))*owidth+(X))*3+0] = graph[(((oheight+30) -(Y))*owidth+(X))*3+1] = graph[(((oheight+30) -(Y))*owidth+(X))*3+2]
-#define SETPIXEL(X,Y,R,G,B) { graph[(((oheight+30) -(Y))*owidth+(X))*3+0] = (B); graph[(((oheight+30) -(Y))*owidth+(X))*3+1] = (G); graph[(((oheight+30) -(Y))*owidth+(X))*3+2] = (R); }
+#ifdef _WIN32
+#define GRAPH_P(X,Y,P) graph[3*(((oheight+30)-(Y))*owidth+(X))+P]
+#else
+#define GRAPH_P(X,Y,P) graph[3*((Y)*owidth+(X))+P]
+#endif
+
+#define GRAPH_R(X,Y) GRAPH_P(X,Y,2)
+#define GRAPH_G(X,Y) GRAPH_P(X,Y,1)
+#define GRAPH_B(X,Y) GRAPH_P(X,Y,0)
+
+#define PIXEL(X,Y) GRAPH_R(X,Y) = GRAPH_G(X,Y) = GRAPH_B(X,Y)
+#define SETPIXEL(X,Y, R,G,B) { GRAPH_R(X,Y) = (R); GRAPH_G(X,Y) = (G); GRAPH_B(X,Y) = (B); }
 
 #define PLOT(S, I, X, Y, MAX, L, R,G,B) { int y, o; o = oheight - (oheight/(S))* (I); y = (Y)*(oheight/(S)-5)/(MAX); if (y < 0) y = 0; if (y > (oheight/(S)-1)) y = (oheight/(S)-1); SETPIXEL((X),(o - y),((Y) < (L) ? 255: R ) , ((Y) < (L) ? 255: G ) ,((Y) < (L) ? 255: B));}
 
@@ -1916,7 +1926,7 @@ int show_silence=0;
 
 void OutputDebugWindow(bool showVideo, int frm, int grf)
 {
-#ifdef _WIN32
+#if 1
     int i,j,x,y,a,c,r,s,g,gc,lb=0,e,f,n,bl,xd;
     int v,w;
     int bartop = 0;
@@ -2954,7 +2964,7 @@ bool ReviewResult()
                 lastcurframe = curframe;
             }
         OutputDebugWindow((review_file ? true : false),curframe, grf);
-#ifdef _WIN32
+#if 1
         vo_wait();
 //				vo_refresh();
 //				Sleep(100L);
@@ -3105,25 +3115,6 @@ int DetectCommercials(int f, double pts)
     if (lastLogoTest)
         frames_with_logo++;
     if (framearray) frame[frame_count].currentGoodEdge = currentGoodEdge;
-    /*
-
-     #define graph frame_ptr
-
-    	graph[gy*width + 0] = 100;
-    	graph[gy*width + (frame[frame_count].brightness/2)] = 250;
-    	graph[gy*width + 100] = 100;
-    	graph[gy*width + 100 + (frame[frame_count].minY/6)] = 250;
-    	graph[gy*width + 100 + (frame[frame_count].maxY/6)] = 250;
-    	graph[gy*width + 200] = 100;
-    	graph[gy*width + 200 + (int)(frame[frame_count].currentGoodEdge * 250)] = 250;
-    	graph[gy*width + 300] = 100;
-
-    	gy++;
-    	if (gy >= height) gy = 0;
-    	for (i=0; i < width; i++) {
-    		graph[gy* width + i] = 0;
-    	}
-    */
 
     if (((frame_count) & subsample_video) == 0)
         OutputDebugWindow(true,frame_count,true);

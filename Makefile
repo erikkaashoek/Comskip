@@ -30,11 +30,6 @@ MOVE     = mv -f
 CHK_DIR_EXISTS= test -d
 MKDIR    = mkdir -p
 
-ifneq (,$(findstring Windows,$(OS)))
-	PLATFORMLIBS = -L./vendor -lgdi32 -lcomdlg32
-	PLATFORMINCS = -I./vendor
-endif
-
 ####### Output directory
 
 OBJECTS_DIR = ./
@@ -54,8 +49,20 @@ DIST	   = comskip.pro
 QMAKE_TARGET = comskip
 TARGET   = comskip
 
-first: all
+####### Platform specific
+
+ifneq (,$(findstring Windows,$(OS)))
+	PLATFORMLIBS = -L./vendor -lgdi32 -lcomdlg32
+	PLATFORMINCS = -I./vendor
+else
+	SOURCES += video_out_sdl.c
+	OBJECTS += video_out_sdl.o
+	PLATFORMLIBS += -lsdl
+endif
+
 ####### Implicit rules
+
+first: all
 
 .SUFFIXES: .c .o .cpp .cc .cxx .C
 
@@ -106,6 +113,9 @@ mpeg2dec.o: mpeg2dec.c platform.h \
 platform.o: platform.c platform.h
 
 video_out_dx.o: video_out_dx.c resource.h
+video_out_sdl.o: video_out_sdl.c
+votest: video_out_dx.c video_out_sdl.c
+	$(LINK) $(CFLAGS) $(PLATFORMINCS) $(INCPATH) -DTEST $(LFLAGS) -o votest video_out_dx.c video_out_sdl.c $(PLATFORMLIBS) $(LIBS) $(SHLIBS)
 
 ####### Install
 
