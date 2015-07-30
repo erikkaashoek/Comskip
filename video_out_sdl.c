@@ -218,6 +218,9 @@ void handle_event(SDL_Event event) {
           exit(0);
 #endif
           break;
+        default:
+          key = event.key.keysym.sym;
+          break;
       }
       break;
   }
@@ -261,6 +264,7 @@ void vo_refresh()
   if (!instance) return;
   SDL_Event event;
   while (SDL_PollEvent(&event)) {
+    handle_event(event);
   }
 }
 
@@ -268,7 +272,9 @@ void vo_wait()
 {
   if (!instance) return;
   SDL_Event event;
-  SDL_WaitEvent(&event);
+  if (SDL_WaitEvent(&event)) {
+    handle_event(event);
+  }
 }
 
 void vo_close()
