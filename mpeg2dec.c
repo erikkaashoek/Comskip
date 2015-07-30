@@ -22,7 +22,7 @@
  */
 
 #include "platform.h"
-#ifdef LIBVO_SDL
+#ifdef HAVE_SDL
 #include <SDL/SDL.h>
 #endif
 

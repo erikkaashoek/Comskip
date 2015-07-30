@@ -56,6 +56,7 @@ ifneq (,$(findstring Windows,$(OS)))
 	PLATFORMINCS = -I./vendor
 else
 	ifneq (,$(shell sdl-config --cflags))
+		CFLAGS += -DHAVE_SDL
 		SOURCES += video_out_sdl.c
 		OBJECTS += video_out_sdl.o
 		PLATFORMLIBS += $(shell sdl-config --libs)
