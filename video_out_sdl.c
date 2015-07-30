@@ -159,7 +159,7 @@ vo_instance_t * vo_sdl_open (void)
     //instance->vo.discard = sdl_discard;
     //instance->vo.draw = sdl_draw_frame;
     //instance->vo.close = NULL; /* sdl_close; */
-    instance->sdlflags = SDL_HWSURFACE | SDL_RESIZABLE | SDL_ASYNCBLIT | SDL_HWACCEL;
+    instance->sdlflags = SDL_HWSURFACE | SDL_ASYNCBLIT | SDL_HWACCEL;
 
     //putenv("SDL_VIDEO_YUV_HWACCEL=1");
     //putenv("SDL_VIDEO_X11_NODIRECTCOLOR=1");
