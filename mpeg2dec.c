@@ -21,53 +21,24 @@
  * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
  */
 
-
-#ifdef _WIN32
-
-#include <windows.h>
-#include <stdio.h>
-#include <io.h>
-#include <conio.h>
-#include<excpt.h>
-#endif
-
-//#include "config.h"
-
-#define SELFTEST
-
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
-#include <errno.h>
-#include <signal.h>
-#include "getopt.h"
-#ifdef HAVE_IO_H
-#include <fcntl.h>
-#endif
+#include "platform.h"
 #ifdef LIBVO_SDL
 #include <SDL/SDL.h>
 #endif
-#include <inttypes.h>
 
+#define SELFTEST
 
 int pass = 0;
 double test_pts = 0.0;
 
-
-
-#define inline __inline
 #include <libavformat/avformat.h>
 #include <libavcodec/avcodec.h>
 #include <libavutil/avutil.h>
 #include <libavutil/pixdesc.h>
-
 #include <libavutil/samplefmt.h>
 
-
+#ifdef HARDWARE_DECODE
 #include <ffmpeg.h>
-
-
-
 const HWAccel hwaccels[] = {
 #if HAVE_VDPAU_X11
     { "vdpau", vdpau_init, HWACCEL_VDPAU, AV_PIX_FMT_VDPAU },
@@ -83,6 +54,7 @@ const HWAccel hwaccels[] = {
 
 static InputStream inputs;
 static InputStream *ist = &inputs;
+#endif
 
 extern int      hardware_decode;
 int av_log_level=AV_LOG_INFO;
@@ -102,7 +74,6 @@ static AVRational AV_TIME_BASE_Q = {1, AV_TIME_BASE};
 #define FF_QUIT_EVENT (SDL_USEREVENT + 2)
 #define VIDEO_PICTURE_QUEUE_SIZE 1
 #define DEFAULT_AV_SYNC_TYPE AV_SYNC_ADUIO_MASTER
-
 
 typedef struct VideoPicture
 {
@@ -195,9 +166,10 @@ int64_t best_effort_timestamp;
 
 extern int coding_type;
 
-#ifdef _WIN32
-void gettimeofday (struct timeval * tp, void * dummy);
-#endif
+void InitComSkip(void);
+void BuildCommListAsYouGo(void);
+int video_packet_process(VideoState *is,AVPacket *packet);
+
 
 
 static FILE * in_file;
@@ -265,8 +237,6 @@ char field_t;
 char tempstring[512];
 
 
-extern int myfopen( const char * f, char * m);
-
 #define DUMP_OPEN if (output_timing) { sprintf(tempstring, "%s.timing.csv", basename); timing_file = myfopen(tempstring, "w"); DUMP_HEADER }
 #define DUMP_HEADER if (timing_file) fprintf(timing_file, "type   ,dts         ,pts         ,clock       ,delta       ,offset\n");
 #define DUMP_TIMING(T, D, P, C) if (timing_file && !csStepping && !csJumping && !csStartJump) fprintf(timing_file, "%7s, %12.3f,%12.3f, %12.3f, %12.3f, %12.3f,\n", \
@@ -289,18 +259,10 @@ static int dump_seek = 1;		// Set to 1 to dump the seeking process
 static int dump_seek = 0;		// Set to 1 to dump the seeking process
 #endif
 
-#include <sys/stat.h>
-//#include <unistd.h>
-
-
-struct _stati64 instat;
-#define filesize instat.st_size
-
 extern int frame_count;
 int	framenum;
 
 fpos_t		filepos;
-fpos_t		fileendpos;
 extern int		standoff;
 int64_t			goppos,infopos,packpos,ptspos,headerpos,frompos,SeekPos;
 
@@ -708,7 +670,7 @@ again:
 #ifndef DEBUG
     if (is_h264 && frames > 15 &&  elapsed < 100)
     {
-        Sleep((DWORD)100);
+        Sleep(100L);
         goto again;
     }
 #endif
@@ -999,10 +961,6 @@ int filter(void)
     exit(99);
 }
 
-
-// #include "libavformat/avformat.h"
-
-
 extern char					mpegfilename[];
 
 int video_packet_process(VideoState *is,AVPacket *packet)
@@ -1158,12 +1116,13 @@ int video_packet_process(VideoState *is,AVPacket *packet)
 
 
 
+#ifdef HARDWARE_DECODE
         if (ist->hwaccel_retrieve_data && is->pFrame->format == ist->hwaccel_pix_fmt) {
             if (ist->hwaccel_retrieve_data(ist->dec_ctx, is->pFrame) < 0)
                 goto quit;
         }
         ist->hwaccel_retrieved_pix_fmt = is->pFrame->format;
-
+#endif
 
 
 
@@ -1210,6 +1169,7 @@ quit:
 
 extern int dxva2_init(AVCodecContext *s);
 
+#ifdef HARDWARE_DECODE
 static const HWAccel *get_hwaccel(enum AVPixelFormat pix_fmt)
 {
     int i;
@@ -1266,7 +1226,8 @@ static int get_buffer(AVCodecContext *s, AVFrame *frame, int flags)
 
     return avcodec_default_get_buffer2(s, frame, flags);
 }
-//???
+#endif
+
 int stream_component_open(VideoState *is, int stream_index)
 {
 
@@ -1304,6 +1265,7 @@ int stream_component_open(VideoState *is, int stream_index)
 
         is->dec_ctx = codecCtx;
 
+#ifdef HARDWARE_DECODE
         ist->dec_ctx = codecCtx;
         ist->dec_ctx->opaque = ist;
         ist->dec_ctx->get_format            = get_format;
@@ -1317,6 +1279,7 @@ int stream_component_open(VideoState *is, int stream_index)
             Debug(0, "Hardware accelerated video decoding is only available in the Donator version\n");
 #endif
         }
+#endif
 
 //        codecCtx->flags2 |= CODEC_FLAG2_FAST;
         if (codecCtx->codec_id != CODEC_ID_MPEG1VIDEO)
@@ -1672,7 +1635,9 @@ void file_close()
 //    av_freep(&ist->hwaccel_device);
 
     avformat_close_input(&is->pFormatCtx);
+#ifdef HARDWARE_DECODE
     ist->hwaccel_ctx = NULL;
+#endif
    //avcodec_close(is->pFormatCtx->streams[is->videoStream]->codec);
 //    avcodec_free_context(&is->pFormatCtx->streams[is->videoStream]->codec);
     is->videoStream = -1;
@@ -1732,8 +1697,6 @@ int main (int argc, char ** argv)
     double retry_target;
     double old_clock = 0.0;
                     int empty_packet_count = 0;
-
-//	fpos_t		fileendpos;
 
 #ifdef SELFTEST
     int tries = 0;
@@ -1836,7 +1799,6 @@ int main (int argc, char ** argv)
 #define ES_CONTINUOUS           0x80000000
 #define ES_SYSTEM_REQUIRED      0x00000001
 */
-#include <winbase.h>
 
 #if (_WIN32_WINNT >= 0x0500 || _WIN32_WINDOWS >= 0x0410)
 
@@ -2075,15 +2037,12 @@ again:
 
         Debug( 10,"\nParsed %d video frames and %d audio frames of %4.2f fps\n", framenum, sound_frame_counter, get_fps());
         Debug( 10,"\nMaximum Volume found is %d\n", max_volume_found);
-        if (framenum > 0)
-            byterate = fileendpos / framenum;
 
         print_fps (1);
 
         in_file = 0;
         if (framenum>0)
         {
-            byterate = fileendpos / framenum;
             if(BuildMasterCommList())
             {
                 result = 1;
@@ -2105,12 +2064,12 @@ again:
                     output_timing = 0;
                 }
 
-#ifndef GUI
+#ifdef _WIN32
                 while(1)
                 {
                     ReviewResult();
                     vo_refresh();
-                    Sleep((DWORD)100);
+                    Sleep(100L);
                 }
 #endif
                 //		printf(" Press Enter to close debug window\n");

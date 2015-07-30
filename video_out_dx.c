@@ -998,7 +998,7 @@ void ShowHelp(char **ta)
      char *t;
      int l;
      int i = 0;
-     while (t = *ta) {
+     while ((t = *ta)) {
           l = strlen(t);
           TextOut(hdc, 0, 30+16*i++, t, l);
           ta++;

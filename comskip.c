@@ -12,37 +12,9 @@
 // You should have received a copy of the GNU General Public License
 // along with this program; if not, write to the Free Software
 // Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
-#include <stdio.h>
-
-
-#ifdef _WIN32
-
-#include <conio.h>
-#include <windows.h>									// needed for sleep command
-#include <direct.h>										// needed for getcwd
-#include <process.h>
-#include <io.h>
-#else
-#include <errno.h>
-#endif
-#include <string.h>
-#include <ctype.h>
-#include <stdlib.h>
-#include <memory.h>
-#include <time.h>										// needed for play_nice routines
-#include <math.h>
-#include <inttypes.h>
-#include <sys/stat.h>
-#include <fcntl.h>
-//#include "config.h"
-
-//#include "mpeg2convert.h"
-#include "argtable2.h"
+#include "platform.h"
+#include <argtable2.h>
 #include "comskip.h"
-
-#define bool	int
-#define true	1
-#define false	0
 
 // Define detection methods
 #define BLACK_FRAME		1
@@ -255,9 +227,6 @@ typedef struct block_info
     int				iscommercial;
 } block_info;
 
-//block_info*			cblock = NULL;
-
-#define cblock cblock
 #define MAX_BLOCKS	1000
 struct block_info cblock[MAX_BLOCKS];
 
@@ -709,8 +678,6 @@ char cutscenefile8[1024];
 int					cutscenematch;
 int					cutscenedelta = 10;
 int					cutsceneno = 0;
-
-static int myremove( char * f);
 
 int					cutscenes=0;
 unsigned char		cutscene[MAXCUTSCENES][MAXCSLENGTH];
@@ -1946,7 +1913,6 @@ int zstart = 0;
 int zfactor = 1;
 int show_XDS=0;
 int show_silence=0;
-#define _WIN32 1
 
 void OutputDebugWindow(bool showVideo, int frm, int grf)
 {
@@ -2988,10 +2954,10 @@ bool ReviewResult()
                 lastcurframe = curframe;
             }
         OutputDebugWindow((review_file ? true : false),curframe, grf);
-#ifndef GUI
+#ifdef _WIN32
         vo_wait();
 //				vo_refresh();
-//				Sleep((DWORD)100);
+//				Sleep(100L);
 #endif
     }
     return false;
@@ -5611,23 +5577,6 @@ expand:
 
 
 
-
-#ifndef _WIN32
-#include <ctype.h>
-char *_strupr(char *string)
-{
-    char *s;
-
-    if (string)
-    {
-        for (s = string; *s; ++s)
-            *s = toupper(*s);
-    }
-    return string;
-}
-#endif
-
-
 void OpenOutputFiles()
 {
     char	tempstr[MAX_PATH];
@@ -5840,14 +5789,14 @@ void OpenOutputFiles()
         videoredo_file = myfopen(filename, "w");
         if (videoredo_file)
         {
-            if (mpegfilename[1] == ':' || mpegfilename[0] == '\\')
+            if (mpegfilename[1] == ':' || mpegfilename[0] == PATH_SEPARATOR)
             {
                 fprintf(videoredo_file, "<Version>2\n<Filename>%s\n", mpegfilename);
             }
             else
             {
                 _getcwd(cwd, 256);
-                fprintf(videoredo_file, "<Version>2\n<Filename>%s\\%s\n", cwd, mpegfilename);
+                fprintf(videoredo_file, "<Version>2\n<Filename>%s%c%s\n", cwd, PATH_SEPARATOR, mpegfilename);
             }
             if (is_h264)
             {
@@ -5890,14 +5839,14 @@ void OpenOutputFiles()
         videoredo3_file = myfopen(filename, "w");
         if (videoredo3_file)
         {
-            if (mpegfilename[1] == ':' || mpegfilename[0] == '\\')
+            if (mpegfilename[1] == ':' || mpegfilename[0] == PATH_SEPARATOR)
             {
                 fprintf(videoredo3_file, "<VideoReDoProject Version=\"3\">\n<Filename>%s</Filename><CutList>\n", mpegfilename);
             }
             else
             {
                 _getcwd(cwd, 256);
-                fprintf(videoredo3_file, "<VideoReDoProject Version=\"3\">\n<Filename>%s\\%s</Filename><CutList>\n", cwd, mpegfilename);
+                fprintf(videoredo3_file, "<VideoReDoProject Version=\"3\">\n<Filename>%s%c%s</Filename><CutList>\n", cwd, PATH_SEPARATOR, mpegfilename);
             }
 //              if (is_h264) {
             //                 fprintf(videoredo3_file, "<MPEG Stream Type>4\n");
@@ -5936,14 +5885,14 @@ void OpenOutputFiles()
         cuttermaran_file = myfopen(filename, "w");
         if (cuttermaran_file)
         {
-            if (mpegfilename[1] == ':' || mpegfilename[0] == '\\')
+            if (mpegfilename[1] == ':' || mpegfilename[0] == PATH_SEPARATOR)
             {
                 strcpy(tempstr, basename);
             }
             else
             {
                 _getcwd(cwd, 256);
-                sprintf(tempstr, "%s\\%s", cwd, basename);
+                sprintf(tempstr, "%s%c%s", cwd, PATH_SEPARATOR, basename);
             }
             fprintf(cuttermaran_file, "<?xml version=\"1.0\" standalone=\"yes\"?>\n");
             fprintf(cuttermaran_file, "<StateData xmlns=\"http://cuttermaran.kickme.to/StateData.xsd\">\n");
@@ -5964,14 +5913,14 @@ void OpenOutputFiles()
         vcf_file = myfopen(filename, "w");
         if (vcf_file)
         {
-            if (mpegfilename[1] == ':' || mpegfilename[0] == '\\')
+            if (mpegfilename[1] == ':' || mpegfilename[0] == PATH_SEPARATOR)
             {
                 strcpy(tempstr, basename);
             }
             else
             {
                 _getcwd(cwd, 256);
-                sprintf(tempstr, "%s\\%s", cwd, basename);
+                sprintf(tempstr, "%s%c%s", cwd, PATH_SEPARATOR, basename);
             }
             fprintf(vcf_file, "VirtualDub.video.SetMode(0);\nVirtualDub.subset.Clear();\n");
 //			fclose(vcf_file);
@@ -5989,14 +5938,14 @@ void OpenOutputFiles()
         vdr_file = myfopen(filename, "w");
         if (vdr_file)
         {
-            if (mpegfilename[1] == ':' || mpegfilename[0] == '\\')
+            if (mpegfilename[1] == ':' || mpegfilename[0] == PATH_SEPARATOR)
             {
                 strcpy(tempstr, basename);
             }
             else
             {
                 _getcwd(cwd, 256);
-                sprintf(tempstr, "%s\\%s", cwd, basename);
+                sprintf(tempstr, "%s%c%s", cwd, PATH_SEPARATOR, basename);
             }
 //			fprintf(vdr_file, "VirtualDub.video.SetMode(0);\nVirtualDub.subset.Clear();\n");
 //			fclose(vdr_file);
@@ -6376,7 +6325,7 @@ void OutputCommercialBlock(int i, long prev, long start, long end, bool last)
     {
         if (prev < start /* &&!last */ && end - start > 2)
         {
-            fprintf(edlx_file, "<region start=\"%I64d\" end=\"%I64d\"/> \n", frame[start].goppos, frame[end].goppos);
+            fprintf(edlx_file, "<region start=\"%lld\" end=\"%lld\"/> \n", frame[start].goppos, frame[end].goppos);
         }
         if (last)
         {
@@ -7432,7 +7381,12 @@ static unsigned char MPEG2SysHdr[] = {0x00, 0x00, 0x01, 0xBB, 00, 0x12, 0x80, 0x
             {
                 firstbl=false;
                 j = 14 + (Buf[13] & 7);
-                if (*((UNALIGNED DWORD*)(Buf+j)) == 0xBB010000) j=0; //FIXME: unaligned dword may not be the right thing on mac: #defined  away
+#ifdef _WIN32
+                if (*((UNALIGNED DWORD*)(Buf+j)) == 0xBB010000)
+#else
+                if (*((int32_t*)(Buf+j)) == 0xBB010000)
+#endif
+                    j=0;
                 else
                 {
                     _write(outf, Buf, j);
@@ -7977,80 +7931,11 @@ FILE* LoadFile(char *f)
     char exe[1000];
     char *cmd[2];
     _getcwd(cwd, 256);
-    sprintf(exe, "%s\\\%s", cwd, "Comskip.exe");
+    sprintf(exe, "%s%c%s", cwd, PATH_SEPARATOR, "Comskip.exe");
     cmd[0] = exe;
     cmd[1] = f;
     return( LoadSettings( 2, cmd));
 }
-
-#include <locale.h>
-
-BOOL AnsiToUnicode16(const char *in_Src, WCHAR *out_Dst, INT in_MaxLen)
-{
-    /* locals */
-    INT lv_Len;
-    int i;
-    // do NOT decrease maxlen for the eos
-    if (in_MaxLen <= 0)
-        return FALSE;
-    // let windows find out the meaning of ansi
-    // - the SrcLen=-1 triggers MBTWC to add a eos to Dst and fails if MaxLen is too small.
-    // - if SrcLen is specified then no eos is added
-    // - if (SrcLen+1) is specified then the eos IS added
-    lv_Len = MultiByteToWideChar(CP_UTF8, 0, in_Src, -1, out_Dst, in_MaxLen);
-/*
-    for (i = 0; i < strlen(in_Src); i++)
-    {
-    fprintf(stderr, "[%i]=%i\n", i, in_Src[i]);
-
-    }
-*/
-    // validate
-    if (lv_Len < 0)
-        lv_Len = 0;
-    // ensure eos, watch out for a full buffersize
-    // - if the buffer is full without an eos then clear the output like MBTWC does
-    //   in case of too small outputbuffer
-    // - unfortunately there is no way to let MBTWC return shortened strings,
-    //   if the outputbuffer is too small then it fails completely
-    if (lv_Len < in_MaxLen)
-        out_Dst[lv_Len] = 0;
-    else if (out_Dst[in_MaxLen-1])
-        out_Dst[0] = 0;
-    // done
-    return TRUE;
-}
-
-
-int myfopen( const char * f, char * m)
-{
-    wchar_t wf[2000], wm[2000];
-    int n;
-
-    n= AnsiToUnicode16(f, wf, 2000);
-    n= AnsiToUnicode16(m, wm, 2000);
-    return(_wfopen(wf,wm));
-}
-
-
-
-static int mystat( char * f, struct _stati64 * s)
-{
-    wchar_t wf[2000];
-    int n;
-    n= AnsiToUnicode16(f, wf, 2000);
-    return(_wstati64(wf,s));
-}
-
-static int myremove( char * f)
-{
-    wchar_t wf[2000];
-    int n;
-    n= AnsiToUnicode16(f, wf, 2000);
-    return(_wremove(wf));
-}
-
-
 
 FILE* LoadSettings(int argc, char ** argv)
 {
@@ -8254,7 +8139,7 @@ FILE* LoadSettings(int argc, char ** argv)
 */
         sprintf(basename, "%.*s", (int)strlen(in->filename[0]) - (int)strlen(in->extension[0]), in->filename[0]);
         i = strlen(basename);
-        while (i>0 && basename[i-1] != '\\' && basename[i-1] != '/')
+        while (i>0 && basename[i-1] != PATH_SEPARATOR)
         {
             i--;
         }
@@ -8312,6 +8197,11 @@ FILE* LoadSettings(int argc, char ** argv)
         }
         if (!test_file)
         {
+            sprintf(mpegfilename, "%.*s.mkv", (int)strlen(basename), basename);
+            test_file = myfopen(mpegfilename, "rb");
+        }
+        if (!test_file)
+        {
             mpegfilename[0] = 0;
         }
         else
@@ -8321,7 +8211,7 @@ FILE* LoadSettings(int argc, char ** argv)
 
 
         i = strlen(basename);
-        while (i>0 && basename[i-1] != '\\' && basename[i-1] != '/')
+        while (i>0 && basename[i-1] != PATH_SEPARATOR)
         {
             i--;
         }
@@ -8373,6 +8263,11 @@ FILE* LoadSettings(int argc, char ** argv)
         }
         if (!test_file)
         {
+            sprintf(mpegfilename, "%.*s.mkv", (int)strlen(basename), basename);
+            test_file = myfopen(mpegfilename, "rb");
+        }
+        if (!test_file)
+        {
             mpegfilename[0] = 0;
         }
         else
@@ -8381,7 +8276,7 @@ FILE* LoadSettings(int argc, char ** argv)
         }
 
         i = strlen(basename);
-        while (i>0 && basename[i-1] != '\\')
+        while (i>0 && basename[i-1] != PATH_SEPARATOR)
         {
             i--;
         }
@@ -8405,9 +8300,9 @@ FILE* LoadSettings(int argc, char ** argv)
     {
         sprintf(outputdirname, "%s", cl_work->filename[0]);
         i = strlen(outputdirname);
-        if (outputdirname[i-1] == '\\')
+        if (outputdirname[i-1] == PATH_SEPARATOR)
             outputdirname[i-1] = 0;
-        sprintf(workbasename, "%s\\%s", outputdirname,  shortbasename);
+        sprintf(workbasename, "%s%c%s", outputdirname, PATH_SEPARATOR, shortbasename);
         strcpy(outbasename, workbasename);
     }
     else
@@ -8421,9 +8316,9 @@ FILE* LoadSettings(int argc, char ** argv)
     {
         sprintf(outputdirname, out->filename[0]);
         i = strlen(outputdirname);
-        if (outputdirname[i-1] == '\\')
+        if (outputdirname[i-1] == PATH_SEPARATOR)
             outputdirname[i-1] = 0;
-        sprintf(outbasename, "%s\\%s", outputdirname,  shortbasename);
+        sprintf(outbasename, "%s%c%s", outputdirname, PATH_SEPARATOR, shortbasename);
     }
     else
     {
@@ -8454,11 +8349,11 @@ FILE* LoadSettings(int argc, char ** argv)
     {
         if (!ini_file)
         {
-            sprintf(inifilename, "%s\\comskip.ini", HomeDir);
+            sprintf(inifilename, "%s%ccomskip.ini", HomeDir, PATH_SEPARATOR);
             ini_file = myfopen(inifilename, "r");
         }
-        sprintf(exefilename, "%s\\comskip.exe", HomeDir);
-        sprintf(dictfilename, "%s\\comskip.dictionary", HomeDir);
+        sprintf(exefilename, "%s%ccomskip.exe", HomeDir, PATH_SEPARATOR);
+        sprintf(dictfilename, "%s%ccomskip.dictionary", HomeDir, PATH_SEPARATOR);
     }
 
     if (cl_cut->count)
@@ -13092,7 +12987,6 @@ void ProcessCSV(FILE *in_file)
     int		col;
     int		curframe;
     int		ccDataFrame;
-//	int64_t fileendpos;
 
     double	cur_ar_ratio;
 //	time_t	ltime;
