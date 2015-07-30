@@ -49,7 +49,6 @@ char osname[1024];
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-// #include <inttypes.h>
 
 //#include "mpeg2.h"
 //#include "video_out.h"

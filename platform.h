@@ -31,7 +31,6 @@
 #include <direct.h>         // needed for getcwd
 #include <process.h>
 #include <io.h>
-#include <inttypes.h>
 #include <locale.h>
 #include <excpt.h>
 #include <winbase.h>
