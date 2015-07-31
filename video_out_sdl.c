@@ -209,20 +209,68 @@ void handle_event(SDL_Event event) {
       exit(0);
       break;
 
-    case SDL_KEYDOWN:
-      switch (event.key.keysym.sym) {
+    case SDL_KEYDOWN: {
+      SDL_keysym ks = event.key.keysym;
+      //printf("key: %d (%c) [scan: %d (%c)]\n", ks.sym, ks.sym, ks.scancode, ks.scancode);
+      switch (ks.sym) {
         case SDLK_ESCAPE:
-        case SDLK_q:
-          key = event.key.keysym.sym;
 #ifdef TEST
           exit(0);
+#else
+          key = event.key.keysym.sym;
 #endif
           break;
+        case SDLK_F1:
+          key = 112;
+          break;
+        case SDLK_F2:
+          key = 113;
+          break;
+        case SDLK_F3:
+          key = 114;
+          break;
+        case SDLK_F4:
+          key = 115;
+          break;
+        case SDLK_F5:
+          key = 116;
+          break;
+        case SDLK_PERIOD:
+          key = '.';
+          break;
+        case SDLK_LEFT:
+          if (ks.mod & KMOD_SHIFT)
+            key = 80;
+          else
+            key = 37;
+          break;
+        case SDLK_RIGHT:
+          if (ks.mod & KMOD_SHIFT)
+            key = 78;
+          else
+            key = 39;
+          break;
+        case SDLK_UP:
+          key = 38;
+          break;
+        case SDLK_DOWN:
+          key = 40;
+          break;
+        case SDLK_PAGEUP:
+          key = 33;
+          break;
+        case SDLK_PAGEDOWN:
+          key = 34;
+          break;
         default:
-          key = event.key.keysym.sym;
+          if (ks.sym >= SDLK_a && ks.sym <= SDLK_z) {
+            key = ks.sym - 32;
+            //printf("PRESSED: %c (%d)\n", key, key);
+          }
           break;
       }
       break;
+    }
   }
 }
 
