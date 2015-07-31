@@ -1053,11 +1053,11 @@ int video_packet_process(VideoState *is,AVPacket *packet)
         if(pts != 0)
         {
             /* if we have pts, set video clock to it */
-            if (is->video_clock != 0)
+            if (is->video_clock != 0 && max_repair_size != 0)
             {
                 if ((pts - is->video_clock)/frame_delay < -10 || (pts - is->video_clock)/frame_delay > max_repair_size )
                 {
-                    if (!reviewing) Debug(1 ,"Video jumped by %6.1f at frame %d, inter = %d, rep = %d, ticks = %d\n",
+                    if (!reviewing) Debug(1 ,"Video jumped by %6.3f at frame %d, inter = %d, rep = %d, ticks = %d\n",
                                               (pts - is->video_clock)/frame_delay, framenum, is->pFrame->interlaced_frame, is->pFrame->repeat_pict, is->video_st->codec->ticks_per_frame);
                     // Calculate offset for jump
                     pts_offset = is->video_clock - real_pts/* set to mid of free window */;
@@ -1067,7 +1067,7 @@ int video_packet_process(VideoState *is,AVPacket *packet)
                 }
                 else if ((pts - is->video_clock)/frame_delay >= 1.0 )
                 {
-                    if (!reviewing) Debug(1 ,"Video jumped by %6.1f frames at frame %d, repairing timeline\n",
+                    if (!reviewing) Debug(1 ,"Video jumped by %6.3f frames at frame %d, repairing timeline\n",
                                               (pts - is->video_clock)/frame_delay, framenum);
                     summed_repeat +=  is->video_st->codec->ticks_per_frame * (int) ((pts - is->video_clock)/frame_delay );
                     //      is->video_clock = pts;
