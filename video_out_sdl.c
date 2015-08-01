@@ -204,6 +204,8 @@ void ShowDetails(char *t)
 }
 
 void handle_event(SDL_Event event) {
+  static int drag = 0;
+
   switch (event.type) {
     case SDL_QUIT:
       exit(0);
@@ -214,8 +216,21 @@ void handle_event(SDL_Event event) {
       xPos = event.button.x;
       yPos = event.button.y;
       lMouseDown = 1;
+      drag = 1;
       break;
     }
+
+    case SDL_MOUSEBUTTONUP:
+      drag = 0;
+      break;
+
+    case SDL_MOUSEMOTION:
+      if (drag) {
+        xPos = event.button.x;
+        yPos = event.button.y;
+        lMouseDown = 1;
+      }
+      break;
 
     case SDL_KEYDOWN: {
       SDL_keysym ks = event.key.keysym;
