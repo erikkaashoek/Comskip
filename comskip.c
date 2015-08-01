@@ -79,6 +79,7 @@ FILE*			videoredo_file = NULL;
 FILE*			videoredo3_file = NULL;
 FILE*			btv_file = NULL;
 FILE*			edl_file = NULL;
+FILE*			ffmeta_file = NULL;
 FILE*			live_file = NULL;
 FILE*			ipodchap_file = NULL;
 FILE*			edlp_file = NULL;
@@ -603,6 +604,7 @@ bool				output_tuning = false;
 bool				output_training = false;
 bool				output_false = false;
 bool				output_aspect = false;
+bool				output_ffmeta = false;
 int					noise_level=5;
 bool				framearray = true;
 bool				output_framearray = false;
@@ -5685,6 +5687,21 @@ void OpenOutputFiles()
             output_edl = true;
         }
     }
+
+    if (output_ffmeta)
+    {
+        sprintf(filename, "%s.ffmeta", outbasename);
+        ffmeta_file = myfopen(filename, "wb");
+        if (!ffmeta_file)
+        {
+            fprintf(stderr, "%s - could not create file %s\n", strerror(errno), filename);
+            exit(6);
+        }
+        else
+        {
+            output_ffmeta = true;
+        }
+    }
 /*
     if (output_live)
     {
@@ -6175,6 +6192,19 @@ void OutputCommercialBlock(int i, long prev, long start, long end, bool last)
         fprintf(zoomplayer_chapter_file, "AddChapterBySecond(%i,Commercial Segment)\nAddChapterBySecond(%i,Show Segment)\n", (int)((start) / fps), (int)((end) / fps));
     }
     CLOSEOUTFILE(zoomplayer_chapter_file);
+
+    if (ffmeta_file) {
+        if (prev != -1 && prev < start) {
+            fprintf(ffmeta_file, "[CHAPTER]\nTIMEBASE=1/100\nSTART=%llu\nEND=%llu\ntitle=Show Segment\n", (uint64_t)(prev * 100 / fps), (uint64_t)(start * 100 / fps));
+        } else if (prev == -1 && start > 5) {
+            fprintf(ffmeta_file, "[CHAPTER]\nTIMEBASE=1/100\nSTART=%llu\nEND=%llu\ntitle=Show Segment\n", (uint64_t)0, (uint64_t)(start * 100 / fps));
+        }
+        if (start <= 5)
+            start = 0;
+        if (end - start > 2)
+            fprintf(ffmeta_file, "[CHAPTER]\nTIMEBASE=1/100\nSTART=%llu\nEND=%llu\ntitle=Commercial Segment\n", (uint64_t)(start * 100 / fps), (uint64_t)(end * 100 / fps));
+    }
+    CLOSEOUTFILE(ffmeta_file);
 
     if (vcf_file && prev < start && start - prev > 5 && prev > 0 )
     {
@@ -6931,6 +6961,9 @@ bool OutputBlocks(void)
         fprintf(zoomplayer_chapter_file, "AddChapter(1,Show Segment)\n");
     }
 
+    if (ffmeta_file) {
+        fprintf(ffmeta_file, ";FFMETADATA1\n");
+    }
 
     prev = -1;
     for (i = 0; i <= commercial_count; i++)
@@ -7872,6 +7905,7 @@ void LoadIniFile()
         if ((tmp = FindNumber(data, "output_smi=", (double) output_smi)) > -1) output_smi = (bool) tmp;
         if ((tmp = FindNumber(data, "output_timing=", (double) output_timing)) > -1) output_timing = (bool) tmp;
         if ((tmp = FindNumber(data, "output_incommercial=", (double) output_incommercial)) > -1) output_incommercial = (bool) tmp;
+        if ((tmp = FindNumber(data, "output_ffmeta=", (double) output_ffmeta)) > -1) output_ffmeta = (bool) tmp;
         if ((tmp = FindNumber(data, "delete_logo_file=", (double) deleteLogoFile)) > -1) deleteLogoFile = (int)tmp;
 
         if ((tmp = FindNumber(data, "cutscene_frame=", (double) cutsceneno)) > -1) cutsceneno = (int)tmp;
@@ -8616,7 +8650,7 @@ FILE* LoadSettings(int argc, char ** argv)
         }
     }
 
-    out_file = plist_cutlist_file = zoomplayer_cutlist_file = zoomplayer_chapter_file = vcf_file = vdr_file = projectx_file = avisynth_file = cuttermaran_file = videoredo_file = videoredo3_file = btv_file = edl_file = live_file = ipodchap_file = edlp_file = edlx_file = mls_file = womble_file = mpgtx_file = dvrcut_file = dvrmstb_file = tuning_file = training_file = 0L;
+    out_file = plist_cutlist_file = zoomplayer_cutlist_file = zoomplayer_chapter_file = vcf_file = vdr_file = projectx_file = avisynth_file = cuttermaran_file = videoredo_file = videoredo3_file = btv_file = edl_file = ffmeta_file = live_file = ipodchap_file = edlp_file = edlx_file = mls_file = womble_file = mpgtx_file = dvrcut_file = dvrmstb_file = tuning_file = training_file = 0L;
 
     if (cl_output_plist->count)
         output_plist_cutlist = true;
