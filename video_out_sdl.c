@@ -209,6 +209,14 @@ void handle_event(SDL_Event event) {
       exit(0);
       break;
 
+    case SDL_MOUSEBUTTONDOWN: {
+      //printf("mousedown: (%d,%d) (%d)\n", event.button.x, event.button.y, event.button.state);
+      xPos = event.button.x;
+      yPos = event.button.y;
+      lMouseDown = 1;
+      break;
+    }
+
     case SDL_KEYDOWN: {
       SDL_keysym ks = event.key.keysym;
       //printf("key: %d (%c) [scan: %d (%c)]\n", ks.sym, ks.sym, ks.scancode, ks.scancode);
@@ -219,6 +227,9 @@ void handle_event(SDL_Event event) {
 #else
           key = event.key.keysym.sym;
 #endif
+          break;
+        case SDLK_SPACE:
+          key = 0x20;
           break;
         case SDLK_F1:
           key = 112;
@@ -287,6 +298,7 @@ void vo_init(int width, int height, char *title)
   instance = vo_sdl_open();
   SDL_WM_SetCaption(title, "comskip");
   sdl_setup(instance, width, height, width, height, &result);
+  SDL_EnableKeyRepeat(50, SDL_DEFAULT_REPEAT_INTERVAL);
 }
 
 void vo_draw(unsigned char * buf)
