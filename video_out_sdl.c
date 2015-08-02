@@ -313,7 +313,7 @@ void vo_init(int width, int height, char *title)
   instance = vo_sdl_open();
   SDL_WM_SetCaption(title, "comskip");
   sdl_setup(instance, width, height, width, height, &result);
-  SDL_EnableKeyRepeat(50, SDL_DEFAULT_REPEAT_INTERVAL);
+  SDL_EnableKeyRepeat(10, SDL_DEFAULT_REPEAT_INTERVAL);
 }
 
 void vo_draw(unsigned char * buf)
