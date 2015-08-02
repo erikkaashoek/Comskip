@@ -3358,7 +3358,7 @@ bool BuildMasterCommList(void)
 
 
     length = F2L(frame_count-1, 1);
-    if (abs( length - (frame_count -1)/fps) > 0.5)
+    if (fabs( length - (frame_count -1)/fps) > 0.5)
         Debug(1, "WARNING: Timeline errors in the recording!!!! Results may be wrong, .ref input will be misaligned. .txt editing will produce wrong results");
 
 
@@ -8718,7 +8718,7 @@ FILE* LoadSettings(int argc, char ** argv)
         }
         else
             CEW_argv[i++] = "-srt";
-        CEW_argv[i++] = in->filename[0];
+        CEW_argv[i++] = (char *)in->filename[0];
 #ifdef PROCESS_CC
         CEW_init (i, CEW_argv);
 #endif
@@ -12506,7 +12506,7 @@ noreffer:
         switch(state)
         {
         case both_show:
-            if (i <= reffer_count && j <= commercial_count && abs(reffer[i].start_frame-commercial[j].start_frame) < 40)
+            if (i <= reffer_count && j <= commercial_count && labs(reffer[i].start_frame-commercial[j].start_frame) < 40)
             {
                 state = both_commercial;
                 k = commercial[j].start_frame;
@@ -12523,7 +12523,7 @@ noreffer:
             }
             break;
         case both_commercial:
-            if (i <= reffer_count && j <= commercial_count && abs(reffer[i].end_frame-commercial[j].end_frame) < 40)
+            if (i <= reffer_count && j <= commercial_count && labs(reffer[i].end_frame-commercial[j].end_frame) < 40)
             {
                 state = both_show;
                 k = commercial[j].end_frame;
@@ -12640,8 +12640,8 @@ noreffer:
         }
         else
         {
-            if (abs(reffer[i].start_frame-commercial[j].start_frame) > 40 ||
-                    abs(reffer[i].end_frame-commercial[j].end_frame) > 40 )
+            if (labs(reffer[i].start_frame-commercial[j].start_frame) > 40 ||
+                    labs(reffer[i].end_frame-commercial[j].end_frame) > 40 )
             {
                 fprintf(raw, "Found %6ld %6ld    Reference %6ld %6ld    Difference %+6.1f    %+6.1f\n", commercial[j].start_frame, commercial[j].end_frame, reffer[i].start_frame, reffer[i].end_frame, F2L(reffer[i].start_frame, commercial[j].start_frame) , F2L(commercial[j].end_frame , reffer[i].end_frame));
             }
