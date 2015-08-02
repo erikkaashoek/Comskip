@@ -238,9 +238,14 @@ char tempstring[512];
 
 
 #define DUMP_OPEN if (output_timing) { sprintf(tempstring, "%s.timing.csv", basename); timing_file = myfopen(tempstring, "w"); DUMP_HEADER }
-#define DUMP_HEADER if (timing_file) fprintf(timing_file, "type   ,dts         ,pts         ,clock       ,delta       ,offset\n");
-#define DUMP_TIMING(T, D, P, C) if (timing_file && !csStepping && !csJumping && !csStartJump) fprintf(timing_file, "%7s, %12.3f,%12.3f, %12.3f, %12.3f, %12.3f,\n", \
-	T, (double) (D)/frame_delay, (double) (P)/frame_delay, (double) (C)/frame_delay, ((double) (P) - (double) (C))/frame_delay, pts_offset/frame_delay );
+#define DUMP_HEADER if (timing_file) fprintf(timing_file, "sep=,\ntype   ,real_pts, step        ,pts         ,clock       ,delta       ,offset, repeat\n");
+#ifdef NOFRAMEDELAYINTIMING
+#define DUMP_TIMING(T, D, P, C, R) if (timing_file && !csStepping && !csJumping && !csStartJump) fprintf(timing_file, "%7s, %12.3f,%12.3f,%12.3f, %12.3f, %12.3f, %12.3f, %d\n", \
+	T, (double) (D)/frame_delay, (double) calculated_delay/frame_delay, (double) (P)/frame_delay, (double) (C)/frame_delay, ((double) (P) - (double) (C))/frame_delay, pts_offset/frame_delay, (R) );
+#else
+#define DUMP_TIMING(T, D, P, C, R) if (timing_file && !csStepping && !csJumping && !csStartJump) fprintf(timing_file, "%7s, %12.3f,%12.3f,%12.3f, %12.3f, %12.3f, %12.3f, %d\n", \
+	T, (double) (D), (double) calculated_delay, (double) (P), (double) (C), ((double) (P) - (double) (C)), pts_offset, (R));
+#endif
 #define DUMP_CLOSE if (timing_file) { fclose(timing_file); timing_file = NULL; }
 
 
@@ -310,8 +315,7 @@ extern int live_tv_retries;
 extern int dvrms_live_tv_retries;
 int retries;
 
-static double frame_period;
-extern void set_fps(double frame_period, double dfps, int ticks);
+extern void set_fps(double frame_delay, double dfps, int ticks, double rfps, double afps);
 extern void dump_video (char *start, char *end);
 extern void dump_audio (char *start, char *end);
 extern void	Debug(int level, char* fmt, ...);
@@ -373,7 +377,7 @@ void sound_to_frames(VideoState *is, short **b, int s, int c, int format)
 
     n = is->audio_st->codec->channels * is->audio_st->codec->sample_rate;
     base_apts = (is->audio_clock - ((double)audio_samples /(double)(n)));
-//    DUMP_TIMING("a frame", apts, base_apts, is->audio_clock);
+//    DUMP_TIMING("a frame", apts, base_apts, is->audio_clock, 1);
     s_per_frame = (int) ((double)(is->audio_st->codec->sample_rate)/ get_fps());
     if (s_per_frame == 0)
         return;
@@ -458,7 +462,7 @@ void sound_to_frames(VideoState *is, short **b, int s, int c, int format)
             Debug(1, "Audio PTS jumped %d frames at frame %d\n", -sound_frame_counter + delta + framenum, framenum);
             sound_frame_counter = delta + framenum;
         }
-//		  DUMP_TIMING("a frame", apts, is->video_clock);
+//		  DUMP_TIMING("a frame", apts, is->video_clock, 1);
         set_frame_volume((demux_asf?ms_audio_delay:0)+sound_frame_counter++, volume);
 
         base_apts += (double)s_per_frame/(double)is->audio_st->codec->sample_rate;
@@ -590,7 +594,7 @@ void audio_packet_process(VideoState *is, AVPacket *pkt)
             (is->frame->channel_layout && is->frame->channels == av_get_channel_layout_nb_channels(is->frame->channel_layout)) ?
             is->frame->channel_layout : av_get_default_channel_layout(is->frame->channels);
 */
-        DUMP_TIMING("a frame", apts, base_apts, is->audio_clock);
+//        DUMP_TIMING("a frame", apts, base_apts, is->audio_clock, 1);
 //		fprintf(stderr, "Audio %f\n", is->audio_clock);
         if (data_size > 0)
         {
@@ -970,6 +974,13 @@ int video_packet_process(VideoState *is,AVPacket *packet)
     double pts, dts;
     double real_pts;
     static int summed_repeat = 0;
+    static double last_jump_step = 0.0;
+    double current_jump_step;
+    static int last_jump_count = 0;
+    static long last_jump_frame = 0;
+static int find_29fps = 0;
+static int force_29fps = 0;
+
     double calculated_delay;
 
     if (!reviewing)
@@ -1018,6 +1029,25 @@ int video_packet_process(VideoState *is,AVPacket *packet)
 
         calculated_delay = (best_effort_timestamp - pev_best_effort_timestamp) * av_q2d(is->video_st->time_base);
 
+        if ( (!(fabs(frame_delay - 0.03336666) < 0.001 )) &&
+              ((fabs(calculated_delay - 0.0333333) < 0.0001) || (fabs(calculated_delay - 0.033) < 0.0001) || (fabs(calculated_delay - 0.034) < 0.0001) ||
+               (fabs(calculated_delay - 0.067) < 0.0001)     || (fabs(calculated_delay - 0.066) < 0.0001) || (fabs(calculated_delay - 0.06673332) < 0.0001)  ) ){
+            find_29fps++;
+        } else
+            find_29fps = 0;
+        if (force_29fps == 0 && find_29fps == 5) {
+            force_29fps = 1;
+            Debug(1 ,"Framerate forced to 29.97fps\n");
+        }
+
+        if (force_29fps) {
+            frame_delay=0.033366666666666669;
+            if  ((fabs(calculated_delay - 0.067) < 0.0001) || (fabs(calculated_delay - 0.066) < 0.0001) || (fabs(calculated_delay - 0.06673332) < 0.0001)) {
+                is->pFrame->repeat_pict = 1;
+            }
+        }
+        set_fps(frame_delay, is->fps, is->video_st->codec->ticks_per_frame, av_q2d(is->video_st->r_frame_rate),  av_q2d(is->video_st->avg_frame_rate));
+
         if (pev_best_effort_timestamp != 0 && fabs(calculated_delay - frame_delay) > 4)
             fprintf(stderr, "Strange pts step: %f frames\n", (calculated_delay - frame_delay) / frame_delay );
 #ifndef OLD_PTS_CALC
@@ -1063,32 +1093,47 @@ int video_packet_process(VideoState *is,AVPacket *packet)
                     pts_offset = is->video_clock - real_pts/* set to mid of free window */;
                     pts = real_pts + pts_offset;
                     is->video_clock = pts;
-                    DUMP_TIMING("v   set",real_pts, pts, is->video_clock);
+                    DUMP_TIMING("v   set",real_pts, pts, is->video_clock, is->pFrame->repeat_pict);
+                    last_jump_frame = framenum;
                 }
-                else if ((pts - is->video_clock)/frame_delay >= 1.0 )
+                else if ((pts - is->video_clock)/frame_delay >= 1.5 )
                 {
                     if (!reviewing) Debug(1 ,"Video jumped by %6.3f frames at frame %d, repairing timeline\n",
                                               (pts - is->video_clock)/frame_delay, framenum);
                     summed_repeat +=  is->video_st->codec->ticks_per_frame * (int) ((pts - is->video_clock)/frame_delay );
+                    if (last_jump_frame>0) {
+                        current_jump_step = ((pts - is->video_clock)/frame_delay) / (framenum - last_jump_frame);
+                        if (fabs(current_jump_step - last_jump_step) < 0.2) {
+                            last_jump_count++;
+                            if (last_jump_count == 5) {
+                                if (!reviewing) Debug(1 ,"Wrong frame rate detected!!!!!!! \nDetection will no be reliable\nFps seems to be %6.2f\n",
+                                              (1)/(frame_delay * (1  + last_jump_step)));
+                            }
+                        } else {
+                            last_jump_count = 0;
+                            last_jump_step = current_jump_step;
+                        }
+                    }
+                    last_jump_frame = framenum;
                     //      is->video_clock = pts;
-                    DUMP_TIMING("vfollow", real_pts, pts, is->video_clock);
+                    DUMP_TIMING("vfollow", real_pts, pts, is->video_clock, is->pFrame->repeat_pict);
                 }
                 else
                 {
-                    DUMP_TIMING("v  free",real_pts,  pts, is->video_clock);
+                    DUMP_TIMING("v  free",real_pts,  pts, is->video_clock, is->pFrame->repeat_pict);
                     // Do nothing
                 }
             }
             else
             {
                 is->video_clock = pts; // - (5.0 / 2.0) * frame_delay;
-                DUMP_TIMING("v  init", real_pts, pts, is->video_clock);
+                DUMP_TIMING("v  init", real_pts, pts, is->video_clock, is->pFrame->repeat_pict);
             }
         }
         else
         {
             /* if we aren't given a pts, set it to the clock */
-            DUMP_TIMING("v clock", real_pts, pts, is->video_clock);
+            DUMP_TIMING("v clock", real_pts, pts, is->video_clock, is->pFrame->repeat_pict);
             pts = is->video_clock;
         }
 
@@ -1097,20 +1142,6 @@ int video_packet_process(VideoState *is,AVPacket *packet)
             real_pts = av_q2d(is->video_st->time_base)* ( best_effort_timestamp - (is->video_st->start_time != AV_NOPTS_VALUE ? is->video_st->start_time : 0)) ;
 
 #endif
-
-
-
-        frame_period = (double)1.0 / (((double)is->video_st->codec->time_base.den) / is->video_st->codec->time_base.num );
-        if (is->video_st->codec->ticks_per_frame >= 1)
-            frame_period *= is->video_st->codec->ticks_per_frame;
-        else
-            is->video_st->codec->ticks_per_frame = 1;
-        if (frame_period < 0.01)
-            frame_period = (1.0/av_q2d(is->video_st->r_frame_rate) ) /* * is->video_st->codec->ticks_per_frame */;         // <------------------------ frame delay is the time in seconds till the next frame
-
-
-//        Debug(1, "Decoder frame rate is %5.3f f/s\n", is->fps);
-        set_fps(frame_period, is->fps, is->video_st->codec->ticks_per_frame);
 
         is->video_clock_submitted = is->video_clock;
 
@@ -1141,10 +1172,10 @@ int video_packet_process(VideoState *is,AVPacket *packet)
         /* update the video clock */
         is->video_clock += frame_delay;
 
-        summed_repeat += is->pFrame->repeat_pict;
+        summed_repeat += is->pFrame->repeat_pict*is->video_st->codec->ticks_per_frame;
         while (summed_repeat >= is->video_st->codec->ticks_per_frame)
         {
-            DUMP_TIMING("vrepeat", dts, pts, is->video_clock);
+            DUMP_TIMING("vrepeat", real_pts, pts, is->video_clock, is->pFrame->repeat_pict);
             is->video_clock_submitted = is->video_clock;
             if (is->video_clock - is->seek_pts > -frame_delay / 2.0)
             {

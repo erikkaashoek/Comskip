@@ -15196,7 +15196,7 @@ double get_fps()
 }
 
 
-void set_fps(double fp,double dfps, int ticks)
+void set_fps(double fp,double dfps, int ticks, double rfps, double afps)
 {
     double old_fps = fps;
     static int showed_fps=0;
@@ -15207,10 +15207,14 @@ void set_fps(double fp,double dfps, int ticks)
         Debug(1, "Frame Rate set to %5.3f f/s\n", fps);
         if (ticks > 1)
             Debug(1, "Ticks per frame = %d\n", ticks);
-        if (fabs(fps - dfps) > 0.1) {
-            Debug(1, "DFps[%d]<> %5.3f f/s\n", ticks, dfps);
-        } else {
-//            Debug(1, "DFps[%d]== %5.3f f/s\n", ticks, dfps);
+        if ((fabs(fps - dfps) > 0.1)) {
+            Debug(1, "DFps[%d]= %5.3f f/s\n", ticks, dfps);
+        }
+        if (fabs(fps - rfps) > 0.1) {
+            Debug(1, "RFps[%d]= %5.3f f/s\n", ticks, rfps);
+        }
+        if (fabs(fps - afps) > 0.1) {
+            Debug(1, "AFps[%d]= %5.3f f/s\n", ticks, afps);
         }
     }
     if ( fps < 12.0 || fps > 100 )
