@@ -2,10 +2,7 @@
 #define _PLATFORM_H
 
 #ifndef _WIN32
-#define __USE_POSIX          1   // needed for limits.h
-#define __USE_XOPEN2K        1
-#define __STDC_FORMAT_MACROS 1   // needed for unix formatting output
-#define _POSIX_C_SOURCE      1
+#define _BSD_SOURCE
 #include <unistd.h>
 #include <limits.h>
 #include <stdarg.h>

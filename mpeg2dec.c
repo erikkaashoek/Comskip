@@ -954,7 +954,11 @@ void DecodeOnePicture(FILE * f, double pts, double length)
 
 void raise_exception(void)
 {
+#ifdef _WIN32
     *(int *)0 = 0;
+#else
+    __asm__("int3");
+#endif
 }
 
 
@@ -1266,7 +1270,7 @@ int stream_component_open(VideoState *is, int stream_index)
     AVDictionary *opts;
 
 
-    if(stream_index < 0 || stream_index >= pFormatCtx->nb_streams)
+    if(stream_index < 0 || (unsigned int)stream_index >= pFormatCtx->nb_streams)
     {
         return -1;
     }
@@ -1394,7 +1398,7 @@ int stream_component_open(VideoState *is, int stream_index)
 //          is->frame_last_delay = 40e-3;
 //          is->video_current_pts_time = av_gettime();
 
-        is->pFrame = avcodec_alloc_frame();
+        is->pFrame = av_frame_alloc();
         codecCtx->flags |= CODEC_FLAG_GRAY;
         if (codecCtx->codec_id == CODEC_ID_H264)
         {
@@ -1533,7 +1537,7 @@ void file_open()
     if (     is->pFormatCtx == NULL)
     {
         pFormatCtx = avformat_alloc_context();
-        pFormatCtx->max_analyze_duration *= 4;
+        pFormatCtx->max_analyze_duration2 *= 4;
 //        pFormatCtx->probesize = 400000;
 again:
         ClearVolumeBuffer();
