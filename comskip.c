@@ -3101,9 +3101,11 @@ int DetectCommercials(int f, double pts)
 //	EdgeCount(frame_ptr);
 //	currentGoodEdge = ((double) edge_count) / 750;
 
-    if (logoInfoAvailable)
-        if (framearray) frame[frame_count].logo_present = lastLogoTest;
-        else if (framearray) frame[frame_count].logo_present = 0.0;
+    if (logoInfoAvailable && framearray) {
+      frame[frame_count].logo_present = lastLogoTest;
+    } else if (framearray) {
+      frame[frame_count].logo_present = 0.0;
+    }
     if (lastLogoTest)
         frames_with_logo++;
     if (framearray) frame[frame_count].currentGoodEdge = currentGoodEdge;
@@ -7417,7 +7419,7 @@ static unsigned char MPEG2SysHdr[] = {0x00, 0x00, 0x01, 0xBB, 00, 0x12, 0x80, 0x
 #ifdef _WIN32
                 if (*((UNALIGNED DWORD*)(Buf+j)) == 0xBB010000)
 #else
-                if (*((int32_t*)(Buf+j)) == 0xBB010000)
+                if (*((uint32_t*)(Buf+j)) == 0xBB010000)
 #endif
                     j=0;
                 else
@@ -8348,7 +8350,7 @@ FILE* LoadSettings(int argc, char ** argv)
 
     if (out->count)
     {
-        sprintf(outputdirname, out->filename[0]);
+        sprintf(outputdirname, "%s", out->filename[0]);
         i = strlen(outputdirname);
         if (outputdirname[i-1] == PATH_SEPARATOR)
             outputdirname[i-1] = 0;
@@ -8398,7 +8400,7 @@ FILE* LoadSettings(int argc, char ** argv)
 
     if (cl_logo->count)
     {
-        sprintf(logofilename, cl_logo->filename[0]);
+        sprintf(logofilename, "%s", cl_logo->filename[0]);
         printf("Setting logo file to %s as per commandline\n", logofilename);
     }
 
@@ -10586,7 +10588,7 @@ bool ProcessLogoTest(int framenum_real, int curLogoTest, int close)
                 {
                     i = logo_block[logo_block_count].end;
                     if (i<0) i = 0;
-                    for (i = i; i < framenum_real; i++)
+                    for (; i < framenum_real; i++)
                         frame[i].logo_present = false;
                 }
                 Debug
@@ -14080,7 +14082,7 @@ void AddCC(int i)
         cc_text[cc_text_count].text_len = 0;
     }
 
-    if ((cc.cc1[0] == 0x14))
+    if (cc.cc1[0] == 0x14)
     {
         if ((cc.cc1[0] == lastcc.cc1[0]) && (cc.cc1[1] == lastcc.cc1[1]))
         {
