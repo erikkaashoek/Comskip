@@ -9681,9 +9681,6 @@ bool CheckSceneHasChanged(void)
 
     if (brightness < min_brightness_found) min_brightness_found = brightness;
 
-    if (frame_count == 100)
-        frame_count = frame_count;
-
     if (framearray) frame[frame_count].cutscenematch = 100;
 //	if (brightness > max_avg_brightness + 10)
     {
