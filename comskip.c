@@ -166,6 +166,12 @@ frame_info*			frame = NULL;
 long				frame_count = 0;
 long				max_frame_count;
 
+double get_frame_pts(int f) {
+    if (!frame)
+        return(0.0);
+    return(frame[f].pts);
+}
+
 static int aaa;
 #define F2V(X) (frame != NULL ? ((X) <= 0 ? frame[1].pts : ((X) >= frame_count ? frame[frame_count - 1].pts : frame[X].pts )) : (X) / fps)
 #define assert(T) (aaa = ((T) ? 1 : *(int *)0))
@@ -2992,7 +2998,10 @@ int DetectCommercials(int f, double pts)
     if (play_nice) Sleep(play_nice_sleep);
     if (framearray) InitializeFrameArray(framenum_real);
 //	curvolume = RetreiveVolume(framenum_real);
-    curvolume = RetreiveVolume(frame_count);
+    //curvolume = RetreiveVolume(frame_count);
+
+   // curvolume = retreive_frame_volume(is, get_frame_pts(frame_count-1), get_frame_pts(frame_count));
+
 //	if (frame_count != framenum_real)
 //		Debug(0, "Inconsistent frame numbers\n");
     if (framearray)
@@ -15313,6 +15322,7 @@ void set_frame_volume(unsigned int f, int volume)
         if (framearray)
             if (act_framenum <= frame_count)
             {
+                Debug(1, "Audio running after video\n");
                 if (frame[act_framenum].brightness > 5)
                     frame[act_framenum].volume = volume;
                 if (volume >= 0)
