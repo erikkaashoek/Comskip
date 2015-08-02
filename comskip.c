@@ -6209,7 +6209,7 @@ void OutputCommercialBlock(int i, long prev, long start, long end, bool last)
 
     if (vcf_file && prev < start && start - prev > 5 && prev > 0 )
     {
-        fprintf(vcf_file, "VirtualDub.subset.AddRange(%i,%i);\n", prev-1, start - prev);
+        fprintf(vcf_file, "VirtualDub.subset.AddRange(%li,%li);\n", prev-1, start - prev);
     }
     CLOSEOUTFILE(vcf_file);
 
@@ -7033,7 +7033,7 @@ bool OutputBlocks(void)
         {
             for (i = 0; i < block_count; i++)
             {
-                fprintf(chapters_file, "%d\n", cblock[i].f_end);
+                fprintf(chapters_file, "%ld\n", cblock[i].f_end);
             }
             fclose(chapters_file);
         }
@@ -12590,7 +12590,7 @@ noreffer:
             }
 //			fprintf(raw, "False negative at frame %6ld of %6.1f seconds\n", pk , (k - pk)/fps );
             if (output_training > 1) raw2 = myfopen("quality.csv", "a+");
-            if (raw2) fprintf(raw2, "\"%s\", %6ld, %6.1f, %6.1f, %6.1f\n", basename, pk, F2L(k, pk), 0.0, 0.0);
+            if (raw2) fprintf(raw2, "\"%s\", %6d, %6.1f, %6.1f, %6.1f\n", basename, pk, F2L(k, pk), 0.0, 0.0);
             fneg += F2L(k,pk);
             if (raw2) fclose(raw2);
             raw2 = NULL;
@@ -12609,7 +12609,7 @@ noreffer:
             }
 //			fprintf(raw, "False positive at frame %6ld of %6.1f seconds\n", pk , (k - pk)/fps );
             if (output_training > 1) raw2 = myfopen("quality.csv", "a+");
-            if (raw2) fprintf(raw2, "\"%s\", %6ld, %6.1f, %6.1f, %6.1f\n", basename, pk, 0.0, F2L(k, pk), 0.0);
+            if (raw2) fprintf(raw2, "\"%s\", %6d, %6.1f, %6.1f, %6.1f\n", basename, pk, 0.0, F2L(k, pk), 0.0);
             fpos += F2L(k, pk);
             if (raw2) fclose(raw2);
             raw2 = NULL;
@@ -12617,7 +12617,7 @@ noreffer:
         }
     }
     if (output_training) raw2 = myfopen("quality.csv", "a+");
-    if (raw2) fprintf(raw2, "\"%s\", %6ld, %6.1f, %6.1f, %6.1f\n", basename, -1, fneg, fpos, total);
+    if (raw2) fprintf(raw2, "\"%s\", %6d, %6.1f, %6.1f, %6.1f\n", basename, -1, fneg, fpos, total);
     if (raw2) fclose(raw2);
 
 //#else
@@ -12628,13 +12628,13 @@ noreffer:
         k = min(reffer[i].start_frame, commercial[j].start_frame);
         if ( commercial[j].end_frame < reffer[i].start_frame )
         {
-            fprintf(raw, "Found %6ld %6ld    Reference %6ld %6ld    Difference %+6.1f    %+6.1f\n", commercial[j].start_frame, commercial[j].end_frame, 0,0, F2L(commercial[j].end_frame, commercial[j].start_frame) , F2L(commercial[j].end_frame, commercial[j].start_frame));
+            fprintf(raw, "Found %6ld %6ld    Reference %6ld %6ld    Difference %+6.1f    %+6.1f\n", commercial[j].start_frame, commercial[j].end_frame, 0L, 0L, F2L(commercial[j].end_frame, commercial[j].start_frame) , F2L(commercial[j].end_frame, commercial[j].start_frame));
 //			fprintf(raw, "Found %6ld %6ld    Not in reference\n", commercial[j].start_frame, commercial[j].end_frame);
             j++;
         }
         else if ( commercial[j].start_frame > reffer[i].end_frame )
         {
-            fprintf(raw, "Found %6ld %6ld    Reference %6ld %6ld    Difference %+6.1f    %+6.1f\n", 0, 0, reffer[i].start_frame, reffer[i].end_frame, -F2L(reffer[i].end_frame, reffer[i].start_frame) , -F2L(reffer[i].end_frame, reffer[i].start_frame));
+            fprintf(raw, "Found %6ld %6ld    Reference %6ld %6ld    Difference %+6.1f    %+6.1f\n", 0L, 0L, reffer[i].start_frame, reffer[i].end_frame, -F2L(reffer[i].end_frame, reffer[i].start_frame) , -F2L(reffer[i].end_frame, reffer[i].start_frame));
 //			fprintf(raw, "Not found %6ld %6ld\n", reffer[i].start_frame, reffer[i].end_frame);
             i++;
         }
@@ -12661,13 +12661,13 @@ noreffer:
     }
     while (j <= commercial_count)
     {
-        fprintf(raw, "Found %6ld %6ld    Reference %6ld %6ld    Difference %+6.1f    %+6.1f\n", commercial[j].start_frame, commercial[j].end_frame, 0,0, F2L(commercial[j].end_frame, commercial[j].start_frame) , F2L(commercial[j].end_frame, commercial[j].start_frame));
+        fprintf(raw, "Found %6ld %6ld    Reference %6ld %6ld    Difference %+6.1f    %+6.1f\n", commercial[j].start_frame, commercial[j].end_frame, 0L, 0L, F2L(commercial[j].end_frame, commercial[j].start_frame) , F2L(commercial[j].end_frame, commercial[j].start_frame));
 //		fprintf(raw, "Found %6ld %6ld    Not in reference\n", commercial[j].start_frame, commercial[j].end_frame);
         j++;
     }
     while (i <= reffer_count)
     {
-        fprintf(raw, "Found %6ld %6ld    Reference %6ld %6ld    Difference %+6.1f    %+6.1f\n", 0, 0, reffer[i].start_frame, reffer[i].end_frame, -F2L(reffer[i].end_frame, reffer[i].start_frame) , -F2L(reffer[i].end_frame, reffer[i].start_frame));
+        fprintf(raw, "Found %6ld %6ld    Reference %6ld %6ld    Difference %+6.1f    %+6.1f\n", 0L, 0L, reffer[i].start_frame, reffer[i].end_frame, -F2L(reffer[i].end_frame, reffer[i].start_frame) , -F2L(reffer[i].end_frame, reffer[i].start_frame));
 //		fprintf(raw, "Not found %6ld %6ld\n", reffer[i].start_frame, reffer[i].end_frame);
         i++;
     }
@@ -12699,7 +12699,7 @@ void OutputAspect(void)
     if (!output_aspect)
         return;
 
-    sprintf(array, "%.*s.aspects", strlen(logfilename) - 4, logfilename);
+    sprintf(array, "%.*s.aspects", (int)(strlen(logfilename) - 4), logfilename);
     raw = myfopen(array, "w");
     if (!raw)
     {
@@ -12756,7 +12756,7 @@ return;
     fprintf(raw, "black,frame,brightness,cause,uniform,volume\n");
     for (i = 1; i < black_count; i++)
     {
-        fprintf(raw, "%i,%i,%i,%i,%i,%i\n",
+        fprintf(raw, "%i,%ld,%i,%i,%ld,%i\n",
                     i,
                     black[i].frame,
                     black[i].brightness,
