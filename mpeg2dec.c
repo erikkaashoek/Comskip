@@ -980,7 +980,6 @@ int video_packet_process(VideoState *is,AVPacket *packet)
     static long last_jump_frame = 0;
 static int find_29fps = 0;
 static int force_29fps = 0;
-
     double calculated_delay;
 
     if (!reviewing)
@@ -1047,7 +1046,6 @@ static int force_29fps = 0;
             }
         }
         set_fps(frame_delay, is->fps, is->video_st->codec->ticks_per_frame, av_q2d(is->video_st->r_frame_rate),  av_q2d(is->video_st->avg_frame_rate));
-
         if (pev_best_effort_timestamp != 0 && fabs(calculated_delay - frame_delay) > 4)
             fprintf(stderr, "Strange pts step: %f frames\n", (calculated_delay - frame_delay) / frame_delay );
 #ifndef OLD_PTS_CALC
@@ -1098,7 +1096,7 @@ static int force_29fps = 0;
                 }
                 else if ((pts - is->video_clock)/frame_delay >= 1.5 )
                 {
-                    if (!reviewing) Debug(1 ,"Video jumped by %6.3f frames at frame %d, repairing timeline\n",
+                    if (!reviewing) Debug(1 ,"Video jumped by %6.1f frames at frame %d, repairing timeline\n",
                                               (pts - is->video_clock)/frame_delay, framenum);
                     summed_repeat +=  is->video_st->codec->ticks_per_frame * (int) ((pts - is->video_clock)/frame_delay );
                     if (last_jump_frame>0) {
