@@ -13521,21 +13521,6 @@ void OutputCCBlock(long i)
         );
     }
 }
-/*
-typedef struct
-{
-	long	frame;
-	char	name[40];
-	int		v_chip;
-	int		duration;
-	int		current;
-} XDS_block_info;
-
-XDS_block_info*			XDS_block = NULL;
-long					XDS_block_count = 0;
-long					max_XDS_block_count;
-*/
-
 
 void Init_XDS_block()
 {
@@ -13576,11 +13561,11 @@ void Add_XDS_block()
 
 unsigned char XDSbuffer[40][100];
 int lastXDS = 0;
-              int firstXDS = 1;
-                             int startXDS = 1;
-                                     int baseXDS = 0;
+int firstXDS = 1;
+int startXDS = 1;
+int baseXDS = 0;
 
-                                             char *ratingSystem[4] = { "MPAA", "TPG", "CE", "CF" };
+char *ratingSystem[4] = { "MPAA", "TPG", "CE", "CF" };
 
 #define MAXXDSBUFFER	1024
 void AddXDS(unsigned char hi, unsigned char lo)
