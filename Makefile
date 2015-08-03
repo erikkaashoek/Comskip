@@ -42,7 +42,8 @@ OBJECTS_DIR = ./
 ####### Files
 
 HEADERS = comskip.h \
-		platform.h
+		platform.h \
+		vo.h
 SOURCES = comskip.c \
 		mpeg2dec.c \
 		video_out_dx.c
