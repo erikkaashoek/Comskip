@@ -111,7 +111,7 @@ video_out_dx.o: video_out_dx.c resource.h
 
 ####### Install
 
-install:
+install: $(TARGET)
 	$(COPY_FILE) $(TARGET) $(DESTDIR)/bin/$(TARGET)
 
 uninstall:
