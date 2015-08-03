@@ -445,7 +445,7 @@ void backfill_frame_volumes()
     int volume;
     if (framenum < 3)
         return;
-    f = framenum-1;
+    f = framenum-2;
     while (get_frame_pts(f) > base_apts && f > 1) // Find first frame with samples available, could be incomplete
         f--;
     while (f < framenum-1 && get_frame_pts(f+1) <= top_apts /* && get_frame_pts(f-1) >= base_apts */) {

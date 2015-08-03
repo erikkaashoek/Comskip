@@ -858,6 +858,7 @@ bool				CheckSceneHasChanged(void);
 void				BuildSceneChangeCommList(void);
 void				BuildSceneChangeCommList2(void);
 #endif
+void                backfill_frame_volumes();
 void				PrintLogoFrameGroups(void);
 void				PrintCCBlocks(void);
 void				ResetLogoBuffers(void);
@@ -3001,7 +3002,7 @@ int DetectCommercials(int f, double pts)
         frame[0].pts = pts;
 //    curvolume = retreive_frame_volume(get_frame_pts(frame_count-1), get_frame_pts(frame_count));
     frame[frame_count].volume = -1;
-    backfill_frame_volumes();
+     backfill_frame_volumes();
         curvolume = frame[frame_count].volume;
 
 //	if (frame_count != framenum_real)
@@ -15208,6 +15209,7 @@ void set_fps(double fp,double dfps, int ticks, double rfps, double afps)
     }
 
 }
+/* no longer used
 
 #define MAX_SAVED_VOLUMES	10000
 
@@ -15271,7 +15273,7 @@ void ClearVolumeBuffer ()
     }
     max_fill = 0;
 }
-
+*/
 
 void set_frame_volume(unsigned int f, int volume)
 {
