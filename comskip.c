@@ -13037,6 +13037,8 @@ again:
         exit(22);
     }
     fgets(line, sizeof(line), in_file); // Skip first line
+    if (strcmp(line,"sep=,\n")==0)
+        fgets(line, sizeof(line), in_file); // Skip second line
     t = 0.0;
     if (line[85] == ';') line [85] = '+';
     if (strlen(line) > 85)
