@@ -243,10 +243,10 @@ char tempstring[512];
 #define DUMP_OPEN if (output_timing) { sprintf(tempstring, "%s.timing.csv", basename); timing_file = myfopen(tempstring, "w"); DUMP_HEADER }
 #define DUMP_HEADER if (timing_file) fprintf(timing_file, "sep=,\ntype   ,real_pts, step        ,pts         ,clock       ,delta       ,offset, repeat\n");
 #ifdef NOFRAMEDELAYINTIMING
-#define DUMP_TIMING(T, D, P, C) if (timing_file && !csStepping && !csJumping && !csStartJump) fprintf(timing_file, "%7s, %12.3f,%12.3f,%12.3f, %12.3f, %12.3f, %12.3f, %d\n", \
+#define DUMP_TIMING(T, D, P, C) if (timing_file && !csStepping && !csJumping && !csStartJump) fprintf(timing_file, "%7s, %12.3f,%12.3f,%12.3f, %12.3f, %12.3f, %12.3f\n", \
 	T, (double) (D)/frame_delay, (double) calculated_delay/frame_delay, (double) (P)/frame_delay, (double) (C)/frame_delay, ((double) (P) - (double) (C))/frame_delay, pts_offset/frame_delay);
 #else
-#define DUMP_TIMING(T, D, P, C) if (timing_file && !csStepping && !csJumping && !csStartJump) fprintf(timing_file, "%7s, %12.3f,%12.3f,%12.3f, %12.3f, %12.3f, %12.3f, %d\n", \
+#define DUMP_TIMING(T, D, P, C) if (timing_file && !csStepping && !csJumping && !csStartJump) fprintf(timing_file, "%7s, %12.3f,%12.3f,%12.3f, %12.3f, %12.3f, %12.3f\n", \
 	T, (double) (D), (double) calculated_delay, (double) (P), (double) (C), ((double) (P) - (double) (C)), pts_offset);
 #endif
 #define DUMP_CLOSE if (timing_file) { fclose(timing_file); timing_file = NULL; }
@@ -496,7 +496,6 @@ void sound_to_frames(VideoState *is, short **b, int s, int c, int format)
         return;
     }
 
-    s = s ;
     if (s > 0)
     {
         if (format == AV_SAMPLE_FMT_FLTP)
