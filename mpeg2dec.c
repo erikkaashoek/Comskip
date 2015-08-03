@@ -1645,7 +1645,7 @@ void file_open()
         pFormatCtx->max_analyze_duration2 *= 4;
 //        pFormatCtx->probesize = 400000;
 again:
-        ClearVolumeBuffer();
+//        ClearVolumeBuffer();
         if(avformat_open_input(&pFormatCtx, is->filename, NULL, NULL)!=0)
         {
             fprintf(stderr, "%s: Can not open file\n", is->filename);
