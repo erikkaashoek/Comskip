@@ -1976,7 +1976,6 @@ void OutputDebugWindow(bool showVideo, int frm, int grf)
             sprintf(t, windowtitle, filename);
             vo_init(owidth, oheight+barh,t);
 //			vo_init(owidth, oheight+barh,"Comskip");
-            owidth = owidth;
             vo_init_done++;
         }
 //		bartop = oheight;
@@ -2243,9 +2242,7 @@ void OutputDebugWindow(bool showVideo, int frm, int grf)
                 xd = XDS_block_count-1;
                 while (xd > 0 && XDS_block[xd].frame > zstart+(int)((double)(x+1) * v /owidth) )
                     xd--;
-                if (xd > 0 && XDS_block[xd].frame >= zstart+(int)((double)x * v /owidth))
-                    xd = xd;
-                else
+                if (!(xd > 0 && XDS_block[xd].frame >= zstart+(int)((double)x * v /owidth)))
                     xd = 0;
 
                 for (i = zstart+(int)((double)x * v /owidth); i < zstart+(int)((double)(x+1) * v /owidth ); i++)
@@ -2364,7 +2361,7 @@ void OutputDebugWindow(bool showVideo, int frm, int grf)
             }
 
             cb = 255;
-            if (cblock != 0 && cblock[b].f_start <= zstart+(int)((double)x * v /owidth ) && zstart+(int)((double)x * v /owidth ) <= cblock[b].f_end)
+            if (block_count && cblock[b].f_start <= zstart+(int)((double)x * v /owidth ) && zstart+(int)((double)x * v /owidth ) <= cblock[b].f_end)
                 cb = 0;
 
             if (bothtrue)
@@ -2537,7 +2534,6 @@ void OutputDebugWindow(bool showVideo, int frm, int grf)
             sprintf(t, windowtitle, filename);
             vo_init(owidth, oheight+barh,t);
 //			vo_init(owidth, oheight+barh,"Comskip");
-            owidth = owidth;
             vo_init_done++;
         }
 
