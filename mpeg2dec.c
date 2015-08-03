@@ -2128,6 +2128,10 @@ again:
 SetThreadExecutionState(ES_CONTINUOUS);
 #endif
 
+#ifdef _WIN32
     exit (result);
+#else
+    exit (!result);
+#endif
 }
 
