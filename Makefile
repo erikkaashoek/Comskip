@@ -128,7 +128,7 @@ votest: video_out_dx.c video_out_sdl.c
 
 ####### Install
 
-install:
+install: $(TARGET)
 	$(COPY_FILE) $(TARGET) $(DESTDIR)/bin/$(TARGET)
 
 uninstall:
