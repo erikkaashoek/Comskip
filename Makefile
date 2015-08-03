@@ -13,6 +13,7 @@ LINK     = $(CC) -g
 LFLAGS   = $(ARCHFLAGS)
 LIBS     =
 SHLIBS = -lavutil -lavformat -lavcodec -largtable2
+DESTDIR = /usr/local
 AR       = ar cq
 RANLIB   = ranlib -s
 QMAKE    = qmake
@@ -37,7 +38,8 @@ OBJECTS_DIR = ./
 ####### Files
 
 HEADERS = comskip.h \
-		platform.h
+		platform.h \
+		vo.h
 SOURCES = comskip.c \
 		mpeg2dec.c \
 		video_out_dx.c
@@ -126,7 +128,8 @@ votest: video_out_dx.c video_out_sdl.c
 
 ####### Install
 
-install:  
+install:
+	$(COPY_FILE) $(TARGET) $(DESTDIR)/bin/$(TARGET)
 
-uninstall:  
+uninstall:
 

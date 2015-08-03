@@ -22,6 +22,7 @@
  */
 
 #include "platform.h"
+#include "vo.h"
 #ifdef HAVE_SDL
 #include <SDL/SDL.h>
 #endif
@@ -168,6 +169,7 @@ extern int coding_type;
 
 void InitComSkip(void);
 void BuildCommListAsYouGo(void);
+void ReviewResult(void);
 int video_packet_process(VideoState *is,AVPacket *packet);
 
 
@@ -564,7 +566,7 @@ void audio_packet_process(VideoState *is, AVPacket *pkt)
  //           avcodec_get_frame_defaults(is->frame);
 
         len1 = avcodec_decode_audio4(is->audio_st->codec, is->frame, &got_frame, pkt_temp);
-        if (prev_codec_id != -1 && prev_codec_id != is->audio_st->codec->codec_id)
+        if (prev_codec_id != -1 && (unsigned int)prev_codec_id != is->audio_st->codec->codec_id)
         {
             Debug(2 ,"Audio format change\n");
         }
@@ -954,7 +956,11 @@ void DecodeOnePicture(FILE * f, double pts, double length)
 
 void raise_exception(void)
 {
+#ifdef _WIN32
     *(int *)0 = 0;
+#else
+    __asm__("int3");
+#endif
 }
 
 
@@ -1266,7 +1272,7 @@ int stream_component_open(VideoState *is, int stream_index)
     AVDictionary *opts;
 
 
-    if(stream_index < 0 || stream_index >= pFormatCtx->nb_streams)
+    if(stream_index < 0 || (unsigned int)stream_index >= pFormatCtx->nb_streams)
     {
         return -1;
     }
@@ -1394,7 +1400,7 @@ int stream_component_open(VideoState *is, int stream_index)
 //          is->frame_last_delay = 40e-3;
 //          is->video_current_pts_time = av_gettime();
 
-        is->pFrame = avcodec_alloc_frame();
+        is->pFrame = av_frame_alloc();
         codecCtx->flags |= CODEC_FLAG_GRAY;
         if (codecCtx->codec_id == CODEC_ID_H264)
         {
@@ -1533,7 +1539,7 @@ void file_open()
     if (     is->pFormatCtx == NULL)
     {
         pFormatCtx = avformat_alloc_context();
-        pFormatCtx->max_analyze_duration *= 4;
+        pFormatCtx->max_analyze_duration2 *= 4;
 //        pFormatCtx->probesize = 400000;
 again:
         ClearVolumeBuffer();
@@ -1723,7 +1729,7 @@ int main (int argc, char ** argv)
     int result = 0;
     int i;
     int ret;
-    double retry_target;
+    double retry_target = 0.0;
     double old_clock = 0.0;
                     int empty_packet_count = 0;
 
