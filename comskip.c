@@ -13,6 +13,7 @@
 // along with this program; if not, write to the Free Software
 // Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
 #include "platform.h"
+#include "vo.h"
 #include <argtable2.h>
 #include "comskip.h"
 
@@ -1479,8 +1480,6 @@ bool BuildBlocks(bool recalc)
     Debug(8, "Black Frame List\n---------------------------\nBlack Frame Count = %i\nnr \tframe\tbright\tuniform\tvolume\t\tcause\tdimcount  bright\n", black_count);
     for (k = 0; k < black_count; k++)
     {
-        if (black[k].frame == 3200)
-            k = k;
         Debug(8, "%3i\t%6i\t%6i\t%6i\t%6i\t%6s\t%6i\t%6i\n", k, black[k].frame, black[k].brightness, black[k].uniform, black[k].volume,&(CauseString(black[k].cause)[10]), frame[black[k].frame].dimCount, frame[black[k].frame].hasBright);
         if (k+1 < black_count && black[k].frame+1 != black[k+1].frame)
             Debug(8, "-----------------------------\n");
@@ -1521,7 +1520,6 @@ again:
         {
 //			i++; // Skip logo cuts and brighness cuts when not enough logo detected
 //			goto again;
-            i = i;
         }
         cause = 0;
         b_start = black[i].frame;
@@ -1919,7 +1917,7 @@ int show_silence=0;
 void OutputDebugWindow(bool showVideo, int frm, int grf)
 {
 #ifdef _WIN32
-    int i,j,x,y,a,c,r,s,g,gc,lb=0,e,f,n,bl,xd;
+    int i,j,x,y,a=0,c=0,r,s=0,g,gc,lb=0,e=0,f,n=0,bl,xd;
     int v,w;
     int bartop = 0;
     int b,cb;
@@ -2103,7 +2101,7 @@ void OutputDebugWindow(bool showVideo, int frm, int grf)
                 s = 0;
                 c = 0;
                 n = 0;
-                if (cblock && grf == 2)
+                if (block_count && grf == 2)
                 {
                     while (bl < block_count && cblock[bl].f_end < zstart+(int)((double)x * v /owidth))
                         bl++;
@@ -2983,8 +2981,6 @@ int DetectCommercials(int f, double pts)
 //	frame_count++;
     frame_count = framenum_real = framenum+1;
 
-    if (frame_count == 116)
-        frame_count = frame_count;
 //Debug(1, "Frame info f=%d, framenum=%d, framenum_real=%d, frame_count=%d\n",f, framenum, framenum_real, frame_count, max_frame_count);
 
 
@@ -3101,9 +3097,11 @@ int DetectCommercials(int f, double pts)
 //	EdgeCount(frame_ptr);
 //	currentGoodEdge = ((double) edge_count) / 750;
 
-    if (logoInfoAvailable)
-        if (framearray) frame[frame_count].logo_present = lastLogoTest;
-        else if (framearray) frame[frame_count].logo_present = 0.0;
+    if (logoInfoAvailable && framearray) {
+      frame[frame_count].logo_present = lastLogoTest;
+    } else if (framearray) {
+      frame[frame_count].logo_present = 0.0;
+    }
     if (lastLogoTest)
         frames_with_logo++;
     if (framearray) frame[frame_count].currentGoodEdge = currentGoodEdge;
@@ -3303,9 +3301,6 @@ void InsertBlackFrame(int f, int b, int u, int v, int c)
         }
 
 
-        if (f == 49425)
-            f = f;
-
         //	InitializeBlackArray(black_count);
         black_count++;
         i = black_count-2;
@@ -3329,8 +3324,8 @@ void InsertBlackFrame(int f, int b, int u, int v, int c)
 bool BuildMasterCommList(void)
 {
     int		i, j, t, c,b;
-    int		a,k,count;
-    int		cp,cpf, maxsc,rsc;
+    int		a = 0,k,count = 0;
+    int		cp=0,cpf, maxsc,rsc;
     int lastLogoTest;
     int 	silence_count = 0;
     int		silence_start = 0;
@@ -3341,10 +3336,10 @@ bool BuildMasterCommList(void)
     int		low_volume_count;
     int		very_low_volume_count;
     int		schange_max;
-    int		mv,ms;
+    int		mv=0,ms=0;
     int		volume_delta;
     int		p_vol, n_vol;
-    int		plataus;
+    int		plataus = 0;
     int		platauHistogram[256];
 
     double	length;
@@ -3364,7 +3359,7 @@ bool BuildMasterCommList(void)
 
 
     length = F2L(frame_count-1, 1);
-    if (abs( length - (frame_count -1)/fps) > 0.5)
+    if (fabs( length - (frame_count -1)/fps) > 0.5)
         Debug(1, "WARNING: Timeline errors in the recording!!!! Results may be wrong, .ref input will be misaligned. .txt editing will produce wrong results");
 
 
@@ -3869,8 +3864,6 @@ scanagain:
         very_low_volume_count = 0;
         for (i=1; i <frame_count; i++)
         {
-            if (i == 46455)
-                i = i;
             if (min_silence > 0)
             {
                 if (0 <= frame[i].volume && frame[i].volume < max_silence)
@@ -6204,20 +6197,20 @@ void OutputCommercialBlock(int i, long prev, long start, long end, bool last)
 
     if (ffmeta_file) {
         if (prev != -1 && prev < start) {
-            fprintf(ffmeta_file, "[CHAPTER]\nTIMEBASE=1/100\nSTART=%llu\nEND=%llu\ntitle=Show Segment\n", (uint64_t)(prev * 100 / fps), (uint64_t)(start * 100 / fps));
+            fprintf(ffmeta_file, "[CHAPTER]\nTIMEBASE=1/100\nSTART=%" PRIu64 "\nEND=%" PRIu64 "\ntitle=Show Segment\n", (uint64_t)(prev * 100 / fps), (uint64_t)(start * 100 / fps));
         } else if (prev == -1 && start > 5) {
-            fprintf(ffmeta_file, "[CHAPTER]\nTIMEBASE=1/100\nSTART=%llu\nEND=%llu\ntitle=Show Segment\n", (uint64_t)0, (uint64_t)(start * 100 / fps));
+            fprintf(ffmeta_file, "[CHAPTER]\nTIMEBASE=1/100\nSTART=%" PRIu64 "\nEND=%" PRIu64 "\ntitle=Show Segment\n", (uint64_t)0, (uint64_t)(start * 100 / fps));
         }
         if (start <= 5)
             start = 0;
         if (end - start > 2)
-            fprintf(ffmeta_file, "[CHAPTER]\nTIMEBASE=1/100\nSTART=%llu\nEND=%llu\ntitle=Commercial Segment\n", (uint64_t)(start * 100 / fps), (uint64_t)(end * 100 / fps));
+            fprintf(ffmeta_file, "[CHAPTER]\nTIMEBASE=1/100\nSTART=%" PRIu64 "\nEND=%" PRIu64 "\ntitle=Commercial Segment\n", (uint64_t)(start * 100 / fps), (uint64_t)(end * 100 / fps));
     }
     CLOSEOUTFILE(ffmeta_file);
 
     if (vcf_file && prev < start && start - prev > 5 && prev > 0 )
     {
-        fprintf(vcf_file, "VirtualDub.subset.AddRange(%i,%i);\n", prev-1, start - prev);
+        fprintf(vcf_file, "VirtualDub.subset.AddRange(%li,%li);\n", prev-1, start - prev);
     }
     CLOSEOUTFILE(vcf_file);
 
@@ -6355,7 +6348,7 @@ void OutputCommercialBlock(int i, long prev, long start, long end, bool last)
     {
         if (prev < start /* &&!last */ && end - start > 2)
         {
-            fprintf(edlx_file, "<region start=\"%lld\" end=\"%lld\"/> \n", frame[start].goppos, frame[end].goppos);
+            fprintf(edlx_file, "<region start=\"%" PRId64 "\" end=\"%" PRId64 "\"/> \n", frame[start].goppos, frame[end].goppos);
         }
         if (last)
         {
@@ -7041,7 +7034,7 @@ bool OutputBlocks(void)
         {
             for (i = 0; i < block_count; i++)
             {
-                fprintf(chapters_file, "%d\n", cblock[i].f_end);
+                fprintf(chapters_file, "%ld\n", cblock[i].f_end);
             }
             fclose(chapters_file);
         }
@@ -7417,7 +7410,7 @@ static unsigned char MPEG2SysHdr[] = {0x00, 0x00, 0x01, 0xBB, 00, 0x12, 0x80, 0x
 #ifdef _WIN32
                 if (*((UNALIGNED DWORD*)(Buf+j)) == 0xBB010000)
 #else
-                if (*((int32_t*)(Buf+j)) == 0xBB010000)
+                if (*((uint32_t*)(Buf+j)) == 0xBB010000)
 #endif
                     j=0;
                 else
@@ -8348,7 +8341,7 @@ FILE* LoadSettings(int argc, char ** argv)
 
     if (out->count)
     {
-        sprintf(outputdirname, out->filename[0]);
+        sprintf(outputdirname, "%s", out->filename[0]);
         i = strlen(outputdirname);
         if (outputdirname[i-1] == PATH_SEPARATOR)
             outputdirname[i-1] = 0;
@@ -8398,7 +8391,7 @@ FILE* LoadSettings(int argc, char ** argv)
 
     if (cl_logo->count)
     {
-        sprintf(logofilename, cl_logo->filename[0]);
+        sprintf(logofilename, "%s", cl_logo->filename[0]);
         printf("Setting logo file to %s as per commandline\n", logofilename);
     }
 
@@ -8726,7 +8719,7 @@ FILE* LoadSettings(int argc, char ** argv)
         }
         else
             CEW_argv[i++] = "-srt";
-        CEW_argv[i++] = in->filename[0];
+        CEW_argv[i++] = (char *)in->filename[0];
 #ifdef PROCESS_CC
         CEW_init (i, CEW_argv);
 #endif
@@ -9689,9 +9682,6 @@ bool CheckSceneHasChanged(void)
 
     if (brightness < min_brightness_found) min_brightness_found = brightness;
 
-    if (frame_count == 100)
-        frame_count = frame_count;
-
     if (framearray) frame[frame_count].cutscenematch = 100;
 //	if (brightness > max_avg_brightness + 10)
     {
@@ -10586,7 +10576,7 @@ bool ProcessLogoTest(int framenum_real, int curLogoTest, int close)
                 {
                     i = logo_block[logo_block_count].end;
                     if (i<0) i = 0;
-                    for (i = i; i < framenum_real; i++)
+                    for (; i < framenum_real; i++)
                         frame[i].logo_present = false;
                 }
                 Debug
@@ -10688,7 +10678,7 @@ void FillLogoBuffer(void)
         if (logoFrameNum[i]  && logoFrameNum[i] < logoFrameNum[oldestLogoBuffer]) oldestLogoBuffer = i;
     }
 
-    i = min(logoFrameBufferSize, width * height * sizeof(frame_ptr[0]));
+    i = min((unsigned int)logoFrameBufferSize, width * height * sizeof(frame_ptr[0]));
     memcpy(logoFrameBuffer[newestLogoBuffer], frame_ptr, i);
 
 //	for (y = 0; y < height; y++) {
@@ -12390,7 +12380,7 @@ int InputReffer(char *extension, int setfps)
     int		x;
     int		col;
     bool	lineProcessed;
-    int     frames;
+    int     frames = 0;
     char	co,re;
     FILE*    raw2=NULL;
 
@@ -12517,7 +12507,7 @@ noreffer:
         switch(state)
         {
         case both_show:
-            if (i <= reffer_count && j <= commercial_count && abs(reffer[i].start_frame-commercial[j].start_frame) < 40)
+            if (i <= reffer_count && j <= commercial_count && labs(reffer[i].start_frame-commercial[j].start_frame) < 40)
             {
                 state = both_commercial;
                 k = commercial[j].start_frame;
@@ -12534,7 +12524,7 @@ noreffer:
             }
             break;
         case both_commercial:
-            if (i <= reffer_count && j <= commercial_count && abs(reffer[i].end_frame-commercial[j].end_frame) < 40)
+            if (i <= reffer_count && j <= commercial_count && labs(reffer[i].end_frame-commercial[j].end_frame) < 40)
             {
                 state = both_show;
                 k = commercial[j].end_frame;
@@ -12601,7 +12591,7 @@ noreffer:
             }
 //			fprintf(raw, "False negative at frame %6ld of %6.1f seconds\n", pk , (k - pk)/fps );
             if (output_training > 1) raw2 = myfopen("quality.csv", "a+");
-            if (raw2) fprintf(raw2, "\"%s\", %6ld, %6.1f, %6.1f, %6.1f\n", basename, pk, F2L(k, pk), 0.0, 0.0);
+            if (raw2) fprintf(raw2, "\"%s\", %6d, %6.1f, %6.1f, %6.1f\n", basename, pk, F2L(k, pk), 0.0, 0.0);
             fneg += F2L(k,pk);
             if (raw2) fclose(raw2);
             raw2 = NULL;
@@ -12620,7 +12610,7 @@ noreffer:
             }
 //			fprintf(raw, "False positive at frame %6ld of %6.1f seconds\n", pk , (k - pk)/fps );
             if (output_training > 1) raw2 = myfopen("quality.csv", "a+");
-            if (raw2) fprintf(raw2, "\"%s\", %6ld, %6.1f, %6.1f, %6.1f\n", basename, pk, 0.0, F2L(k, pk), 0.0);
+            if (raw2) fprintf(raw2, "\"%s\", %6d, %6.1f, %6.1f, %6.1f\n", basename, pk, 0.0, F2L(k, pk), 0.0);
             fpos += F2L(k, pk);
             if (raw2) fclose(raw2);
             raw2 = NULL;
@@ -12628,7 +12618,7 @@ noreffer:
         }
     }
     if (output_training) raw2 = myfopen("quality.csv", "a+");
-    if (raw2) fprintf(raw2, "\"%s\", %6ld, %6.1f, %6.1f, %6.1f\n", basename, -1, fneg, fpos, total);
+    if (raw2) fprintf(raw2, "\"%s\", %6d, %6.1f, %6.1f, %6.1f\n", basename, -1, fneg, fpos, total);
     if (raw2) fclose(raw2);
 
 //#else
@@ -12639,20 +12629,20 @@ noreffer:
         k = min(reffer[i].start_frame, commercial[j].start_frame);
         if ( commercial[j].end_frame < reffer[i].start_frame )
         {
-            fprintf(raw, "Found %6ld %6ld    Reference %6ld %6ld    Difference %+6.1f    %+6.1f\n", commercial[j].start_frame, commercial[j].end_frame, 0,0, F2L(commercial[j].end_frame, commercial[j].start_frame) , F2L(commercial[j].end_frame, commercial[j].start_frame));
+            fprintf(raw, "Found %6ld %6ld    Reference %6ld %6ld    Difference %+6.1f    %+6.1f\n", commercial[j].start_frame, commercial[j].end_frame, 0L, 0L, F2L(commercial[j].end_frame, commercial[j].start_frame) , F2L(commercial[j].end_frame, commercial[j].start_frame));
 //			fprintf(raw, "Found %6ld %6ld    Not in reference\n", commercial[j].start_frame, commercial[j].end_frame);
             j++;
         }
         else if ( commercial[j].start_frame > reffer[i].end_frame )
         {
-            fprintf(raw, "Found %6ld %6ld    Reference %6ld %6ld    Difference %+6.1f    %+6.1f\n", 0, 0, reffer[i].start_frame, reffer[i].end_frame, -F2L(reffer[i].end_frame, reffer[i].start_frame) , -F2L(reffer[i].end_frame, reffer[i].start_frame));
+            fprintf(raw, "Found %6ld %6ld    Reference %6ld %6ld    Difference %+6.1f    %+6.1f\n", 0L, 0L, reffer[i].start_frame, reffer[i].end_frame, -F2L(reffer[i].end_frame, reffer[i].start_frame) , -F2L(reffer[i].end_frame, reffer[i].start_frame));
 //			fprintf(raw, "Not found %6ld %6ld\n", reffer[i].start_frame, reffer[i].end_frame);
             i++;
         }
         else
         {
-            if (abs(reffer[i].start_frame-commercial[j].start_frame) > 40 ||
-                    abs(reffer[i].end_frame-commercial[j].end_frame) > 40 )
+            if (labs(reffer[i].start_frame-commercial[j].start_frame) > 40 ||
+                    labs(reffer[i].end_frame-commercial[j].end_frame) > 40 )
             {
                 fprintf(raw, "Found %6ld %6ld    Reference %6ld %6ld    Difference %+6.1f    %+6.1f\n", commercial[j].start_frame, commercial[j].end_frame, reffer[i].start_frame, reffer[i].end_frame, F2L(reffer[i].start_frame, commercial[j].start_frame) , F2L(commercial[j].end_frame , reffer[i].end_frame));
             }
@@ -12672,13 +12662,13 @@ noreffer:
     }
     while (j <= commercial_count)
     {
-        fprintf(raw, "Found %6ld %6ld    Reference %6ld %6ld    Difference %+6.1f    %+6.1f\n", commercial[j].start_frame, commercial[j].end_frame, 0,0, F2L(commercial[j].end_frame, commercial[j].start_frame) , F2L(commercial[j].end_frame, commercial[j].start_frame));
+        fprintf(raw, "Found %6ld %6ld    Reference %6ld %6ld    Difference %+6.1f    %+6.1f\n", commercial[j].start_frame, commercial[j].end_frame, 0L, 0L, F2L(commercial[j].end_frame, commercial[j].start_frame) , F2L(commercial[j].end_frame, commercial[j].start_frame));
 //		fprintf(raw, "Found %6ld %6ld    Not in reference\n", commercial[j].start_frame, commercial[j].end_frame);
         j++;
     }
     while (i <= reffer_count)
     {
-        fprintf(raw, "Found %6ld %6ld    Reference %6ld %6ld    Difference %+6.1f    %+6.1f\n", 0, 0, reffer[i].start_frame, reffer[i].end_frame, -F2L(reffer[i].end_frame, reffer[i].start_frame) , -F2L(reffer[i].end_frame, reffer[i].start_frame));
+        fprintf(raw, "Found %6ld %6ld    Reference %6ld %6ld    Difference %+6.1f    %+6.1f\n", 0L, 0L, reffer[i].start_frame, reffer[i].end_frame, -F2L(reffer[i].end_frame, reffer[i].start_frame) , -F2L(reffer[i].end_frame, reffer[i].start_frame));
 //		fprintf(raw, "Not found %6ld %6ld\n", reffer[i].start_frame, reffer[i].end_frame);
         i++;
     }
@@ -12710,7 +12700,7 @@ void OutputAspect(void)
     if (!output_aspect)
         return;
 
-    sprintf(array, "%.*s.aspects", strlen(logfilename) - 4, logfilename);
+    sprintf(array, "%.*s.aspects", (int)(strlen(logfilename) - 4), logfilename);
     raw = myfopen(array, "w");
     if (!raw)
     {
@@ -12767,7 +12757,7 @@ return;
     fprintf(raw, "black,frame,brightness,cause,uniform,volume\n");
     for (i = 1; i < black_count; i++)
     {
-        fprintf(raw, "%i,%i,%i,%i,%i,%i\n",
+        fprintf(raw, "%i,%ld,%i,%i,%ld,%i\n",
                     i,
                     black[i].frame,
                     black[i].brightness,
@@ -13002,7 +12992,7 @@ void ProcessCSV(FILE *in_file)
 //	bool	isDim = false;
     char	line[2048];
     char	split[256];
-    int		cont;
+    int		cont = 0;
 
     int		old_height = 0;
     int		old_width = 0;
@@ -13209,8 +13199,6 @@ again:
     min_brightness_found = 255;
     for (i = 1; i < frame_count; i++)
     {
-        if (i == 33368)
-            i = i;
 ccagain:
         if (dump_data_file && ccDataFrame == 0)
         {
@@ -13272,11 +13260,6 @@ ccagain:
         {
 //			frame[i].isblack &= C_b;
         }
-        if (frame[i].isblack & C_b)
-            i = i;
-
-        if (frame[i].isblack & C_r)
-            i = i;
 
         if (frame[i].brightness > 0)
         {
@@ -13328,11 +13311,6 @@ ccagain:
         }
         frame[i].ar_ratio = last_ar_ratio;
 
-
-        if (i == 22494)
-            i = i;
-        if (frame[i].isblack == 1)
-            i = i;
 
         if ((commDetectMethod & RESOLUTION_CHANGE))
         {
@@ -13860,7 +13838,7 @@ void AddCC(int i)
         '\'',
         '(',
         ')',
-        'á',
+        '\xe1',
         '+',
         ',',
         '-',
@@ -13910,11 +13888,11 @@ void AddCC(int i)
         'Y',
         'Z',
         '[',
-        'é',
+        '\xe9',
         ']',
-        'í',
-        'ó',
-        'ú',
+        '\xed',
+        '\xf3',
+        '\xfa',
         'a',
         'b',
         'c',
@@ -13941,8 +13919,8 @@ void AddCC(int i)
         'x',
         'y',
         'z',
-        'ç',
-        '÷',
+        '\xe7',
+        '\xf7',
         'N',
         'n',
         '?'
@@ -14080,7 +14058,7 @@ void AddCC(int i)
         cc_text[cc_text_count].text_len = 0;
     }
 
-    if ((cc.cc1[0] == 0x14))
+    if (cc.cc1[0] == 0x14)
     {
         if ((cc.cc1[0] == lastcc.cc1[0]) && (cc.cc1[1] == lastcc.cc1[1]))
         {
@@ -14292,13 +14270,13 @@ void ProcessCCData(void)
     char hex[10];
     unsigned char t;
     unsigned char *p;
-    bool			cc1First;
+    bool			cc1First = false;
     unsigned char	packetCount;
 
     if (!initialized) return;
     if (verbose >= 12)
     {
-        p = temp;
+        p = (unsigned char *)temp;
         for (i = 0; i < ccDataLen; i++)
         {
             t = ccData[i] & 0x7f;
@@ -14316,7 +14294,7 @@ void ProcessCCData(void)
             temp[7*3] = '0' + (temp[7*3] & 0x03);
         Debug(10, "CCData for framenum %4i%c, length:%4i: %s\n", framenum, field_t, ccDataLen, temp);
 
-        p = temp;
+        p = (unsigned char *)temp;
         for (i = 0; i < ccDataLen; i++)
         {
             sprintf(hex, "%2x ",ccData[i]);
@@ -14367,16 +14345,12 @@ void ProcessCCData(void)
         if (cctype == 2)
         {
             offset++;
-            if (ccData[offset] & 0x7f)
-                ccDataLen = ccDataLen;
             cc.cc1[0] = ccData[offset++];
             cc.cc1[1] = ccData[offset++];
             AddCC(1);
             cctype = ccData[offset++];
             if (cctype == 4 && ( ccData[offset] & 0x7f) < 32)
             {
-                if (ccData[offset] & 0x7f)
-                    ccDataLen = ccDataLen;
                 cc.cc1[0] = ccData[offset++];
                 cc.cc1[1] = ccData[offset++];
                 AddCC(1);
@@ -14386,13 +14360,9 @@ void ProcessCCData(void)
         else if (cctype == 4)
         {
             offset++;
-            if (ccData[offset] & 0x7f)
-                ccDataLen = ccDataLen;
             cc.cc1[0] = ccData[offset++];
             cc.cc1[1] = ccData[offset++];
             AddCC(1);
-            if (ccData[offset] & 0x7f)
-                ccDataLen = ccDataLen;
             cc.cc1[0] = ccData[offset++];
             cc.cc1[1] = ccData[offset++];
             AddCC(1);
@@ -14402,8 +14372,6 @@ void ProcessCCData(void)
         {
             for (i = 0; i < prevccDataLen; i +=2)
             {
-                if (prevccData[i] & 0x7f)
-                    prevccDataLen = prevccDataLen;
                 cc.cc1[0] = prevccData[i];
                 cc.cc1[1] = prevccData[i+1];
                 AddCC(i/2);
@@ -14412,20 +14380,14 @@ void ProcessCCData(void)
 //			offset += 6;
             cctype = ccData[offset++] & 0x7f;
             cctype = ccData[offset++] & 0x7f;
-            if (ccData[offset] & 0x7f)
-                ccDataLen = ccDataLen;
             cctype = ccData[offset++] & 0x7f;
             cctype = ccData[offset++] & 0x7f;
-            if (ccData[offset] & 0x7f)
-                ccDataLen = ccDataLen;
             cctype = ccData[offset++] & 0x7f;
             cctype = ccData[offset++] & 0x7f;
 //
             cctype = ccData[offset++];
             offset++;
             prevccDataLen = 0;
-            if (ccData[offset] & 0x7f)
-                ccDataLen = ccDataLen;
             prevccData[prevccDataLen++] = ccData[offset++];
             prevccData[prevccDataLen++] = ccData[offset++];
             if (cctype == 2)
@@ -14433,17 +14395,12 @@ void ProcessCCData(void)
                 cctype = ccData[offset++];
                 if (cctype == 4 && ( ccData[offset] & 0x7f) < 32)
                 {
-                    if (ccData[offset] & 0x7f)
-                        ccDataLen = ccDataLen;
                     prevccData[prevccDataLen++] = ccData[offset++];
                     prevccData[prevccDataLen++] = ccData[offset++];
                 }
             }
             else
             {
-                if (ccData[offset] & 0x7f)
-                    ccDataLen = ccDataLen;
-
                 prevccData[prevccDataLen++] = ccData[offset++];
                 prevccData[prevccDataLen++] = ccData[offset++];
             }
@@ -14490,15 +14447,18 @@ void ProcessCCData(void)
                 cc.cc1[0] = ccData[(i * 3) + offset + 1] & 0x7f;
                 cc.cc1[1] = ccData[(i * 3) + offset + 2] & 0x7f;
 
+                /*
                 if (cctype == 0)
                     cctype = cctype;
+                */
                 if (cctype == 1)
                     AddXDS(ccData[(i * 3) + offset + 1], ccData[(i * 3) + offset + 2]);
-
+                /*
                 if (cctype == 2)
                     cctype = cctype;
                 if (cctype == 3)
                     cctype = cctype;
+                */
                 if (cctype != 0 && cctype != 1 )
                     continue;
                 if ( cctype == 0 /* || cctype == 1 */ )

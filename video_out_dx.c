@@ -469,7 +469,7 @@ static long FAR PASCAL event_procedure (HWND hwnd, UINT message,
      return DefWindowProc (hwnd, message, wParam, lParam);
 }
 
-GetDumpFileName()
+void GetDumpFileName()
 {
     PopFileDlg(hWind, osname, SAVE_DMP);
 }

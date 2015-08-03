@@ -2,15 +2,11 @@
 #define _PLATFORM_H
 
 #ifndef _WIN32
-#define __USE_POSIX          1   // needed for limits.h
-#define __USE_XOPEN2K        1
-#define __STDC_FORMAT_MACROS 1   // needed for unix formatting output
-#define _POSIX_C_SOURCE      1
+#define _BSD_SOURCE
 #include <unistd.h>
 #include <limits.h>
 #include <stdarg.h>
 #include <ctype.h>
-#include <sys/time.h>
 #endif
 
 #include <stdio.h>
@@ -24,6 +20,8 @@
 #include <fcntl.h>
 #include <errno.h>
 #include <signal.h>
+#include <sys/time.h>
+#include <inttypes.h>
 
 #ifdef _WIN32
 #include <conio.h>
@@ -69,13 +67,17 @@ typedef unsigned __int64 uint64_t;
 #include <stdint.h>
 #endif
 
-#ifdef _WIN32
+#if defined(_WIN32) && !defined(__MINGW32__) && !defined(__MINGW64__)
 typedef int fileh;
 typedef struct _stati64* stath;
-#define PATH_SEPARATOR '\\'
 #else
 typedef FILE* fileh;
 typedef struct stat* stath;
+#endif
+
+#ifdef _WIN32
+#define PATH_SEPARATOR '\\'
+#else
 #define PATH_SEPARATOR '/'
 #endif
 
