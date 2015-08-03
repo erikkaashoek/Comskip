@@ -1917,7 +1917,7 @@ int show_silence=0;
 void OutputDebugWindow(bool showVideo, int frm, int grf)
 {
 #ifdef _WIN32
-    int i,j,x,y,a,c,r,s,g,gc,lb=0,e,f,n,bl,xd;
+    int i,j,x,y,a=0,c=0,r,s=0,g,gc,lb=0,e=0,f,n=0,bl,xd;
     int v,w;
     int bartop = 0;
     int b,cb;
@@ -2101,7 +2101,7 @@ void OutputDebugWindow(bool showVideo, int frm, int grf)
                 s = 0;
                 c = 0;
                 n = 0;
-                if (cblock && grf == 2)
+                if (block_count && grf == 2)
                 {
                     while (bl < block_count && cblock[bl].f_end < zstart+(int)((double)x * v /owidth))
                         bl++;
@@ -3324,8 +3324,8 @@ void InsertBlackFrame(int f, int b, int u, int v, int c)
 bool BuildMasterCommList(void)
 {
     int		i, j, t, c,b;
-    int		a,k,count;
-    int		cp,cpf, maxsc,rsc;
+    int		a = 0,k,count = 0;
+    int		cp=0,cpf, maxsc,rsc;
     int lastLogoTest;
     int 	silence_count = 0;
     int		silence_start = 0;
@@ -3336,10 +3336,10 @@ bool BuildMasterCommList(void)
     int		low_volume_count;
     int		very_low_volume_count;
     int		schange_max;
-    int		mv,ms;
+    int		mv=0,ms=0;
     int		volume_delta;
     int		p_vol, n_vol;
-    int		plataus;
+    int		plataus = 0;
     int		platauHistogram[256];
 
     double	length;
@@ -6197,14 +6197,14 @@ void OutputCommercialBlock(int i, long prev, long start, long end, bool last)
 
     if (ffmeta_file) {
         if (prev != -1 && prev < start) {
-            fprintf(ffmeta_file, "[CHAPTER]\nTIMEBASE=1/100\nSTART=%llu\nEND=%llu\ntitle=Show Segment\n", (uint64_t)(prev * 100 / fps), (uint64_t)(start * 100 / fps));
+            fprintf(ffmeta_file, "[CHAPTER]\nTIMEBASE=1/100\nSTART=%" PRIu64 "\nEND=%" PRIu64 "\ntitle=Show Segment\n", (uint64_t)(prev * 100 / fps), (uint64_t)(start * 100 / fps));
         } else if (prev == -1 && start > 5) {
-            fprintf(ffmeta_file, "[CHAPTER]\nTIMEBASE=1/100\nSTART=%llu\nEND=%llu\ntitle=Show Segment\n", (uint64_t)0, (uint64_t)(start * 100 / fps));
+            fprintf(ffmeta_file, "[CHAPTER]\nTIMEBASE=1/100\nSTART=%" PRIu64 "\nEND=%" PRIu64 "\ntitle=Show Segment\n", (uint64_t)0, (uint64_t)(start * 100 / fps));
         }
         if (start <= 5)
             start = 0;
         if (end - start > 2)
-            fprintf(ffmeta_file, "[CHAPTER]\nTIMEBASE=1/100\nSTART=%llu\nEND=%llu\ntitle=Commercial Segment\n", (uint64_t)(start * 100 / fps), (uint64_t)(end * 100 / fps));
+            fprintf(ffmeta_file, "[CHAPTER]\nTIMEBASE=1/100\nSTART=%" PRIu64 "\nEND=%" PRIu64 "\ntitle=Commercial Segment\n", (uint64_t)(start * 100 / fps), (uint64_t)(end * 100 / fps));
     }
     CLOSEOUTFILE(ffmeta_file);
 
@@ -6348,7 +6348,7 @@ void OutputCommercialBlock(int i, long prev, long start, long end, bool last)
     {
         if (prev < start /* &&!last */ && end - start > 2)
         {
-            fprintf(edlx_file, "<region start=\"%lld\" end=\"%lld\"/> \n", frame[start].goppos, frame[end].goppos);
+            fprintf(edlx_file, "<region start=\"%" PRId64 "\" end=\"%" PRId64 "\"/> \n", frame[start].goppos, frame[end].goppos);
         }
         if (last)
         {
@@ -10678,7 +10678,7 @@ void FillLogoBuffer(void)
         if (logoFrameNum[i]  && logoFrameNum[i] < logoFrameNum[oldestLogoBuffer]) oldestLogoBuffer = i;
     }
 
-    i = min(logoFrameBufferSize, width * height * sizeof(frame_ptr[0]));
+    i = min((unsigned int)logoFrameBufferSize, width * height * sizeof(frame_ptr[0]));
     memcpy(logoFrameBuffer[newestLogoBuffer], frame_ptr, i);
 
 //	for (y = 0; y < height; y++) {
@@ -12380,7 +12380,7 @@ int InputReffer(char *extension, int setfps)
     int		x;
     int		col;
     bool	lineProcessed;
-    int     frames;
+    int     frames = 0;
     char	co,re;
     FILE*    raw2=NULL;
 
@@ -12992,7 +12992,7 @@ void ProcessCSV(FILE *in_file)
 //	bool	isDim = false;
     char	line[2048];
     char	split[256];
-    int		cont;
+    int		cont = 0;
 
     int		old_height = 0;
     int		old_width = 0;
@@ -14270,7 +14270,7 @@ void ProcessCCData(void)
     char hex[10];
     unsigned char t;
     unsigned char *p;
-    bool			cc1First;
+    bool			cc1First = false;
     unsigned char	packetCount;
 
     if (!initialized) return;

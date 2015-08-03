@@ -22,6 +22,7 @@
  */
 
 #include "platform.h"
+#include "vo.h"
 #ifdef LIBVO_SDL
 #include <SDL/SDL.h>
 #endif
@@ -168,6 +169,7 @@ extern int coding_type;
 
 void InitComSkip(void);
 void BuildCommListAsYouGo(void);
+void ReviewResult(void);
 int video_packet_process(VideoState *is,AVPacket *packet);
 
 
@@ -564,7 +566,7 @@ void audio_packet_process(VideoState *is, AVPacket *pkt)
  //           avcodec_get_frame_defaults(is->frame);
 
         len1 = avcodec_decode_audio4(is->audio_st->codec, is->frame, &got_frame, pkt_temp);
-        if (prev_codec_id != -1 && prev_codec_id != is->audio_st->codec->codec_id)
+        if (prev_codec_id != -1 && (unsigned int)prev_codec_id != is->audio_st->codec->codec_id)
         {
             Debug(2 ,"Audio format change\n");
         }
@@ -1727,7 +1729,7 @@ int main (int argc, char ** argv)
     int result = 0;
     int i;
     int ret;
-    double retry_target;
+    double retry_target = 0.0;
     double old_clock = 0.0;
                     int empty_packet_count = 0;
 

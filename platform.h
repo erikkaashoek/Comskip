@@ -7,7 +7,6 @@
 #include <limits.h>
 #include <stdarg.h>
 #include <ctype.h>
-#include <sys/time.h>
 #endif
 
 #include <stdio.h>
@@ -21,6 +20,8 @@
 #include <fcntl.h>
 #include <errno.h>
 #include <signal.h>
+#include <sys/time.h>
+#include <inttypes.h>
 
 #ifdef _WIN32
 #include <conio.h>
@@ -66,13 +67,17 @@ typedef unsigned __int64 uint64_t;
 #include <stdint.h>
 #endif
 
-#ifdef _WIN32
+#if defined(_WIN32) && !defined(__MINGW32__) && !defined(__MINGW64__)
 typedef int fileh;
 typedef struct _stati64* stath;
-#define PATH_SEPARATOR '\\'
 #else
 typedef FILE* fileh;
 typedef struct stat* stath;
+#endif
+
+#ifdef _WIN32
+#define PATH_SEPARATOR '\\'
+#else
 #define PATH_SEPARATOR '/'
 #endif
 

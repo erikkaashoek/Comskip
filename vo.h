@@ -5,4 +5,6 @@ void vo_draw(unsigned char * buf);
 void vo_refresh();
 void vo_wait();
 void vo_close();
+void ShowHelp(char **ta);
+void ShowDetails(char *t);
 #endif
