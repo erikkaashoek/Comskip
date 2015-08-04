@@ -612,7 +612,7 @@ void audio_packet_process(VideoState *is, AVPacket *pkt)
         prev_audio_clock = is->audio_clock;
         is->audio_clock = av_q2d(is->audio_st->time_base)*( pkt->pts -  (is->video_st->start_time != AV_NOPTS_VALUE ? is->video_st->start_time : 0));
         if (framenum > 2 && fabs( is->audio_clock - prev_audio_clock) > 0.02)
-           Debug(1 ,"Strange audio frame_delay at frame %d: %6.3f instead of %6.3f \n", framenum, is->audio_clock - prev_audio_clock, 0.0);
+           Debug(1 ,"Strange audio pts step of %6.3f instead of %6.3f at frame %d\n", is->audio_clock - prev_audio_clock, 0.0 , framenum);
     }
 
     //		fprintf(stderr, "sac = %f\n", is->audio_clock);
@@ -801,6 +801,10 @@ static void ResetInputFile()
     initial_apts_set = 0;
     initial_apts = 0;
     audio_samples = 0;
+    base_apts = 0.0;
+    top_apts = 0.0;
+    apts = 0.0;
+    audio_buffer_ptr = audio_buffer;
     best_effort_timestamp = 0;
 #ifndef _DEBUG
 //     DUMP_CLOSE
@@ -1144,13 +1148,15 @@ static int force_29fps = 0;
             extra_frame--;
             pts_offset = 0.000;
         } else
-        if (framenum > 2
+        if ( ! reviewing
+            && framenum > 2
             && fabs(frame_delay - calculated_delay) > 0.005
             && !(ISSAME(frame_delay, 0.033) &&  ISSAME(calculated_delay, 0.050))
             && !(ISSAME(frame_delay, 0.033) &&  ISSAME(calculated_delay, 0.017))
             && !(ISSAME(frame_delay, 0.033) &&  ISSAME(calculated_delay, 0.067))
+            && !(ISSAME(frame_delay, 0.033) &&  ISSAME(calculated_delay, 0.066))
             )
-            Debug(1 ,"Strange video frame_delay at frame %d: %6.3f instead of %6.3f \n", framenum, calculated_delay, frame_delay);
+            Debug(1 ,"Strange video pts step of %6.3f instead of %6.3f at frame %d\n", calculated_delay, frame_delay, framenum);
 
 /*
         calculated_delay = (best_effort_timestamp - pev_best_effort_timestamp2) * av_q2d(is->video_st->time_base);
@@ -2061,6 +2067,11 @@ again:
                     initial_pts_set = 0;
                     initial_apts_set = 0;
                     initial_apts = 0;
+                    audio_samples = 0;
+                    base_apts = 0.0;
+                    top_apts = 0.0;
+                    apts = 0.0;
+                    audio_buffer_ptr = audio_buffer;
                     audio_samples = 0;
                 }
                 //                   best_effort_timestamp = AV_NOPTS_VALUE;
