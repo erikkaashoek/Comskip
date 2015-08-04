@@ -145,7 +145,6 @@ AVPacket flush_pkt;
 
 
 int64_t pev_best_effort_timestamp = 0;
-int64_t pev_best_effort_timestamp2 = 0;
 
 
 int video_stream_index = -1;
@@ -813,7 +812,6 @@ static void ResetInputFile()
     global_video_state->seek_pos = 0;
     global_video_state->seek_pts = 0.0;
     pev_best_effort_timestamp = 0;
-    pev_best_effort_timestamp2 = 0;
 
 #ifdef PROCESS_CC
     if (output_srt || output_smi) CEW_reinit();
@@ -953,7 +951,6 @@ void DecodeOnePicture(FILE * f, double pts, double length)
     Set_seek(is, pts, length);
 
     pev_best_effort_timestamp = 0;
-    pev_best_effort_timestamp2 = 0;
     best_effort_timestamp = 0;
     pts_offset = 0.0;
 
@@ -972,7 +969,6 @@ void DecodeOnePicture(FILE * f, double pts, double length)
         {
             ret = avformat_seek_file(is->pFormatCtx, is->videoStream, INT64_MIN, is->seek_pos, INT64_MAX, is->seek_flags);
             pev_best_effort_timestamp = 0;
-            pev_best_effort_timestamp2 = 0;
             best_effort_timestamp = 0;
             is->video_clock = 0.0;
             is->audio_clock = 0.0;
@@ -1110,7 +1106,6 @@ static int force_29fps = 0;
             is->seek_req = 1;
             is->seek_pos = 0;
             pev_best_effort_timestamp = 0;
-            pev_best_effort_timestamp2 = 0;
             best_effort_timestamp = 0;
             Debug(1 ,"Restarting processing in single thread mode because frame size is changing \n");
             goto quit;
@@ -1126,15 +1121,10 @@ static int force_29fps = 0;
             is->video_st->codec->ticks_per_frame = 1;
         frame_delay = av_q2d(is->video_st->codec->time_base)* is->video_st->codec->ticks_per_frame;         // <------------------------ frame delay is the time in seconds till the next frame
         if (frame_delay < 0.01)
-            frame_delay = (1.0/av_q2d(is->video_st->r_frame_rate) ) /* * is->video_st->codec->ticks_per_frame */;         // <------------------------ frame delay is the time in seconds till the next frame
+            frame_delay = (1.0/av_q2d(is->video_st->r_frame_rate) ) ;         // <------------------------ frame delay is the time in seconds till the next frame
 
         pev_best_effort_timestamp = best_effort_timestamp;
-        pev_best_effort_timestamp2 = best_effort_timestamp;
-
-//          best_effort_timestamp = *(int64_t *)av_opt_ptr(avcodec_get_frame_class(), is->pFrame, "best_effort_timestamp");
         best_effort_timestamp = av_frame_get_best_effort_timestamp(is->pFrame);
-//            best_effort_timestamp = is->pFrame->pkt_pts;
-
         calculated_delay = (best_effort_timestamp - pev_best_effort_timestamp) * av_q2d(is->video_st->time_base);
 
         if ( (!(fabs(frame_delay - 0.03336666) < 0.001 )) &&
@@ -1176,24 +1166,13 @@ static int force_29fps = 0;
         if ( ! reviewing
             && framenum > 2
             && fabs(frame_delay - calculated_delay) > 0.005
-            && !(ISSAME(frame_delay, 0.033) &&  ISSAME(calculated_delay, 0.050))
+            && !(ISSAME(frame_delay, 0.033) &&  ISSAME(calculated_delay, 0.050))  // Various known strange steps used to compensate for fps conversion
             && !(ISSAME(frame_delay, 0.033) &&  ISSAME(calculated_delay, 0.017))
             && !(ISSAME(frame_delay, 0.033) &&  ISSAME(calculated_delay, 0.067))
             && !(ISSAME(frame_delay, 0.033) &&  ISSAME(calculated_delay, 0.066))
-            )
-            Debug(1 ,"Strange video pts step of %6.3f instead of %6.3f at frame %d\n", calculated_delay, frame_delay, framenum);
-
-/*
-        calculated_delay = (best_effort_timestamp - pev_best_effort_timestamp2) * av_q2d(is->video_st->time_base);
-
-        if ( ( (fabs(calculated_delay - 0.050) < 0.0001) || (fabs(calculated_delay - 0.0166777) < 0.0001) )  && (fabs(frame_delay - 0.03336666) < 0.0001) ) {
-            frame_delay = calculated_delay;
+            ) {
+            Debug(1 ,"Strange video pts step of %6.3f instead of %6.3f at frame %d\n", calculated_delay, frame_delay, framenum); // Unknown strange step
         }
-*/
-/*
-        if (pev_best_effort_timestamp != 0 && fabs(calculated_delay - frame_delay) / frame_delay > 2)
-            fprintf(stderr, "Strange pts step: %f frames\n", (calculated_delay - frame_delay) / frame_delay );
-*/
         if (best_effort_timestamp == AV_NOPTS_VALUE)
             real_pts = 0;
         else
@@ -1225,55 +1204,8 @@ static int force_29fps = 0;
         pts = real_pts + pts_offset;
         if(pts != 0)
         {
- #ifdef NOT_NEEDED_ANYMORE
-            /* if we have pts, set video clock to it */
-            if (is->video_clock != 0 && max_repair_size != 0)
-            {
-                if ((pts - is->video_clock)/frame_delay < -10 || (pts - is->video_clock)/frame_delay > max_repair_size )
-                {
-                    if (!reviewing) Debug(1 ,"Video jumped by %6.3f at frame %d, inter = %d, ticks = %d\n",
-                                              (pts - is->video_clock)/frame_delay, framenum, is->pFrame->interlaced_frame, is->video_st->codec->ticks_per_frame);
-                    // Calculate offset for jump
-                    pts_offset = is->video_clock - real_pts/* set to mid of free window */;
-                    pts = real_pts + pts_offset;
-                    is->video_clock = pts;
-                    DUMP_TIMING("v   set",real_pts, pts, is->video_clock, pts_offset);
-                    last_jump_frame = framenum;
-                }
-                else if ((pts - is->video_clock)/frame_delay >= 1.0 )
-                {
-                    if (!reviewing) Debug(1 ,"Video jumped by %6.1f frames at frame %d, repairing timeline\n",
-                                              (pts - is->video_clock)/frame_delay, framenum);
-                    summed_repeat +=  is->video_st->codec->ticks_per_frame * (int) ((pts - is->video_clock)/frame_delay );
-                    if (last_jump_frame>0) {
-                        current_jump_step = ((pts - is->video_clock)/frame_delay) / (framenum - last_jump_frame);
-                        if (fabs(current_jump_step - last_jump_step) < 0.2) {
-                            last_jump_count++;
-                            if (last_jump_count == 5) {
-                                if (!reviewing) Debug(1 ,"Wrong frame rate detected!!!!!!! \nDetection will no be reliable\nFps seems to be %6.2f\n",
-                                              (1)/(frame_delay * (1  + last_jump_step)));
-                            }
-                        } else {
-                            last_jump_count = 0;
-                            last_jump_step = current_jump_step;
-                        }
-                    }
-                    last_jump_frame = framenum;
-                    //      is->video_clock = pts;
-                    DUMP_TIMING("vfollow", real_pts, pts, is->video_clock, pts_offset);
-                }
-                else
-                {
-                    DUMP_TIMING("v  free",real_pts,  pts, is->video_clock, pts_offset);
-                    // Do nothing
-                }
-            }
-            else
-#endif // NOT_NEEDED_ANYMORE
-            {
-                is->video_clock = pts; // - (5.0 / 2.0) * frame_delay;
-                DUMP_TIMING("v  init", real_pts, pts, is->video_clock, pts_offset);
-            }
+            is->video_clock = pts;
+            DUMP_TIMING("v   set", real_pts, pts, is->video_clock, pts_offset);
         }
         else
         {
@@ -1307,27 +1239,6 @@ static int force_29fps = 0;
         }
         /* update the video clock */
         is->video_clock += frame_delay;
-/* No longer needed
-//        summed_repeat += is->pFrame->repeat_pict*is->video_st->codec->ticks_per_frame;
-        while (summed_repeat >= is->video_st->codec->ticks_per_frame)
-        {
-            DUMP_TIMING("vrepeat", real_pts, pts, is->video_clock, pts_offset);
-            is->video_clock_submitted = is->video_clock;
-            if (is->video_clock - is->seek_pts > -frame_delay / 2.0)
-            {
-                retries = 0;
-                if (SubmitFrame (is->video_st, is->pFrame, is->video_clock))
-                {
-                    is->seek_req = 1;
-                    is->seek_pos = 0;
-                    goto quit;
-                }
-            }
-            is->video_clock += frame_delay;
-            best_effort_timestamp += frame_delay / av_q2d(is->video_st->time_base);
-            summed_repeat -= is->video_st->codec->ticks_per_frame;
-        }
-    */
         return 1;
     }
 quit:
