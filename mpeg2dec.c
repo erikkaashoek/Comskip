@@ -242,13 +242,8 @@ char tempstring[512];
 
 #define DUMP_OPEN if (output_timing) { sprintf(tempstring, "%s.timing.csv", basename); timing_file = myfopen(tempstring, "w"); DUMP_HEADER }
 #define DUMP_HEADER if (timing_file) fprintf(timing_file, "sep=,\ntype   ,real_pts, step        ,pts         ,clock       ,delta       ,offset, repeat\n");
-#ifdef NOFRAMEDELAYINTIMING
-#define DUMP_TIMING(T, D, P, C) if (timing_file && !csStepping && !csJumping && !csStartJump) fprintf(timing_file, "%7s, %12.3f,%12.3f,%12.3f, %12.3f, %12.3f, %12.3f\n", \
-	T, (double) (D)/frame_delay, (double) calculated_delay/frame_delay, (double) (P)/frame_delay, (double) (C)/frame_delay, ((double) (P) - (double) (C))/frame_delay, pts_offset/frame_delay);
-#else
-#define DUMP_TIMING(T, D, P, C) if (timing_file && !csStepping && !csJumping && !csStartJump) fprintf(timing_file, "%7s, %12.3f,%12.3f,%12.3f, %12.3f, %12.3f, %12.3f\n", \
-	T, (double) (D), (double) calculated_delay, (double) (P), (double) (C), ((double) (P) - (double) (C)), pts_offset);
-#endif
+#define DUMP_TIMING(T, D, P, C, O) if (timing_file && !csStepping && !csJumping && !csStartJump) fprintf(timing_file, "%7s, %12.3f, %12.3f, %12.3f, %12.3f, %12.3f, %12.3f\n", \
+	T, (double) (D), (double) calculated_delay, (double) (P), (double) (C), ((double) (P) - (double) (C)), (O));
 #define DUMP_CLOSE if (timing_file) { fclose(timing_file); timing_file = NULL; }
 
 
@@ -380,18 +375,16 @@ int retreive_frame_volume(double from_pts, double to_pts)
     VideoState *is = global_video_state;
     int i;
     double calculated_delay;
-    int s_per_frame = (to_pts - from_pts) * (double)is->audio_st->codec->sample_rate;
+    int s_per_frame = (to_pts - from_pts) * (double)(is->audio_st->codec->sample_rate+0.5);
 
 
-    if (s_per_frame > 0 && base_apts!= 0 && base_apts <= from_pts && to_pts < top_apts )
+    if (s_per_frame > 1 && base_apts!= 0 && base_apts <= from_pts && to_pts < top_apts )
     {
         calculated_delay = 0.0;
-        DUMP_TIMING("a  read", is->audio_clock, to_pts, from_pts);
 
 
  //       Debug(1,"fame=%d, =base=%6.3f, from=%6.3f, samples=%d, to=%6.3f, top==%6.3f\n", -1, base_apts, from_pts, s_per_frame, to_pts, top_apts);
-        buffer = & audio_buffer[(int)((from_pts - base_apts) * (double)is->audio_st->codec->sample_rate )];
-        audio_samples -= (int)((from_pts - base_apts) * is->audio_st->codec->sample_rate); // incomplete frame before complete frame
+        buffer = & audio_buffer[(int)((from_pts - base_apts) * ((double)is->audio_st->codec->sample_rate+0.5) )];
 
         volume = 0;
         if (sample_file) fprintf(sample_file, "Frame %i\n", sound_frame_counter);
@@ -402,6 +395,9 @@ int retreive_frame_volume(double from_pts, double to_pts)
             buffer++;
         }
         volume = volume/s_per_frame;
+        DUMP_TIMING("a  read", is->audio_clock, to_pts, from_pts, (double)volume);
+
+        audio_samples -= (int)((from_pts - base_apts) * (is->audio_st->codec->sample_rate+0.5)); // incomplete frame before complete frame
         audio_samples -= s_per_frame;
 
 
@@ -434,6 +430,7 @@ int retreive_frame_volume(double from_pts, double to_pts)
             }
         }
         base_apts = to_pts;
+        top_apts = base_apts + audio_samples / (double)(is->audio_st->codec->sample_rate);
         sound_frame_counter++;
     }
     return(volume);
@@ -455,38 +452,56 @@ void backfill_frame_volumes()
     }
 }
 
+#define ALIGN_AC3_PACKETS 1
+
 
 
 void sound_to_frames(VideoState *is, short **b, int s, int c, int format)
 {
     int i,l;
     int volume;
-    int s_per_frame;
     double old_base_apts;
     static double old_audio_clock=0.0;
     double calculated_delay = 0.0;
+    double avg_volume = 0.0;
     float *(fb[16]);
     short *(sb[16]);
+    static old_sample_rate = 0;
 
     audio_samples = (audio_buffer_ptr - audio_buffer);
 
-    if ((audio_buffer_ptr - audio_buffer) < 0 || (audio_buffer_ptr - audio_buffer) >= AUDIOBUFFER
-        || (top_apts - base_apts) * (is->audio_st->codec->sample_rate) > AUDIOBUFFER
+    if (old_sample_rate == is->audio_st->codec->sample_rate &&
+        ((audio_buffer_ptr - audio_buffer) < 0 || (audio_buffer_ptr - audio_buffer) >= AUDIOBUFFER
+        || (top_apts - base_apts) * (is->audio_st->codec->sample_rate+0.5) > AUDIOBUFFER
         || (top_apts < base_apts)
-        || !ISSAME(((double)audio_samples /(double)(is->audio_st->codec->sample_rate))+ base_apts, top_apts)
+        || !ISSAME(((double)audio_samples /(double)(is->audio_st->codec->sample_rate+0.5))+ base_apts, top_apts)
         || audio_samples < 0
-        || audio_samples >= AUDIOBUFFER) {
+        || audio_samples >= AUDIOBUFFER)) {
        Debug(1, "Panic: Audio buffering corrupt\n");
+       audio_buffer_ptr = audio_buffer;
+       top_apts = base_apts = 0;
+       audio_samples=0;
        return;
     }
+    if (old_sample_rate != 0 && old_sample_rate != is->audio_st->codec->sample_rate)
+        Debug(1, "Audio samplerate switched from %d to %d\n", old_sample_rate, is->audio_st->codec->sample_rate );
+    old_sample_rate = is->audio_st->codec->sample_rate;
+
     old_base_apts = base_apts;
     base_apts = (is->audio_clock - ((double)audio_samples /(double)(is->audio_st->codec->sample_rate)));
-    if (old_base_apts != 0.0 && !ISSAME(base_apts, old_base_apts))
-        Debug(1, "Jump in base apts from %6.3f to %6.3f, delta=%6.3f\n",old_base_apts, base_apts, base_apts -old_base_apts);
+        if (ALIGN_AC3_PACKETS && is->audio_st->codec->codec_id == AV_CODEC_ID_AC3) {
+                    if (   ISSAME(base_apts - old_base_apts, 0.032)
+                        || ISSAME(base_apts - old_base_apts, -0.032)
+                        || ISSAME(base_apts - old_base_apts, 0.064)
+                        || ISSAME(base_apts - old_base_apts, -0.064)
+                        || ISSAME(base_apts - old_base_apts, -0.096)
+                        )
+                        old_base_apts = base_apts; // Ignore AC3 packet jitter
+            }
+    if (old_base_apts != 0.0 && !ISSAME(base_apts, old_base_apts)) {
 
-    s_per_frame = (int) ((double)(is->audio_st->codec->sample_rate)/ get_fps());
-    if (s_per_frame == 0)
-        return;
+        Debug(1, "Jump in base apts from %6.3f to %6.3f, delta=%6.3f\n",old_base_apts, base_apts, base_apts -old_base_apts);
+    }
 
     if (s+audio_samples > AUDIOBUFFER ) {
         Debug(1,"Panic: Audio buffer overflow\n");
@@ -506,6 +521,7 @@ void sound_to_frames(VideoState *is, short **b, int s, int c, int format)
                 volume = 0;
                 for (l=0;l < is->audio_st->codec->channels;l++ ) volume += *((fb[l])++) * 64000;
                 *audio_buffer_ptr++ = volume / is->audio_st->codec->channels;
+                avg_volume += abs(volume / is->audio_st->codec->channels);
             }
         }
         else
@@ -519,15 +535,16 @@ void sound_to_frames(VideoState *is, short **b, int s, int c, int format)
                 volume = 0;
                 for (l=0;l < is->audio_st->codec->channels;l++ ) volume += *((sb[l])++);
                 *audio_buffer_ptr++ = volume / is->audio_st->codec->channels;
+                avg_volume += abs(volume / is->audio_st->codec->channels);
             }
         }
     }
-
+    avg_volume /= s;
     audio_samples = (audio_buffer_ptr - audio_buffer);
     top_apts = base_apts + audio_samples / (double)(is->audio_st->codec->sample_rate);
 
     calculated_delay = is->audio_clock - old_audio_clock;
-    DUMP_TIMING("a frame", is->audio_clock, top_apts, base_apts);
+    DUMP_TIMING("a frame", is->audio_clock, top_apts, base_apts, avg_volume);
     old_audio_clock = is->audio_clock;
 
     backfill_frame_volumes();
@@ -560,7 +577,7 @@ void audio_packet_process(VideoState *is, AVPacket *pkt)
     pkt_temp->data = pkt->data;
     pkt_temp->size = pkt->size;
 
-    if (0 && is->audio_st->codec->codec_id == AV_CODEC_ID_AC3) {
+    if (ALIGN_AC3_PACKETS && is->audio_st->codec->codec_id == AV_CODEC_ID_AC3) {
         if (ac3_packet_index + pkt_temp->size >= AC3_BUFFER_SIZE )
         {
             Debug(1,"AC3 sync error\n");
@@ -570,14 +587,17 @@ void audio_packet_process(VideoState *is, AVPacket *pkt)
         pkt_temp->data = ac3_packet;
         pkt_temp->size += ac3_packet_index;
         ac3_packet_index = pkt_temp->size;
+        ps = 0;
         while (pkt_temp->size >= 2 && (pkt_temp->data[0] != 0x0b || pkt_temp->data[1] != 0x77) ) {
             pkt_temp->data++;
             pkt_temp->size--;
+            ps++;
         }
         if (pkt_temp->size < 2)
             return; // No packet start found
+        if (ps>0)
+            Debug(1,"Skipped %d of added %d bytes in audio input stream\n", ps, pkt->size);
         pp = pkt_temp->data;
-        ps = 2;
         rps = pkt_temp->size-2;
         while (rps > 1 && (pp[rps] != 0x0b || pp[rps+1] != 0x77) ) {
             rps--;
@@ -606,8 +626,18 @@ void audio_packet_process(VideoState *is, AVPacket *pkt)
     {
         prev_audio_clock = is->audio_clock;
         is->audio_clock = av_q2d(is->audio_st->time_base)*( pkt->pts -  (is->video_st->start_time != AV_NOPTS_VALUE ? is->video_st->start_time : 0));
-        if (framenum > 2 && fabs( is->audio_clock - prev_audio_clock) > 0.02)
-           Debug(1 ,"Strange audio pts step of %6.3f instead of %6.3f at frame %d\n", is->audio_clock - prev_audio_clock, 0.0 , framenum);
+            if (ALIGN_AC3_PACKETS && is->audio_st->codec->codec_id == AV_CODEC_ID_AC3) {
+                    if (   ISSAME(is->audio_clock - prev_audio_clock, 0.032)
+                        || ISSAME(is->audio_clock - prev_audio_clock, -0.032)
+                        || ISSAME(is->audio_clock - prev_audio_clock, 0.064)
+                        || ISSAME(is->audio_clock - prev_audio_clock, -0.064)
+                        || ISSAME(is->audio_clock - prev_audio_clock, -0.096)
+                        )
+                        prev_audio_clock = is->audio_clock; // Ignore AC3 packet jitter
+            }
+        if (framenum > 2 && fabs( is->audio_clock - prev_audio_clock) > 0.02) {
+            Debug(1 ,"Strange audio pts step of %6.3f instead of %6.3f at frame %d\n", is->audio_clock - prev_audio_clock, 0.0 , framenum);
+        }
     }
 
     //		fprintf(stderr, "sac = %f\n", is->audio_clock);
@@ -630,7 +660,7 @@ void audio_packet_process(VideoState *is, AVPacket *pkt)
             Debug(2 ,"Audio format change\n");
         }
         prev_codec_id = is->audio_st->codec->codec_id;
-        if (len1 < 0)
+        if (len1 < 0  && !ALIGN_AC3_PACKETS)
         {
             /* if error, we skip the frame */
             pkt_temp->size = 0;
@@ -638,7 +668,13 @@ void audio_packet_process(VideoState *is, AVPacket *pkt)
 
             break;
         }
-
+        if (len1 < 0  && ALIGN_AC3_PACKETS)
+        {
+            len1 = 2; // Skip over packet start
+            pkt_temp->data += len1;
+            pkt_temp->size -= len1;
+            break;
+        }
         pkt_temp->data += len1;
         pkt_temp->size -= len1;
         if (!got_frame)
@@ -661,8 +697,9 @@ void audio_packet_process(VideoState *is, AVPacket *pkt)
         av_frame_free(&(is->frame));
     }
 
-    if (0 && is->audio_st->codec->codec_id == AV_CODEC_ID_AC3) {
+    if (ALIGN_AC3_PACKETS && is->audio_st->codec->codec_id == AV_CODEC_ID_AC3) {
         ps = 0;
+        rps = (pkt_temp->data - ac3_packet);
         while (0 < ac3_packet_index - rps)
         {
             ac3_packet[ps] = ac3_packet[rps];
@@ -1200,7 +1237,7 @@ static int force_29fps = 0;
                     pts_offset = is->video_clock - real_pts/* set to mid of free window */;
                     pts = real_pts + pts_offset;
                     is->video_clock = pts;
-                    DUMP_TIMING("v   set",real_pts, pts, is->video_clock);
+                    DUMP_TIMING("v   set",real_pts, pts, is->video_clock, pts_offset);
                     last_jump_frame = framenum;
                 }
                 else if ((pts - is->video_clock)/frame_delay >= 1.0 )
@@ -1223,11 +1260,11 @@ static int force_29fps = 0;
                     }
                     last_jump_frame = framenum;
                     //      is->video_clock = pts;
-                    DUMP_TIMING("vfollow", real_pts, pts, is->video_clock);
+                    DUMP_TIMING("vfollow", real_pts, pts, is->video_clock, pts_offset);
                 }
                 else
                 {
-                    DUMP_TIMING("v  free",real_pts,  pts, is->video_clock);
+                    DUMP_TIMING("v  free",real_pts,  pts, is->video_clock, pts_offset);
                     // Do nothing
                 }
             }
@@ -1235,13 +1272,13 @@ static int force_29fps = 0;
 #endif // NOT_NEEDED_ANYMORE
             {
                 is->video_clock = pts; // - (5.0 / 2.0) * frame_delay;
-                DUMP_TIMING("v  init", real_pts, pts, is->video_clock);
+                DUMP_TIMING("v  init", real_pts, pts, is->video_clock, pts_offset);
             }
         }
         else
         {
             /* if we aren't given a pts, set it to the clock */
-            DUMP_TIMING("v clock", real_pts, pts, is->video_clock);
+            DUMP_TIMING("v clock", real_pts, pts, is->video_clock, pts_offset);
             pts = is->video_clock;
         }
         is->video_clock_submitted = is->video_clock;
@@ -1270,11 +1307,11 @@ static int force_29fps = 0;
         }
         /* update the video clock */
         is->video_clock += frame_delay;
-
+/* No longer needed
 //        summed_repeat += is->pFrame->repeat_pict*is->video_st->codec->ticks_per_frame;
         while (summed_repeat >= is->video_st->codec->ticks_per_frame)
         {
-            DUMP_TIMING("vrepeat", real_pts, pts, is->video_clock);
+            DUMP_TIMING("vrepeat", real_pts, pts, is->video_clock, pts_offset);
             is->video_clock_submitted = is->video_clock;
             if (is->video_clock - is->seek_pts > -frame_delay / 2.0)
             {
@@ -1286,11 +1323,11 @@ static int force_29fps = 0;
                     goto quit;
                 }
             }
-            /* update the video clock */
             is->video_clock += frame_delay;
             best_effort_timestamp += frame_delay / av_q2d(is->video_st->time_base);
             summed_repeat -= is->video_st->codec->ticks_per_frame;
         }
+    */
         return 1;
     }
 quit:
