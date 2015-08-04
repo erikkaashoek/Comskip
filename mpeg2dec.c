@@ -451,7 +451,7 @@ void backfill_frame_volumes()
     }
 }
 
-#define ALIGN_AC3_PACKETS 1
+#define ALIGN_AC3_PACKETS 0
 
 
 
