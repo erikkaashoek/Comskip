@@ -68,10 +68,7 @@ typedef unsigned __int64 uint64_t;
 #endif
 
 #if defined(_WIN32) && !defined(__MINGW32__) && !defined(__MINGW64__)
-typedef intptr_t fileh;
-typedef struct _stati64* stath;
-#elif defined(_WIN32)
-typedef FILE* fileh;
+typedef int fileh;
 typedef struct _stati64* stath;
 #else
 typedef FILE* fileh;
