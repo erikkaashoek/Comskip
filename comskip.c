@@ -167,6 +167,12 @@ frame_info*			frame = NULL;
 long				frame_count = 0;
 long				max_frame_count;
 
+double get_frame_pts(int f) {
+    if (!frame)
+        return(0.0);
+    return(frame[f].pts);
+}
+
 static int aaa;
 #define F2V(X) (frame != NULL ? ((X) <= 0 ? frame[1].pts : ((X) >= frame_count ? frame[frame_count - 1].pts : frame[X].pts )) : (X) / fps)
 #define assert(T) (aaa = ((T) ? 1 : *(int *)0))
@@ -852,6 +858,7 @@ bool				CheckSceneHasChanged(void);
 void				BuildSceneChangeCommList(void);
 void				BuildSceneChangeCommList2(void);
 #endif
+void                backfill_frame_volumes();
 void				PrintLogoFrameGroups(void);
 void				PrintCCBlocks(void);
 void				ResetLogoBuffers(void);
@@ -2994,17 +3001,25 @@ int DetectCommercials(int f, double pts)
     if (play_nice) Sleep(play_nice_sleep);
     if (framearray) InitializeFrameArray(framenum_real);
 //	curvolume = RetreiveVolume(framenum_real);
-    curvolume = RetreiveVolume(frame_count);
+    //curvolume = RetreiveVolume(frame_count);
+
+    frame[frame_count].pts = pts;
+    if (frame_count == 1)
+        frame[0].pts = pts;
+//    curvolume = retreive_frame_volume(get_frame_pts(frame_count-1), get_frame_pts(frame_count));
+    frame[frame_count].volume = -1;
+     backfill_frame_volumes();
+        curvolume = frame[frame_count].volume;
+
 //	if (frame_count != framenum_real)
 //		Debug(0, "Inconsistent frame numbers\n");
     if (framearray)
     {
         frame[frame_count].volume = curvolume;
         frame[frame_count].goppos = headerpos;
-        frame[frame_count].pts = pts;
+
         frame[frame_count].cur_segment = debug_cur_segment;
-        if (frame_count == 1)
-            frame[0].pts = pts;
+
     }
     if (curvolume > 0)
     {
@@ -12783,7 +12798,7 @@ void OutputFrameArray(bool screenOnly)
         Debug(1, "Could not open raw output file.\n");
         return;
     }
-    fprintf(raw, "frame,brightness,scene_change,logo,uniform,sound,minY,MaxY,ar_ratio,goodEdge,isblack,cutscene, MinX, MaxX, hasBright, Dimcount,PTS,%d",(int)(fps*100));
+    fprintf(raw, "sep=,\nframe,brightness,scene_change,logo,uniform,sound,minY,MaxY,ar_ratio,goodEdge,isblack,cutscene, MinX, MaxX, hasBright, Dimcount,PTS,%d",(int)(fps*100));
 //	for (k = 0; k < 32; k++) {
 //		fprintf(raw, ",b%3i", k);
 //	}
@@ -13009,6 +13024,8 @@ again:
         exit(22);
     }
     fgets(line, sizeof(line), in_file); // Skip first line
+    if (strcmp(line,"sep=,\n")==0)
+        fgets(line, sizeof(line), in_file); // Skip second line
     t = 0.0;
     if (line[85] == ';') line [85] = '+';
     if (strlen(line) > 85)
@@ -13508,21 +13525,6 @@ void OutputCCBlock(long i)
         );
     }
 }
-/*
-typedef struct
-{
-	long	frame;
-	char	name[40];
-	int		v_chip;
-	int		duration;
-	int		current;
-} XDS_block_info;
-
-XDS_block_info*			XDS_block = NULL;
-long					XDS_block_count = 0;
-long					max_XDS_block_count;
-*/
-
 
 void Init_XDS_block()
 {
@@ -13563,11 +13565,11 @@ void Add_XDS_block()
 
 unsigned char XDSbuffer[40][100];
 int lastXDS = 0;
-              int firstXDS = 1;
-                             int startXDS = 1;
-                                     int baseXDS = 0;
+int firstXDS = 1;
+int startXDS = 1;
+int baseXDS = 0;
 
-                                             char *ratingSystem[4] = { "MPAA", "TPG", "CE", "CF" };
+char *ratingSystem[4] = { "MPAA", "TPG", "CE", "CF" };
 
 #define MAXXDSBUFFER	1024
 void AddXDS(unsigned char hi, unsigned char lo)
@@ -15181,6 +15183,7 @@ void set_fps(double fp,double dfps, int ticks, double rfps, double afps)
     }
 
 }
+/* no longer used
 
 #define MAX_SAVED_VOLUMES	10000
 
@@ -15244,7 +15247,7 @@ void ClearVolumeBuffer ()
     }
     max_fill = 0;
 }
-
+*/
 
 void set_frame_volume(unsigned int f, int volume)
 {
@@ -15260,6 +15263,7 @@ void set_frame_volume(unsigned int f, int volume)
         if (framearray)
             if (act_framenum <= frame_count)
             {
+ //               Debug(1, "Audio running after video\n");
                 if (frame[act_framenum].brightness > 5)
                     frame[act_framenum].volume = volume;
                 if (volume >= 0)
@@ -15268,6 +15272,7 @@ void set_frame_volume(unsigned int f, int volume)
                     silenceHistogram[(volume < 255 ? volume : 255)]++;
                 }
             }
+/*
         if (act_framenum > frame_count) {
             SaveVolume(act_framenum, volume);
             if (act_framenum  > frame_count + 10000) // too many audio frames without video
@@ -15276,6 +15281,7 @@ void set_frame_volume(unsigned int f, int volume)
                 exit(103);   // exit as probably protected file .
             }
         }
+*/
         i = black_count-1;
         while (i > 0 && black[i].frame > act_framenum)
             i--;
