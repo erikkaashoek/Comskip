@@ -459,11 +459,9 @@ void backfill_frame_volumes()
 
 void sound_to_frames(VideoState *is, short **b, int s, int c, int format)
 {
-    int i,n,l,f;
+    int i,l;
     int volume;
-    int delta = 0;
     int s_per_frame;
-    short *buffer;
     double old_base_apts;
     static double old_audio_clock=0.0;
     double calculated_delay = 0.0;
@@ -481,7 +479,6 @@ void sound_to_frames(VideoState *is, short **b, int s, int c, int format)
        Debug(1, "Panic: Audio buffering corrupt\n");
        return;
     }
-    n = is->audio_st->codec->channels * is->audio_st->codec->sample_rate;
     old_base_apts = base_apts;
     base_apts = (is->audio_clock - ((double)audio_samples /(double)(is->audio_st->codec->sample_rate)));
     if (old_base_apts != 0.0 && !ISSAME(base_apts, old_base_apts))
@@ -546,13 +543,12 @@ void audio_packet_process(VideoState *is, AVPacket *pkt)
 {
     int prev_codec_id = -1;
     double frame_delay = 1.0;
-    int len1, data_size, n;
+    int len1, data_size;
     uint8_t *pp;
     double prev_audio_clock;
     int      rps,ps;
-    int dec_channel_layout;
     AVPacket *pkt_temp = &is->audio_pkt_temp;
-    double pts;
+
     int got_frame;
     if (!reviewing)
     {
@@ -606,7 +602,6 @@ void audio_packet_process(VideoState *is, AVPacket *pkt)
 
 
 
-    n = (is->audio_st->codec->bits_per_coded_sample / 8) * is->audio_st->codec->channels * is->audio_st->codec->sample_rate;
     if (pkt->pts != AV_NOPTS_VALUE)
     {
         prev_audio_clock = is->audio_clock;
@@ -657,13 +652,6 @@ void audio_packet_process(VideoState *is, AVPacket *pkt)
         data_size = av_samples_get_buffer_size(NULL, is->frame->channels,
                                                is->frame->nb_samples,
                                                is->frame->format, 1);
-/*
-        dec_channel_layout =
-            (is->frame->channel_layout && is->frame->channels == av_get_channel_layout_nb_channels(is->frame->channel_layout)) ?
-            is->frame->channel_layout : av_get_default_channel_layout(is->frame->channels);
-*/
-//        DUMP_TIMING("a frame", apts, base_apts, is->audio_clock);
-//		fprintf(stderr, "Audio %f\n", is->audio_clock);
         if (data_size > 0)
         {
             sound_to_frames(is, (short **)is->frame->data, is->frame->nb_samples ,is->frame->channels, is->frame->format);
