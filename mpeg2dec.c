@@ -375,16 +375,16 @@ int retreive_frame_volume(double from_pts, double to_pts)
     VideoState *is = global_video_state;
     int i;
     double calculated_delay;
-    int s_per_frame = (to_pts - from_pts) * (double)is->audio_st->codec->sample_rate;
+    int s_per_frame = (to_pts - from_pts) * (double)(is->audio_st->codec->sample_rate+0.5);
 
 
-    if (s_per_frame > 0 && base_apts!= 0 && base_apts <= from_pts && to_pts < top_apts )
+    if (s_per_frame > 1 && base_apts!= 0 && base_apts <= from_pts && to_pts < top_apts )
     {
         calculated_delay = 0.0;
 
 
  //       Debug(1,"fame=%d, =base=%6.3f, from=%6.3f, samples=%d, to=%6.3f, top==%6.3f\n", -1, base_apts, from_pts, s_per_frame, to_pts, top_apts);
-        buffer = & audio_buffer[(int)((from_pts - base_apts) * (double)is->audio_st->codec->sample_rate )];
+        buffer = & audio_buffer[(int)((from_pts - base_apts) * ((double)is->audio_st->codec->sample_rate+0.5) )];
 
         volume = 0;
         if (sample_file) fprintf(sample_file, "Frame %i\n", sound_frame_counter);
@@ -397,7 +397,7 @@ int retreive_frame_volume(double from_pts, double to_pts)
         volume = volume/s_per_frame;
         DUMP_TIMING("a  read", is->audio_clock, to_pts, from_pts, (double)volume);
 
-        audio_samples -= (int)((from_pts - base_apts) * is->audio_st->codec->sample_rate); // incomplete frame before complete frame
+        audio_samples -= (int)((from_pts - base_apts) * (is->audio_st->codec->sample_rate+0.5)); // incomplete frame before complete frame
         audio_samples -= s_per_frame;
 
 
@@ -430,6 +430,7 @@ int retreive_frame_volume(double from_pts, double to_pts)
             }
         }
         base_apts = to_pts;
+        top_apts = base_apts + audio_samples / (double)(is->audio_st->codec->sample_rate);
         sound_frame_counter++;
     }
     return(volume);
@@ -459,25 +460,33 @@ void sound_to_frames(VideoState *is, short **b, int s, int c, int format)
 {
     int i,l;
     int volume;
-    int s_per_frame;
     double old_base_apts;
     static double old_audio_clock=0.0;
     double calculated_delay = 0.0;
     double avg_volume = 0.0;
     float *(fb[16]);
     short *(sb[16]);
+    static old_sample_rate = 0;
 
     audio_samples = (audio_buffer_ptr - audio_buffer);
 
-    if ((audio_buffer_ptr - audio_buffer) < 0 || (audio_buffer_ptr - audio_buffer) >= AUDIOBUFFER
-        || (top_apts - base_apts) * (is->audio_st->codec->sample_rate) > AUDIOBUFFER
+    if (old_sample_rate == is->audio_st->codec->sample_rate &&
+        ((audio_buffer_ptr - audio_buffer) < 0 || (audio_buffer_ptr - audio_buffer) >= AUDIOBUFFER
+        || (top_apts - base_apts) * (is->audio_st->codec->sample_rate+0.5) > AUDIOBUFFER
         || (top_apts < base_apts)
-        || !ISSAME(((double)audio_samples /(double)(is->audio_st->codec->sample_rate))+ base_apts, top_apts)
+        || !ISSAME(((double)audio_samples /(double)(is->audio_st->codec->sample_rate+0.5))+ base_apts, top_apts)
         || audio_samples < 0
-        || audio_samples >= AUDIOBUFFER) {
+        || audio_samples >= AUDIOBUFFER)) {
        Debug(1, "Panic: Audio buffering corrupt\n");
+       audio_buffer_ptr = audio_buffer;
+       top_apts = base_apts = 0;
+       audio_samples=0;
        return;
     }
+    if (old_sample_rate != 0 && old_sample_rate != is->audio_st->codec->sample_rate)
+        Debug(1, "Audio samplerate switched from %d to %d\n", old_sample_rate, is->audio_st->codec->sample_rate );
+    old_sample_rate = is->audio_st->codec->sample_rate;
+
     old_base_apts = base_apts;
     base_apts = (is->audio_clock - ((double)audio_samples /(double)(is->audio_st->codec->sample_rate)));
         if (ALIGN_AC3_PACKETS && is->audio_st->codec->codec_id == AV_CODEC_ID_AC3) {
@@ -493,9 +502,6 @@ void sound_to_frames(VideoState *is, short **b, int s, int c, int format)
 
         Debug(1, "Jump in base apts from %6.3f to %6.3f, delta=%6.3f\n",old_base_apts, base_apts, base_apts -old_base_apts);
     }
-    s_per_frame = (int) ((double)(is->audio_st->codec->sample_rate)/ get_fps());
-    if (s_per_frame == 0)
-        return;
 
     if (s+audio_samples > AUDIOBUFFER ) {
         Debug(1,"Panic: Audio buffer overflow\n");
@@ -534,7 +540,6 @@ void sound_to_frames(VideoState *is, short **b, int s, int c, int format)
         }
     }
     avg_volume /= s;
-
     audio_samples = (audio_buffer_ptr - audio_buffer);
     top_apts = base_apts + audio_samples / (double)(is->audio_st->codec->sample_rate);
 
