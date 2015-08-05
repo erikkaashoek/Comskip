@@ -6249,7 +6249,7 @@ void OutputCommercialBlock(int i, long prev, long start, long end, bool last)
 
     if (ffsplit_file) {
         if (prev != -1 && prev < start) {
-            fprintf(ffsplit_file, "-c copy -ss %.3f -t %.3f segment%03d.ts \n", get_frame_pts(prev), get_frame_pts(start - prev), i);
+            fprintf(ffsplit_file, "-c copy -ss %.3f -t %.3f segment%03d.ts \n", get_frame_pts(prev), get_frame_pts(start) - get_frame_pts(prev), i);
         } else if (prev == -1 && start > 5) {
             fprintf(ffsplit_file, "-c copy -ss %.3f -t %.3f segment%03d.ts \n", 0.0, get_frame_pts(start), i);
         }
