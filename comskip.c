@@ -6162,7 +6162,7 @@ void OutputCommercialBlock(int i, long prev, long start, long end, bool last)
     char scomment[80];
     char ecomment[80];
 
-
+/*
     if (prev > 0)
         prev = F2F(prev);
     if (start > 0 && start <= frame_count)
@@ -6172,6 +6172,7 @@ void OutputCommercialBlock(int i, long prev, long start, long end, bool last)
 
     start = max(start,0);
     end = max(end,0);
+*/
 
     s_start = start;
     s_end = end;
