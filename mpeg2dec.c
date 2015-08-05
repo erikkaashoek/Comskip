@@ -34,6 +34,9 @@ double test_pts = 0.0;
 
 #include <libavformat/avformat.h>
 #include <libavcodec/avcodec.h>
+
+#define restrict
+#include <libavcodec/ac3dec.h>
 #include <libavutil/avutil.h>
 #include <libavutil/pixdesc.h>
 #include <libavutil/samplefmt.h>
@@ -564,6 +567,7 @@ void audio_packet_process(VideoState *is, AVPacket *pkt)
     int len1, data_size;
     uint8_t *pp;
     double prev_audio_clock;
+    AC3DecodeContext *s = is->audio_st->codec->priv_data;
     int      rps,ps;
     AVPacket *pkt_temp = &is->audio_pkt_temp;
 
@@ -610,7 +614,7 @@ void audio_packet_process(VideoState *is, AVPacket *pkt)
         if (pkt_temp->size < 2)
             return; // No packet start found
         if (ps>0)
-            Debug(1,"Skipped %d of added %d bytes in audio input stream\n", ps, pkt->size);
+            Debug(1,"Skipped %d of added %d bytes in audio input stream around frame %d\n", ps, pkt->size, framenum);
         pp = pkt_temp->data;
         rps = pkt_temp->size-2;
         while (rps > 1 && (pp[rps] != 0x0b || pp[rps+1] != 0x77) ) {
@@ -628,6 +632,8 @@ void audio_packet_process(VideoState *is, AVPacket *pkt)
             pkt_temp->size = 0;
             return;
         }
+        if ( (rps % 768 ) != 0)
+            Debug(1,"Strange packet size of %d bytes in audio input stream around frame %d\n", rps, framenum);
 
     }
 
