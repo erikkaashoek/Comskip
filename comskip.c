@@ -543,7 +543,7 @@ double				uniform_percentile = 0.003;
 double				score_percentile = 0.71;
 double				logo_percentile = 0.92;
 double				logo_fraction = 0.40;
-int					commDetectMethod = BLACK_FRAME + LOGO + RESOLUTION_CHANGE +  AR + SILENCE; // + CC
+int					commDetectMethod = BLACK_FRAME + LOGO + RESOLUTION_CHANGE +  AR + SILENCE + (PROCESS_CC ? CC : 0);
 int					giveUpOnLogoSearch = 2000;			// If no logo is identified after x seconds into the show - give up.
 int					delay_logo_search = 0;			// If no logo is identified after x seconds into the show - give up.
 bool				cut_on_ar_change = 1;
@@ -2462,7 +2462,7 @@ void OutputDebugWindow(bool showVideo, int frm, int grf)
         }
         else if (helpflag)
             ShowHelp(helptext);
-        else if (show_XDS)
+        else if (show_XDS && XDS_block_count)
         {
             tt[0] = t;
             i = (XDS_block_count > 0 ? XDS_block_count-1 : 0);

@@ -35,7 +35,7 @@ int cc608_parity_table[256];
 #define PACKET_START_CODE_PREFIX    ((unsigned int)0x00000100)
 #define ISO_11172_END_CODE          ((unsigned int)0x000001b9)
 
-#define AV_NOPTS_VALUE          int64_t_C(0x8000000000000000)
+#define AV_NOPTS_VALUE          (int64_t)(0x8000000000000000)
 
 /* mpeg2 */
 #define PROGRAM_STREAM_MAP 0x1bc

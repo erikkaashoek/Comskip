@@ -154,7 +154,7 @@ const unsigned char lc6[]={0xfe};
 FILE *clean;
 int in; // descriptor number to input
 
-typedef enum
+enum
 {
     NTSC_CC_f1         = 0,
     NTSC_CC_f2         = 1,

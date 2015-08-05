@@ -22,8 +22,8 @@ typedef struct _stati64 FSTATSTRUCT;
 // #define LONG long long
 // typedef unsigned long long int64_t;
 #else
-#define FOPEN fopen64
-#define OPEN open64
+#define FOPEN fopen
+#define OPEN open
 #define FSEEK fseek
 #define FTELL ftell
 #define FSTAT fstat

@@ -69,7 +69,7 @@ int gop_accepted(struct gop_time_code* g )
 	return 1;
 }
 
-void set_cc_pts(__int64 pts)
+void set_cc_pts(int64_t pts)
 {
 	current_pts=pts;
 	if (pts_set==0)

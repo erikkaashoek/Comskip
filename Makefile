@@ -4,7 +4,7 @@ CC       = cc
 LEX      = flex
 YACC     = yacc
 ARCHFLAGS=
-DEFINES  = -DDONATOR
+DEFINES  = -DDONATOR -DPROCESS_CC
 CFLAGS   = -g -pipe -Wall -W -O2 -Wno-unused-parameter -Wno-unused $(DEFINES) $(ARCHFLAGS)
 LEXFLAGS =
 YACCFLAGS= -d
@@ -51,7 +51,12 @@ SOURCES = comskip.c \
 OBJECTS = comskip.o \
 		platform.o \
 		mpeg2dec.o \
-		video_out_dx.o
+		video_out_dx.o \
+		ccextratorwin/608.o \
+		ccextratorwin/ccextractor.o \
+		ccextratorwin/encoding.o \
+		ccextratorwin/general_loop.o \
+		ccextratorwin/myth.o
 DIST	   = comskip.pro
 QMAKE_TARGET = comskip
 TARGET   = comskip
