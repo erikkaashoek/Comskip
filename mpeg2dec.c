@@ -34,6 +34,9 @@ double test_pts = 0.0;
 
 #include <libavformat/avformat.h>
 #include <libavcodec/avcodec.h>
+
+//#define restrict
+//#include <libavcodec/ac3dec.h>
 #include <libavutil/avutil.h>
 #include <libavutil/pixdesc.h>
 #include <libavutil/samplefmt.h>
@@ -444,14 +447,14 @@ void backfill_frame_volumes()
     f = framenum-2;
     while (get_frame_pts(f) > base_apts && f > 1) // Find first frame with samples available, could be incomplete
         f--;
-    while (f < framenum-1 && get_frame_pts(f+1) <= top_apts /* && get_frame_pts(f-1) >= base_apts */) {
+    while (f < framenum-1 && get_frame_pts(f+1) <= top_apts && (top_apts - base_apts) > 1.0 /* && get_frame_pts(f-1) >= base_apts */) {
         volume = retreive_frame_volume(fmax(get_frame_pts(f), base_apts), get_frame_pts(f+1));
         if (volume > -1) set_frame_volume(f, volume);
         f++;
     }
 }
 
-#define ALIGN_AC3_PACKETS 0
+int ALIGN_AC3_PACKETS=0;
 
 
 
@@ -555,6 +558,8 @@ static uint8_t ac3_packet[AC3_BUFFER_SIZE];
 static int ac3_packet_index = 0;
 int data_size;
 
+int ac3_package_misalignment_count = 0;
+
 void audio_packet_process(VideoState *is, AVPacket *pkt)
 {
     int prev_codec_id = -1;
@@ -562,6 +567,7 @@ void audio_packet_process(VideoState *is, AVPacket *pkt)
     int len1, data_size;
     uint8_t *pp;
     double prev_audio_clock;
+//    AC3DecodeContext *s = is->audio_st->codec->priv_data;
     int      rps,ps;
     AVPacket *pkt_temp = &is->audio_pkt_temp;
 
@@ -575,6 +581,19 @@ void audio_packet_process(VideoState *is, AVPacket *pkt)
 
     pkt_temp->data = pkt->data;
     pkt_temp->size = pkt->size;
+
+    if ( !ALIGN_AC3_PACKETS && is->audio_st->codec->codec_id == AV_CODEC_ID_AC3
+        && ((pkt_temp->data[0] != 0x0b || pkt_temp->data[1] != 0x77)))
+    {
+//        Debug(1, "AC3 packet misaligned, audio decoding will fail\n");
+        ac3_package_misalignment_count++;
+    } else {
+        ac3_package_misalignment_count = 0;
+    }
+    if (!ALIGN_AC3_PACKETS && ac3_package_misalignment_count > 4) {
+        Debug(1, "AC3 packets misaligned, enabling AC3 re-alignment\n");
+        ALIGN_AC3_PACKETS = 1;
+    }
 
     if (ALIGN_AC3_PACKETS && is->audio_st->codec->codec_id == AV_CODEC_ID_AC3) {
         if (ac3_packet_index + pkt_temp->size >= AC3_BUFFER_SIZE )
@@ -595,7 +614,7 @@ void audio_packet_process(VideoState *is, AVPacket *pkt)
         if (pkt_temp->size < 2)
             return; // No packet start found
         if (ps>0)
-            Debug(1,"Skipped %d of added %d bytes in audio input stream\n", ps, pkt->size);
+            Debug(1,"Skipped %d of added %d bytes in audio input stream around frame %d\n", ps, pkt->size, framenum);
         pp = pkt_temp->data;
         rps = pkt_temp->size-2;
         while (rps > 1 && (pp[rps] != 0x0b || pp[rps+1] != 0x77) ) {
@@ -613,6 +632,8 @@ void audio_packet_process(VideoState *is, AVPacket *pkt)
             pkt_temp->size = 0;
             return;
         }
+        if ( (rps % 768 ) != 0)
+            Debug(1,"Strange packet size of %d bytes in audio input stream around frame %d\n", rps, framenum);
 
     }
 
@@ -635,7 +656,11 @@ void audio_packet_process(VideoState *is, AVPacket *pkt)
                         prev_audio_clock = is->audio_clock; // Ignore AC3 packet jitter
             }
         if (framenum > 2 && fabs( is->audio_clock - prev_audio_clock) > 0.02) {
-            Debug(1 ,"Strange audio pts step of %6.3f instead of %6.3f at frame %d\n", is->audio_clock - prev_audio_clock, 0.0 , framenum);
+            if (fabs( is->audio_clock - prev_audio_clock) < 1) {
+                 is->audio_clock = prev_audio_clock; //Ignore small jitter
+            }
+            else
+                Debug(1 ,"Strange audio pts step of %6.3f instead of %6.3f at frame %d\n", is->audio_clock - prev_audio_clock, 0.0 , framenum);
         }
     }
 
