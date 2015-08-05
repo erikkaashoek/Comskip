@@ -81,6 +81,7 @@ FILE*			videoredo3_file = NULL;
 FILE*			btv_file = NULL;
 FILE*			edl_file = NULL;
 FILE*			ffmeta_file = NULL;
+FILE*			ffsplit_file = NULL;
 FILE*			live_file = NULL;
 FILE*			ipodchap_file = NULL;
 FILE*			edlp_file = NULL;
@@ -612,6 +613,7 @@ bool				output_training = false;
 bool				output_false = false;
 bool				output_aspect = false;
 bool				output_ffmeta = false;
+bool				output_ffsplit = false;
 int					noise_level=5;
 bool				framearray = true;
 bool				output_framearray = false;
@@ -5719,6 +5721,21 @@ void OpenOutputFiles()
             output_ffmeta = true;
         }
     }
+
+    if (output_ffsplit)
+    {
+        sprintf(filename, "%s.ffsplit", outbasename);
+        ffsplit_file = myfopen(filename, "wb");
+        if (!ffsplit_file)
+        {
+            fprintf(stderr, "%s - could not create file %s\n", strerror(errno), filename);
+            exit(6);
+        }
+        else
+        {
+            output_ffsplit = true;
+        }
+    }
 /*
     if (output_live)
     {
@@ -6222,6 +6239,15 @@ void OutputCommercialBlock(int i, long prev, long start, long end, bool last)
             fprintf(ffmeta_file, "[CHAPTER]\nTIMEBASE=1/100\nSTART=%" PRIu64 "\nEND=%" PRIu64 "\ntitle=Commercial Segment\n", (uint64_t)(start * 100 / fps), (uint64_t)(end * 100 / fps));
     }
     CLOSEOUTFILE(ffmeta_file);
+
+    if (ffsplit_file) {
+        if (prev != -1 && prev < start) {
+            fprintf(ffsplit_file, "-c copy -ss %.3f -t %.3f segment%d.ts \n", (prev / fps), (start / fps), i);
+        } else if (prev == -1 && start > 5) {
+            fprintf(ffsplit_file, "-c copy -ss %.3f -t %.3f segment%d.ts \n", 0.0, (start / fps), i);
+        }
+    }
+    CLOSEOUTFILE(ffsplit_file);
 
     if (vcf_file && prev < start && start - prev > 5 && prev > 0 )
     {
@@ -7923,6 +7949,7 @@ void LoadIniFile()
         if ((tmp = FindNumber(data, "output_timing=", (double) output_timing)) > -1) output_timing = (bool) tmp;
         if ((tmp = FindNumber(data, "output_incommercial=", (double) output_incommercial)) > -1) output_incommercial = (bool) tmp;
         if ((tmp = FindNumber(data, "output_ffmeta=", (double) output_ffmeta)) > -1) output_ffmeta = (bool) tmp;
+        if ((tmp = FindNumber(data, "output_ffsplit=", (double) output_ffsplit)) > -1) output_ffsplit = (bool) tmp;
         if ((tmp = FindNumber(data, "delete_logo_file=", (double) deleteLogoFile)) > -1) deleteLogoFile = (int)tmp;
 
         if ((tmp = FindNumber(data, "cutscene_frame=", (double) cutsceneno)) > -1) cutsceneno = (int)tmp;
@@ -8667,7 +8694,7 @@ FILE* LoadSettings(int argc, char ** argv)
         }
     }
 
-    out_file = plist_cutlist_file = zoomplayer_cutlist_file = zoomplayer_chapter_file = vcf_file = vdr_file = projectx_file = avisynth_file = cuttermaran_file = videoredo_file = videoredo3_file = btv_file = edl_file = ffmeta_file = live_file = ipodchap_file = edlp_file = edlx_file = mls_file = womble_file = mpgtx_file = dvrcut_file = dvrmstb_file = tuning_file = training_file = 0L;
+    out_file = plist_cutlist_file = zoomplayer_cutlist_file = zoomplayer_chapter_file = vcf_file = vdr_file = projectx_file = avisynth_file = cuttermaran_file = videoredo_file = videoredo3_file = btv_file = edl_file = ffmeta_file = ffsplit_file = live_file = ipodchap_file = edlp_file = edlx_file = mls_file = womble_file = mpgtx_file = dvrcut_file = dvrmstb_file = tuning_file = training_file = 0L;
 
     if (cl_output_plist->count)
         output_plist_cutlist = true;
