@@ -444,7 +444,7 @@ void backfill_frame_volumes()
     f = framenum-2;
     while (get_frame_pts(f) > base_apts && f > 1) // Find first frame with samples available, could be incomplete
         f--;
-    while (f < framenum-1 && get_frame_pts(f+1) <= top_apts /* && get_frame_pts(f-1) >= base_apts */) {
+    while (f < framenum-1 && get_frame_pts(f+1) <= top_apts && (top_apts - base_apts) > 1.0 /* && get_frame_pts(f-1) >= base_apts */) {
         volume = retreive_frame_volume(fmax(get_frame_pts(f), base_apts), get_frame_pts(f+1));
         if (volume > -1) set_frame_volume(f, volume);
         f++;
@@ -650,7 +650,11 @@ void audio_packet_process(VideoState *is, AVPacket *pkt)
                         prev_audio_clock = is->audio_clock; // Ignore AC3 packet jitter
             }
         if (framenum > 2 && fabs( is->audio_clock - prev_audio_clock) > 0.02) {
-            Debug(1 ,"Strange audio pts step of %6.3f instead of %6.3f at frame %d\n", is->audio_clock - prev_audio_clock, 0.0 , framenum);
+            if (fabs( is->audio_clock - prev_audio_clock) < 1) {
+                 is->audio_clock = prev_audio_clock; //Ignore small jitter
+            }
+            else
+                Debug(1 ,"Strange audio pts step of %6.3f instead of %6.3f at frame %d\n", is->audio_clock - prev_audio_clock, 0.0 , framenum);
         }
     }
 

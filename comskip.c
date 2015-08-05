@@ -1238,6 +1238,13 @@ bool BuildBlocks(bool recalc)
         }
     }
 
+    j = 0;
+    for (i = 2; i < frame_count - 1; i++)  // frame 0 is not use????
+        if (frame[i-1].volume != -1 && frame[i].volume == -1 && frame[i+1].volume != -1)
+            j++;
+    if (j>0)
+        Debug(9,"Single frames with missing audio: %d\n",j);
+
     if (non_uniformity < min_uniform + 100)
         non_uniformity = min_uniform + 100;
 
