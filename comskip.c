@@ -6165,7 +6165,7 @@ void OutputCommercialBlock(int i, long prev, long start, long end, bool last)
     char scomment[80];
     char ecomment[80];
 
-
+/*
     if (prev > 0)
         prev = F2F(prev);
     if (start > 0 && start <= frame_count)
@@ -6175,6 +6175,7 @@ void OutputCommercialBlock(int i, long prev, long start, long end, bool last)
 
     start = max(start,0);
     end = max(end,0);
+*/
 
     s_start = start;
     s_end = end;
@@ -6233,28 +6234,28 @@ void OutputCommercialBlock(int i, long prev, long start, long end, bool last)
     if (zoomplayer_chapter_file && prev < start && end - start > fps )
     {
 //		fprintf(zoomplayer_chapter_file, "AddChapterBySecond(%.4f,Commercial Segment)\nAddChapterBySecond(%.4f,Show Segment)\n", (start) / fps, (end) / fps);
-        fprintf(zoomplayer_chapter_file, "AddChapterBySecond(%i,Commercial Segment)\nAddChapterBySecond(%i,Show Segment)\n", (int)((start) / fps), (int)((end) / fps));
+        fprintf(zoomplayer_chapter_file, "AddChapterBySecond(%i,Commercial Segment)\nAddChapterBySecond(%i,Show Segment)\n", (int)(get_frame_pts(start)), (int)(get_frame_pts(end)));
     }
     CLOSEOUTFILE(zoomplayer_chapter_file);
 
     if (ffmeta_file) {
         if (prev != -1 && prev < start) {
-            fprintf(ffmeta_file, "[CHAPTER]\nTIMEBASE=1/100\nSTART=%" PRIu64 "\nEND=%" PRIu64 "\ntitle=Show Segment\n", (uint64_t)(prev * 100 / fps), (uint64_t)(start * 100 / fps));
+            fprintf(ffmeta_file, "[CHAPTER]\nTIMEBASE=1/100\nSTART=%" PRIu64 "\nEND=%" PRIu64 "\ntitle=Show Segment\n", (uint64_t)(get_frame_pts(prev) * 100), (uint64_t)(get_frame_pts(start) * 100));
         } else if (prev == -1 && start > 5) {
-            fprintf(ffmeta_file, "[CHAPTER]\nTIMEBASE=1/100\nSTART=%" PRIu64 "\nEND=%" PRIu64 "\ntitle=Show Segment\n", (uint64_t)0, (uint64_t)(start * 100 / fps));
+            fprintf(ffmeta_file, "[CHAPTER]\nTIMEBASE=1/100\nSTART=%" PRIu64 "\nEND=%" PRIu64 "\ntitle=Show Segment\n", (uint64_t)0, (uint64_t)(get_frame_pts(start) * 100));
         }
         if (start <= 5)
             start = 0;
         if (end - start > 2)
-            fprintf(ffmeta_file, "[CHAPTER]\nTIMEBASE=1/100\nSTART=%" PRIu64 "\nEND=%" PRIu64 "\ntitle=Commercial Segment\n", (uint64_t)(start * 100 / fps), (uint64_t)(end * 100 / fps));
+            fprintf(ffmeta_file, "[CHAPTER]\nTIMEBASE=1/100\nSTART=%" PRIu64 "\nEND=%" PRIu64 "\ntitle=Commercial Segment\n", (uint64_t)(get_frame_pts(start) * 100), (uint64_t)(get_frame_pts(end) * 100));
     }
     CLOSEOUTFILE(ffmeta_file);
 
     if (ffsplit_file) {
         if (prev != -1 && prev < start) {
-            fprintf(ffsplit_file, "-c copy -ss %.3f -t %.3f segment%03d.ts \n", prev / fps, (start - prev) / fps, i);
+            fprintf(ffsplit_file, "-c copy -ss %.3f -t %.3f segment%03d.ts \n", get_frame_pts(prev), get_frame_pts(start) - get_frame_pts(prev), i);
         } else if (prev == -1 && start > 5) {
-            fprintf(ffsplit_file, "-c copy -ss %.3f -t %.3f segment%03d.ts \n", 0.0, start / fps, i);
+            fprintf(ffsplit_file, "-c copy -ss %.3f -t %.3f segment%03d.ts \n", 0.0, get_frame_pts(start), i);
         }
     }
     CLOSEOUTFILE(ffsplit_file);
@@ -6269,8 +6270,8 @@ void OutputCommercialBlock(int i, long prev, long start, long end, bool last)
     {
         if (start < 5)
             start = 0;
-        fprintf(vdr_file, "%s start\n",	dblSecondsToStrMinutes(start/fps ));
-        fprintf(vdr_file, "%s end\n", dblSecondsToStrMinutes(end/fps));
+        fprintf(vdr_file, "%s start\n",	dblSecondsToStrMinutes(get_frame_pts(start)));
+        fprintf(vdr_file, "%s end\n", dblSecondsToStrMinutes(get_frame_pts(end)));
     }
     CLOSEOUTFILE(vdr_file);
 
@@ -6347,11 +6348,11 @@ void OutputCommercialBlock(int i, long prev, long start, long end, bool last)
 
         if (demux_pid && enable_mencoder_pts)
         {
-            fprintf(edl_file, "%.2f\t%.2f\t%d\n", (double)s_start / fps + frame[1].pts, (double)s_end / fps  + frame[1].pts, edl_skip_field);
+            fprintf(edl_file, "%.2f\t%.2f\t%d\n", get_frame_pts(s_start) + frame[1].pts, get_frame_pts(s_end) + frame[1].pts, edl_skip_field);
         }
         else
         {
-            fprintf(edl_file, "%.2f\t%.2f\t%d\n", (double)s_start / fps , (double)s_end / fps , edl_skip_field);
+            fprintf(edl_file, "%.2f\t%.2f\t%d\n", get_frame_pts(s_start), get_frame_pts(s_end), edl_skip_field);
         }
     }
     CLOSEOUTFILE(edl_file);
@@ -6365,11 +6366,11 @@ void OutputCommercialBlock(int i, long prev, long start, long end, bool last)
 
         if (demux_pid && enable_mencoder_pts)
         {
-            fprintf(live_file, "%.2f\t%.2f\t%d\n", (double)s_start / fps + frame[1].pts, (double)s_end / fps  + frame[1].pts, edl_skip_field);
+            fprintf(live_file, "%.2f\t%.2f\t%d\n", get_frame_pts(s_start) + frame[1].pts, get_frame_pts(s_end) + frame[1].pts, edl_skip_field);
         }
         else
         {
-            fprintf(live_file, "%.2f\t%.2f\t%d\n", (double)s_start / fps , (double)s_end / fps , edl_skip_field);
+            fprintf(live_file, "%.2f\t%.2f\t%d\n", get_frame_pts(s_start), get_frame_pts(s_end), edl_skip_field);
         }
     }
     CLOSEOUTFILE(live_file);
@@ -6377,7 +6378,7 @@ void OutputCommercialBlock(int i, long prev, long start, long end, bool last)
     if (ipodchap_file && prev < start /* &&!last */ && end - start > 2)
     {
 //		fprintf(ipodchap_file,"CHAPTER01=00:00:00.000\nCHAPTER01NAME=1\n");
-        fprintf(ipodchap_file, "CHAPTER%.2i=%s\nCHAPTER%.2iNAME=%d\n", i+2,dblSecondsToStrMinutes(((double)end) / fps), i+2, i+2 );
+        fprintf(ipodchap_file, "CHAPTER%.2i=%s\nCHAPTER%.2iNAME=%d\n", i+2,dblSecondsToStrMinutes(get_frame_pts(end)), i+2, i+2 );
     }
     CLOSEOUTFILE(ipodchap_file);
 
@@ -6385,13 +6386,13 @@ void OutputCommercialBlock(int i, long prev, long start, long end, bool last)
     {
         if (start < 5)
             start = 0;
-        fprintf(edlp_file, "%.2f\t%.2f\t%d\n", (double)start / fps + frame[1].pts, (double)end / fps  + frame[1].pts, edl_skip_field);
+        fprintf(edlp_file, "%.2f\t%.2f\t%d\n", get_frame_pts(start) + frame[1].pts, get_frame_pts(end) + frame[1].pts, edl_skip_field);
     }
     CLOSEOUTFILE(edlp_file);
 
     if (bcf_file && prev < start /* &&!last */ && end - start > 2)
     {
-        fprintf(bcf_file, "1,%.0f,%.0f\n", (double)start * 1000.0 / fps , (double)end * 1000.0 / fps );
+        fprintf(bcf_file, "1,%.0f,%.0f\n", get_frame_pts(start) * 1000.0, get_frame_pts(end) * 1000.0);
     }
     CLOSEOUTFILE(bcf_file);
 
@@ -6464,14 +6465,14 @@ void OutputCommercialBlock(int i, long prev, long start, long end, bool last)
         {
             if (start - prev > 0)
             {
-                fprintf(mpgtx_file, "[%s-",	(prev < fps ? "":intSecondsToStrMinutes( (int) (prev/fps ))));
-                fprintf(mpgtx_file, "%s] ", intSecondsToStrMinutes( (int) (start/fps)));
+                fprintf(mpgtx_file, "[%s-",	(prev < fps ? "":intSecondsToStrMinutes( (int)get_frame_pts(prev))));
+                fprintf(mpgtx_file, "%s] ", intSecondsToStrMinutes( (int)get_frame_pts(start)));
             }
         }
         else
         {
             if (end - prev > 0)
-                fprintf(mpgtx_file, "[%s-]",	intSecondsToStrMinutes( (int) ((prev+1)/fps )));
+                fprintf(mpgtx_file, "[%s-]",	intSecondsToStrMinutes( (int)get_frame_pts(prev+1)));
             fprintf(mpgtx_file, "\n");
         }
     }
@@ -6481,8 +6482,8 @@ void OutputCommercialBlock(int i, long prev, long start, long end, bool last)
     {
         if (start - prev > (int)fps /* && start > 2*fps */)
         {
-            fprintf(dvrcut_file, "%s ",	intSecondsToStrMinutes( (int) (prev/fps )));
-            fprintf(dvrcut_file, "%s ", intSecondsToStrMinutes( (int) (start/fps)));
+            fprintf(dvrcut_file, "%s ",	intSecondsToStrMinutes( (int)get_frame_pts(prev)));
+            fprintf(dvrcut_file, "%s ", intSecondsToStrMinutes( (int)get_frame_pts(start)));
         }
         if (last)
         {
@@ -6496,7 +6497,7 @@ void OutputCommercialBlock(int i, long prev, long start, long end, bool last)
         if (end - start > 1)
         {
             if (start == 1) start = 0;
-            fprintf(dvrmstb_file, "  <commercial start=\"%f\" end=\"%f\" />\n", start/fps, end/fps);
+            fprintf(dvrmstb_file, "  <commercial start=\"%f\" end=\"%f\" />\n", get_frame_pts(start), get_frame_pts(end));
         }
         if (last)
         {
