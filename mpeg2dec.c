@@ -632,7 +632,7 @@ void audio_packet_process(VideoState *is, AVPacket *pkt)
             pkt_temp->size = 0;
             return;
         }
-        if ( (rps % 768 ) != 0)
+        if ( (pkt_temp->size % 768 ) != 0)
             Debug(1,"Strange packet size of %d bytes in audio input stream around frame %d\n", rps, framenum);
 
     }
