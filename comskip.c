@@ -491,6 +491,8 @@ int haslogo[MAXWIDTH*MAXHEIGHT];
 // variables defining options with defaults
 int					selftest = 0;
 int					verbose = 0;						// show extra info
+double              avg_fps = 22;
+
 double				fps = 22.0;						// frames per second (NTSC=29.970, PAL=25)
 int					border = 10;						// border around edge of video to ignore
 int					ticker_tape=0, ticker_tape_percentage=0;						// border from bottom to ignore
@@ -2999,6 +3001,7 @@ int DetectCommercials(int f, double pts)
 
 //Debug(1, "Frame info f=%d, framenum=%d, framenum_real=%d, frame_count=%d\n",f, framenum, framenum_real, frame_count, max_frame_count);
 
+    avg_fps = 1.0/ (pts / frame_count);
 
     if (framenum_real < 0) return 0;
     if (play_nice) Sleep(play_nice_sleep);
@@ -7137,6 +7140,7 @@ bool OutputBlocks(void)
         Debug(1,   "Dominant aspect ratio:      %.4f\n",dominant_ar);
         Debug(1,   "Score threshold:            %.4f\n", threshold);
         Debug(1,   "Framerate:                  %2.3f\n", fps);
+        Debug(1,   "Average framerate:          %2.3f\n", avg_fps);
 
         Debug(1,   "Total commercial length:    %s\n",	dblSecondsToStrMinutes(comlength));
         Debug(1,   "Block list after weighing\n----------------------------------------------------\n", threshold);
