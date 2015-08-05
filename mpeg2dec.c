@@ -451,7 +451,7 @@ void backfill_frame_volumes()
     }
 }
 
-#define ALIGN_AC3_PACKETS 0
+int ALIGN_AC3_PACKETS=0;
 
 
 
@@ -555,6 +555,8 @@ static uint8_t ac3_packet[AC3_BUFFER_SIZE];
 static int ac3_packet_index = 0;
 int data_size;
 
+int ac3_package_misalignment_count = 0;
+
 void audio_packet_process(VideoState *is, AVPacket *pkt)
 {
     int prev_codec_id = -1;
@@ -575,6 +577,19 @@ void audio_packet_process(VideoState *is, AVPacket *pkt)
 
     pkt_temp->data = pkt->data;
     pkt_temp->size = pkt->size;
+
+    if ( !ALIGN_AC3_PACKETS && is->audio_st->codec->codec_id == AV_CODEC_ID_AC3
+        && ((pkt_temp->data[0] != 0x0b || pkt_temp->data[1] != 0x77)))
+    {
+//        Debug(1, "AC3 packet misaligned, audio decoding will fail\n");
+        ac3_package_misalignment_count++;
+    } else {
+        ac3_package_misalignment_count = 0;
+    }
+    if (!ALIGN_AC3_PACKETS && ac3_package_misalignment_count > 4) {
+        Debug(1, "AC3 packets misaligned, enabling AC3 re-alignment\n");
+        ALIGN_AC3_PACKETS = 1;
+    }
 
     if (ALIGN_AC3_PACKETS && is->audio_st->codec->codec_id == AV_CODEC_ID_AC3) {
         if (ac3_packet_index + pkt_temp->size >= AC3_BUFFER_SIZE )

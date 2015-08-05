@@ -3377,7 +3377,7 @@ bool BuildMasterCommList(void)
 
     length = F2L(frame_count-1, 1);
     if (fabs( length - (frame_count -1)/fps) > 0.5)
-        Debug(1, "WARNING: Timeline errors in the recording!!!! Results may be wrong, .ref input will be misaligned. .txt editing will produce wrong results");
+        Debug(1, "WARNING: Complex timeline or errors in the recording!!!!\nResults may be wrong, .ref input will be misaligned. .txt editing will produce wrong results\nUse .edl output if possible\n");
 
 
     frame[frame_count].pts = frame[frame_count-1].pts + 1.0 / fps;
