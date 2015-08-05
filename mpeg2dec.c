@@ -451,7 +451,7 @@ void backfill_frame_volumes()
     }
 }
 
-#define ALIGN_AC3_PACKETS 1
+#define ALIGN_AC3_PACKETS 0
 
 
 
@@ -465,7 +465,7 @@ void sound_to_frames(VideoState *is, short **b, int s, int c, int format)
     double avg_volume = 0.0;
     float *(fb[16]);
     short *(sb[16]);
-    static old_sample_rate = 0;
+    static int old_sample_rate = 0;
 
     audio_samples = (audio_buffer_ptr - audio_buffer);
 
