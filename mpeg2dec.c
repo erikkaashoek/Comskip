@@ -35,8 +35,8 @@ double test_pts = 0.0;
 #include <libavformat/avformat.h>
 #include <libavcodec/avcodec.h>
 
-#define restrict
-#include <libavcodec/ac3dec.h>
+//#define restrict
+//#include <libavcodec/ac3dec.h>
 #include <libavutil/avutil.h>
 #include <libavutil/pixdesc.h>
 #include <libavutil/samplefmt.h>
@@ -567,7 +567,7 @@ void audio_packet_process(VideoState *is, AVPacket *pkt)
     int len1, data_size;
     uint8_t *pp;
     double prev_audio_clock;
-    AC3DecodeContext *s = is->audio_st->codec->priv_data;
+//    AC3DecodeContext *s = is->audio_st->codec->priv_data;
     int      rps,ps;
     AVPacket *pkt_temp = &is->audio_pkt_temp;
 
