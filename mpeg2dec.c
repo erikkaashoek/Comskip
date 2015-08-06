@@ -220,9 +220,9 @@ int initial_apts_set = 0;
 
 //int bitrate;
 int muxrate,byterate=10000;
-#define PTS_FRAME (double)(1.0 / get_fps())
+//#define PTS_FRAME (double)(1.0 / get_fps())
 //#define PTS_FRAME (int) (90000 / get_fps())
-#define SAMPLE_TO_FRAME 2.8125
+//#define SAMPLE_TO_FRAME 2.8125
 //#define SAMPLE_TO_FRAME (90000.0/(get_fps() * 1000.0))
 
 //#define BYTERATE	((int)(21400 * 25 / get_fps()))
@@ -1167,20 +1167,20 @@ static int    prev_strange_framenum = 0;
             if (initial_pts_set == 0)
             {
                 initial_pts = best_effort_timestamp - (is->video_st->start_time != AV_NOPTS_VALUE ? is->video_st->start_time : 0);
-                Debug( 10,"\nInitial pts = %f\n", av_q2d(is->video_st->time_base)* initial_pts);
+                Debug( 10,"\nInitial pts = %10.3f\n", av_q2d(is->video_st->time_base)* initial_pts);
 
-                if (fabs(av_q2d(is->video_st->time_base)* initial_pts) > 2.0)
-                {
-                    is->video_st->start_time = best_effort_timestamp;
-                    initial_pts = best_effort_timestamp - (is->video_st->start_time != AV_NOPTS_VALUE ? is->video_st->start_time : 0);
-                }
+//                if (fabs(av_q2d(is->video_st->time_base)* initial_pts) > 2.0)
+//                {
+//                    is->video_st->start_time = best_effort_timestamp;
+//                    initial_pts = best_effort_timestamp - (is->video_st->start_time != AV_NOPTS_VALUE ? is->video_st->start_time : 0);
+//                }
 
                 initial_pts_set = 1;
                 final_pts = 0;
                 pts_offset = 0.0;
 
             }
-            real_pts = av_q2d(is->video_st->time_base)* ( best_effort_timestamp - (is->video_st->start_time != AV_NOPTS_VALUE ? is->video_st->start_time : 0)) ;
+            real_pts = av_q2d(is->video_st->time_base)* ( best_effort_timestamp - (is->video_st->start_time != AV_NOPTS_VALUE ? is->video_st->start_time : 0) - initial_pts) ;
             final_pts = best_effort_timestamp -  (is->video_st->start_time != AV_NOPTS_VALUE ? is->video_st->start_time : 0);
         }
         dts =  av_q2d(is->video_st->time_base)* ( is->pFrame->pkt_dts - (is->video_st->start_time != AV_NOPTS_VALUE ? is->video_st->start_time : 0)) ;

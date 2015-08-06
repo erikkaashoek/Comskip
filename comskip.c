@@ -5621,7 +5621,7 @@ void OpenOutputFiles()
                 exit(103);
             }
         }
-        fprintf(out_file, "FILE PROCESSING COMPLETE %6li FRAMES AT %5i\n-------------------\n",frame_count-1, (int)(fps*100));
+        fprintf(out_file, "FILE PROCESSING COMPLETE %6li FRAMES AT %5i\n-------------------\n",frame_count-1, (int)(avg_fps*100));
         fclose(out_file);
     }
 
@@ -12461,9 +12461,10 @@ int InputReffer(char *extension, int setfps)
             t = ((double)strtol(&line[42], NULL, 10))/100;
         if (t > 99)
             t = t / 10.0;
-        if (t > 0)
+        if (t > 0) {
             fps = t * 1.00000000000001;
-
+            avg_fps = fps;
+        }
         if (t != 59.94)
             sage_framenumber_bug = false;
     }
@@ -12853,7 +12854,7 @@ void OutputFrameArray(bool screenOnly)
         Debug(1, "Could not open raw output file.\n");
         return;
     }
-    fprintf(raw, "sep=,\nframe,brightness,scene_change,logo,uniform,sound,minY,MaxY,ar_ratio,goodEdge,isblack,cutscene, MinX, MaxX, hasBright, Dimcount,PTS,%d",(int)(fps*100));
+    fprintf(raw, "sep=,\nframe,brightness,scene_change,logo,uniform,sound,minY,MaxY,ar_ratio,goodEdge,isblack,cutscene, MinX, MaxX, hasBright, Dimcount,PTS,%d",(int)(avg_fps*100+0.5));
 //	for (k = 0; k < 32; k++) {
 //		fprintf(raw, ",b%3i", k);
 //	}
