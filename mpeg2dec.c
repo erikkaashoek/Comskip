@@ -502,7 +502,7 @@ void sound_to_frames(VideoState *is, short **b, int s, int c, int format)
             }
     if (old_base_apts != 0.0 && !ISSAME(base_apts, old_base_apts)) {
 
-        Debug(1, "Jump in base apts from %6.3f to %6.3f, delta=%6.3f\n",old_base_apts, base_apts, base_apts -old_base_apts);
+        Debug(1, "Jump in base apts from %6.5f to %6.5f, delta=%6.5f\n",old_base_apts, base_apts, base_apts -old_base_apts);
     }
 
     if (s+audio_samples > AUDIOBUFFER ) {
@@ -660,7 +660,7 @@ void audio_packet_process(VideoState *is, AVPacket *pkt)
                  is->audio_clock = prev_audio_clock; //Ignore small jitter
             }
             else
-                Debug(1 ,"Strange audio pts step of %6.3f instead of %6.3f at frame %d\n", is->audio_clock - prev_audio_clock, 0.0 , framenum);
+                Debug(1 ,"Strange audio pts step of %6.5f instead of %6.5f at frame %d\n", (is->audio_clock - prev_audio_clock)+0.0005, 0.0 , framenum);
         }
     }
 
@@ -1108,6 +1108,10 @@ int video_packet_process(VideoState *is,AVPacket *packet)
     static int extra_frame=0;
 static int find_29fps = 0;
 static int force_29fps = 0;
+static double prev_pts = 0.0;
+static double prev_real_pts = 0.0;
+static double prev_strange_step = 0.0;
+static int    prev_strange_framenum = 0;
     double calculated_delay;
 
     if (!reviewing)
@@ -1148,56 +1152,13 @@ static int force_29fps = 0;
         if (frame_delay < 0.01)
             frame_delay = (1.0/av_q2d(is->video_st->r_frame_rate) ) ;         // <------------------------ frame delay is the time in seconds till the next frame
 
+
         pev_best_effort_timestamp = best_effort_timestamp;
         best_effort_timestamp = av_frame_get_best_effort_timestamp(is->pFrame);
         calculated_delay = (best_effort_timestamp - pev_best_effort_timestamp) * av_q2d(is->video_st->time_base);
 
-        if ( (!(fabs(frame_delay - 0.03336666) < 0.001 )) &&
-              ((fabs(calculated_delay - 0.0333333) < 0.0001) || (fabs(calculated_delay - 0.033) < 0.0001) || (fabs(calculated_delay - 0.034) < 0.0001) ||
-               (fabs(calculated_delay - 0.067) < 0.0001)     || (fabs(calculated_delay - 0.066) < 0.0001) || (fabs(calculated_delay - 0.06673332) < 0.0001)  ) ){
-            find_29fps++;
-        } else
-            find_29fps = 0;
-        if (force_29fps == 0 && find_29fps == 5) {
-            force_29fps = 1;
-            Debug(1 ,"Framerate forced to 29.97fps\n");
-        }
 
-        if (force_29fps) {
-            frame_delay=0.033366666666666669;
-            if  ((fabs(calculated_delay - 0.067) < 0.0001) || (fabs(calculated_delay - 0.066) < 0.0001) || (fabs(calculated_delay - 0.06673332) < 0.0001)) {
-         //       summed_repeat += 1;
-        //      calculated_delay = calculated_delay/2;
-            }
-        }
-        set_fps(frame_delay, is->fps, is->video_st->codec->ticks_per_frame, av_q2d(is->video_st->r_frame_rate),  av_q2d(is->video_st->avg_frame_rate));
 
-        if (extra_frame == 0 && ISSAME(frame_delay, 0.040) && ISSAME(calculated_delay, 0.080)) {
-            extra_frame++;
-            pts_offset = -0.040;
-        } else
-        if (extra_frame == 1 && ISSAME(frame_delay, 0.040) &&  ISSAME(calculated_delay, 0.000)) {
-            extra_frame--;
-            pts_offset = 0.000;
-        } else
-        if (extra_frame == 0 && ISSAME(frame_delay, 0.033) && ISSAME(calculated_delay, 0.067)) {
-            extra_frame++;
-            pts_offset = -0.033;
-        } else
-        if (extra_frame == 1 && ISSAME(frame_delay, 0.033) &&  ISSAME(calculated_delay, 0.000)) {
-            extra_frame--;
-            pts_offset = 0.000;
-        } else
-        if ( ! reviewing
-            && framenum > 2
-            && fabs(frame_delay - calculated_delay) > 0.005
-            && !(ISSAME(frame_delay, 0.033) &&  ISSAME(calculated_delay, 0.050))  // Various known strange steps used to compensate for fps conversion
-            && !(ISSAME(frame_delay, 0.033) &&  ISSAME(calculated_delay, 0.017))
-            && !(ISSAME(frame_delay, 0.033) &&  ISSAME(calculated_delay, 0.067))
-            && !(ISSAME(frame_delay, 0.033) &&  ISSAME(calculated_delay, 0.066))
-            ) {
-            Debug(1 ,"Strange video pts step of %6.3f instead of %6.3f at frame %d\n", calculated_delay, frame_delay, framenum); // Unknown strange step
-        }
         if (best_effort_timestamp == AV_NOPTS_VALUE)
             real_pts = 0;
         else
@@ -1224,9 +1185,76 @@ static int force_29fps = 0;
         }
         dts =  av_q2d(is->video_st->time_base)* ( is->pFrame->pkt_dts - (is->video_st->start_time != AV_NOPTS_VALUE ? is->video_st->start_time : 0)) ;
 
+
+        calculated_delay = real_pts - prev_real_pts;
+
+        if ( (!(fabs(frame_delay - 0.03336666) < 0.001 )) &&
+              ((fabs(calculated_delay - 0.0333333) < 0.0001) || (fabs(calculated_delay - 0.033) < 0.0001) || (fabs(calculated_delay - 0.034) < 0.0001) ||
+               (fabs(calculated_delay - 0.067) < 0.0001)     || (fabs(calculated_delay - 0.066) < 0.0001) || (fabs(calculated_delay - 0.06673332) < 0.0001)  ) ){
+            find_29fps++;
+        } else
+            find_29fps = 0;
+        if (force_29fps == 0 && find_29fps == 5) {
+            force_29fps = 1;
+            Debug(1 ,"Framerate forced to 29.97fps\n");
+        }
+
+        if (force_29fps) {
+            frame_delay=0.033366666666666669;
+            if  ((fabs(calculated_delay - 0.067) < 0.0001) || (fabs(calculated_delay - 0.066) < 0.0001) || (fabs(calculated_delay - 0.06673332) < 0.0001)) {
+         //       summed_repeat += 1;
+        //      calculated_delay = calculated_delay/2;
+            }
+        }
+        set_fps(frame_delay, is->fps, is->video_st->codec->ticks_per_frame, av_q2d(is->video_st->r_frame_rate),  av_q2d(is->video_st->avg_frame_rate));
+/*
+        if (extra_frame == 0 && ISSAME(frame_delay, 0.040) && ISSAME(calculated_delay, 0.080)) {
+            extra_frame++;
+            pts_offset = -0.040;
+        } else
+        if (extra_frame == 1 && ISSAME(frame_delay, 0.040) &&  ISSAME(calculated_delay, 0.000)) {
+            extra_frame--;
+            pts_offset = 0.000;
+        } else
+        if (extra_frame == 0 && ISSAME(frame_delay, 0.033) && ISSAME(calculated_delay, 0.067)) {
+            extra_frame++;
+            pts_offset = -0.033;
+        } else
+        if (extra_frame == 1 && ISSAME(frame_delay, 0.033) &&  ISSAME(calculated_delay, 0.000)) {
+            extra_frame--;
+            pts_offset = 0.000;
+        } else
+        if ( ! reviewing
+            && framenum > 2
+            && fabs(frame_delay - calculated_delay) > 0.005
+            && !(ISSAME(frame_delay, 0.033) &&  ISSAME(calculated_delay, 0.050))  // Various known strange steps used to compensate for fps conversion
+            && !(ISSAME(frame_delay, 0.033) &&  ISSAME(calculated_delay, 0.017))
+            && !(ISSAME(frame_delay, 0.033) &&  ISSAME(calculated_delay, 0.067))
+            && !(ISSAME(frame_delay, 0.033) &&  ISSAME(calculated_delay, 0.066))
+            )
+
+        {
+            Debug(1 ,"Strange video pts step of %6.5f instead of %6.5f at frame %d\n", calculated_delay+0.0005, frame_delay+0.0005, framenum); // Unknown strange step
+        }
+*/
+        pts_offset *= 0.9;
+        if (framenum > 1 && fabs(pts_offset + frame_delay - calculated_delay) < 0.5) { // Allow max 0.5 second timeline jitter to be compensated
+            pts_offset = pts_offset + frame_delay - calculated_delay;
+        }
+
 //		Debug(0 ,"pst[%3d] = %12.3f, inter = %d, ticks = %d\n", framenum, pts/frame_delay, is->pFrame->interlaced_frame, is->video_st->codec->ticks_per_frame);
 
         pts = real_pts + pts_offset;
+
+        calculated_delay = pts - prev_pts;
+
+        if (framenum > 1 && fabs(calculated_delay - frame_delay) > 0.01 ){
+            if ( (prev_strange_framenum + 1 != framenum) &&( prev_strange_step < fabs(calculated_delay - frame_delay)))
+                Debug(1 ,"Strange video pts step of %6.5f instead of %6.5f at frame %d\n", calculated_delay+0.0005, frame_delay+0.0005, framenum); // Unknown strange step
+            prev_strange_framenum = framenum;
+            prev_strange_step = fabs(calculated_delay - frame_delay);
+        }
+
         if(pts != 0)
         {
             is->video_clock = pts;
@@ -1250,7 +1278,6 @@ static int force_29fps = 0;
 
 
 
-
         if (is->video_clock - is->seek_pts > -frame_delay / 2.0)
         {
             retries = 0;
@@ -1264,9 +1291,13 @@ static int force_29fps = 0;
         }
         /* update the video clock */
         is->video_clock += frame_delay;
+        prev_pts = pts;
+        prev_real_pts = real_pts;
         return 1;
     }
 quit:
+//    prev_pts = pts;
+//    prev_real_pts = real_pts;
     return 0;
 }
 
