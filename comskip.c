@@ -3385,14 +3385,16 @@ bool BuildMasterCommList(void)
     Debug(7, "Finished scanning file.  Starting to build Commercial List.\n");
 
 
-    if (fabs(avg_fps - fps)> 0.01)
-        Debug(1,"WARNING: Actual framerate (%6.3f) different from specified framerate (%6.3f)\n", avg_fps, fps);
+//    if (fabs(avg_fps - fps)> 0.01)
+//        Debug(1,"WARNING: Actual framerate (%6.3f) different from specified framerate (%6.3f)\n", avg_fps, fps);
 
 
     length = F2L(frame_count-1, 1);
-    if (fabs( length - (frame_count -1)/fps) > 0.5)
-        Debug(1, "WARNING: Complex timeline or errors in the recording!!!!\nResults may be wrong, .ref input will be misaligned. .txt editing will produce wrong results\nUse .edl output if possible\n");
-
+    if (fabs( length - (frame_count -1)/fps) > 0.5) {
+        if (fabs(avg_fps - fps)> 1)
+            Debug(1,"WARNING: Actual framerate (%6.3f) different from specified framerate (%6.3f)\n", avg_fps, fps);
+        Debug(1,"WARNING: Complex timeline or errors in the recording!!!!\nResults may be wrong, .ref input will be misaligned. .txt editing will produce wrong results\nUse .edl output if possible\n");
+    }
 
     frame[frame_count].pts = frame[frame_count-1].pts + 1.0 / fps;
 
@@ -15217,7 +15219,7 @@ void set_fps(double fp,double dfps, int ticks, double rfps, double afps)
     fps = (double)1.0 / fp;
     if (fps != old_fps)
         showed_fps=0.0;
-    if (fabs(old_fps-fps) > 0.0001 /* && showed_fps++ < 4 */ ) {
+    if (fabs(old_fps-fps) > 0.01 /* && showed_fps++ < 4 */ ) {
         Debug(1, "Frame Rate set to %5.3f f/s\n", fps);
         if (ticks > 1)
             Debug(1, "Ticks per frame = %d\n", ticks);

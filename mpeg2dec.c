@@ -1098,6 +1098,7 @@ int video_packet_process(VideoState *is,AVPacket *packet)
 {
     double frame_delay;
     int len1, frameFinished;
+    int repeat;
     double pts, dts;
     double real_pts;
     static int summed_repeat = 0;
@@ -1112,6 +1113,8 @@ static double prev_pts = 0.0;
 static double prev_real_pts = 0.0;
 static double prev_strange_step = 0.0;
 static int    prev_strange_framenum = 0;
+static double prev_frame_delay = 0.0;
+
     double calculated_delay;
 
     if (!reviewing)
@@ -1144,37 +1147,24 @@ static int    prev_strange_framenum = 0;
     // Did we get a video frame?
     if(frameFinished)
     {
-
-
-        if (is->video_st->codec->ticks_per_frame<1)
-            is->video_st->codec->ticks_per_frame = 1;
-        frame_delay = av_q2d(is->video_st->codec->time_base)* is->video_st->codec->ticks_per_frame;         // <------------------------ frame delay is the time in seconds till the next frame
-        if (frame_delay < 0.01)
-            frame_delay = (1.0/av_q2d(is->video_st->r_frame_rate) ) ;         // <------------------------ frame delay is the time in seconds till the next frame
-
+        frame_delay = av_q2d(is->video_st->codec->time_base) * is->video_st->codec->ticks_per_frame ;
+        repeat = av_stream_get_parser(is->video_st) ? av_stream_get_parser(is->video_st)->repeat_pict+1 : 4;
 
         pev_best_effort_timestamp = best_effort_timestamp;
         best_effort_timestamp = av_frame_get_best_effort_timestamp(is->pFrame);
         calculated_delay = (best_effort_timestamp - pev_best_effort_timestamp) * av_q2d(is->video_st->time_base);
-
-
 
         if (best_effort_timestamp == AV_NOPTS_VALUE)
             real_pts = 0;
         else
         {
             headerpos = avio_tell(is->pFormatCtx->pb);
-            if (initial_pts_set == 0)
+            if (initial_pts_set == 0 || framenum < 3)
             {
-                initial_pts = best_effort_timestamp - (is->video_st->start_time != AV_NOPTS_VALUE ? is->video_st->start_time : 0);
-                Debug( 10,"\nInitial pts = %10.3f\n", av_q2d(is->video_st->time_base)* initial_pts);
-
-//                if (fabs(av_q2d(is->video_st->time_base)* initial_pts) > 2.0)
-//                {
-//                    is->video_st->start_time = best_effort_timestamp;
-//                    initial_pts = best_effort_timestamp - (is->video_st->start_time != AV_NOPTS_VALUE ? is->video_st->start_time : 0);
-//                }
-
+                if (!ISSAME(av_q2d(is->video_st->time_base)* initial_pts, av_q2d(is->video_st->time_base)* (best_effort_timestamp - (frame_delay * framenum) / av_q2d(is->video_st->time_base) - (is->video_st->start_time != AV_NOPTS_VALUE ? is->video_st->start_time : 0)))) {
+                    initial_pts = best_effort_timestamp - (frame_delay * framenum) / av_q2d(is->video_st->time_base) - (is->video_st->start_time != AV_NOPTS_VALUE ? is->video_st->start_time : 0);
+                    Debug( 10,"\nInitial pts = %10.3f\n", av_q2d(is->video_st->time_base)* initial_pts);
+                }
                 initial_pts_set = 1;
                 final_pts = 0;
                 pts_offset = 0.0;
@@ -1206,40 +1196,20 @@ static int    prev_strange_framenum = 0;
         //      calculated_delay = calculated_delay/2;
             }
         }
-        set_fps(frame_delay, is->fps, is->video_st->codec->ticks_per_frame, av_q2d(is->video_st->r_frame_rate),  av_q2d(is->video_st->avg_frame_rate));
-/*
-        if (extra_frame == 0 && ISSAME(frame_delay, 0.040) && ISSAME(calculated_delay, 0.080)) {
-            extra_frame++;
-            pts_offset = -0.040;
-        } else
-        if (extra_frame == 1 && ISSAME(frame_delay, 0.040) &&  ISSAME(calculated_delay, 0.000)) {
-            extra_frame--;
-            pts_offset = 0.000;
-        } else
-        if (extra_frame == 0 && ISSAME(frame_delay, 0.033) && ISSAME(calculated_delay, 0.067)) {
-            extra_frame++;
-            pts_offset = -0.033;
-        } else
-        if (extra_frame == 1 && ISSAME(frame_delay, 0.033) &&  ISSAME(calculated_delay, 0.000)) {
-            extra_frame--;
-            pts_offset = 0.000;
-        } else
-        if ( ! reviewing
-            && framenum > 2
-            && fabs(frame_delay - calculated_delay) > 0.005
-            && !(ISSAME(frame_delay, 0.033) &&  ISSAME(calculated_delay, 0.050))  // Various known strange steps used to compensate for fps conversion
-            && !(ISSAME(frame_delay, 0.033) &&  ISSAME(calculated_delay, 0.017))
-            && !(ISSAME(frame_delay, 0.033) &&  ISSAME(calculated_delay, 0.067))
-            && !(ISSAME(frame_delay, 0.033) &&  ISSAME(calculated_delay, 0.066))
-            )
+//#define SHOW_VIDEO_TIMING
+#ifdef SHOW_VIDEO_TIMING
+        if (framenum==0)
+            Debug(1,"Video timing ---------------------------------------------------\n", frame_delay/is->video_st->codec->ticks_per_frame, is->video_st->codec->ticks_per_frame, repeat, real_pts,calculated_delay);
+        else if (framenum<20)
+            Debug(1,"Video timing fr=%6.5f, tick=%d, repeat=%d, pts=%6.3f, step=%6.5f\n", frame_delay/is->video_st->codec->ticks_per_frame, is->video_st->codec->ticks_per_frame, repeat, real_pts,calculated_delay);
+#endif // SHOW_VIDEO_TIMING
 
-        {
-            Debug(1 ,"Strange video pts step of %6.5f instead of %6.5f at frame %d\n", calculated_delay+0.0005, frame_delay+0.0005, framenum); // Unknown strange step
-        }
-*/
+
         pts_offset *= 0.9;
-        if (framenum > 1 && fabs(pts_offset + frame_delay - calculated_delay) < 0.5) { // Allow max 0.5 second timeline jitter to be compensated
-            pts_offset = pts_offset + frame_delay - calculated_delay;
+        if (framenum > 1 && fabs(pts_offset + frame_delay - calculated_delay) < 1.0) { // Allow max 0.5 second timeline jitter to be compensated
+            if (!ISSAME(3*frame_delay/ is->video_st->codec->ticks_per_frame, calculated_delay))
+                if (!ISSAME(1*frame_delay/ is->video_st->codec->ticks_per_frame, calculated_delay))
+                    pts_offset = pts_offset + frame_delay - calculated_delay;
         }
 
 //		Debug(0 ,"pst[%3d] = %12.3f, inter = %d, ticks = %d\n", framenum, pts/frame_delay, is->pFrame->interlaced_frame, is->video_st->codec->ticks_per_frame);
@@ -1248,12 +1218,17 @@ static int    prev_strange_framenum = 0;
 
         calculated_delay = pts - prev_pts;
 
-        if (framenum > 1 && fabs(calculated_delay - frame_delay) > 0.01 ){
+        if (framenum > 1 && fabs(calculated_delay - frame_delay) > 0.01
+            && !ISSAME(3*frame_delay/ is->video_st->codec->ticks_per_frame, calculated_delay)
+            && !ISSAME(1*frame_delay/ is->video_st->codec->ticks_per_frame, calculated_delay)
+            ){
             if ( (prev_strange_framenum + 1 != framenum) &&( prev_strange_step < fabs(calculated_delay - frame_delay)))
                 Debug(1 ,"Strange video pts step of %6.5f instead of %6.5f at frame %d\n", calculated_delay+0.0005, frame_delay+0.0005, framenum); // Unknown strange step
             prev_strange_framenum = framenum;
             prev_strange_step = fabs(calculated_delay - frame_delay);
         }
+
+        set_fps(frame_delay, is->fps, repeat, av_q2d(is->video_st->r_frame_rate),  av_q2d(is->video_st->avg_frame_rate));
 
         if(pts != 0)
         {
@@ -1293,11 +1268,10 @@ static int    prev_strange_framenum = 0;
         is->video_clock += frame_delay;
         prev_pts = pts;
         prev_real_pts = real_pts;
+        prev_frame_delay = frame_delay;
         return 1;
     }
 quit:
-//    prev_pts = pts;
-//    prev_real_pts = real_pts;
     return 0;
 }
 
