@@ -3392,7 +3392,7 @@ bool BuildMasterCommList(void)
     length = F2L(frame_count-1, 1);
     if (fabs( length - (frame_count -1)/fps) > 0.5) {
         if (fabs(avg_fps - fps)> 1)
-            Debug(1,"WARNING: Actual framerate (%6.3f) different from specified framerate (%6.3f)\n", avg_fps, fps);
+            Debug(1,"WARNING: Actual framerate (%6.3f) different from specified framerate (%6.3f)\nInternal frame numbers will be different from .txt frame numbers\n", avg_fps, fps);
         Debug(1,"WARNING: Complex timeline or errors in the recording!!!!\nResults may be wrong, .ref input will be misaligned. .txt editing will produce wrong results\nUse .edl output if possible\n");
     }
 
@@ -5623,7 +5623,7 @@ void OpenOutputFiles()
                 exit(103);
             }
         }
-        fprintf(out_file, "FILE PROCESSING COMPLETE %6li FRAMES AT %5i\n-------------------\n",frame_count-1, (int)(fps*100));
+        fprintf(out_file, "FILE PROCESSING COMPLETE %6li FRAMES AT %5i\n-------------------\n",F2F(frame_count-1), (int)(fps*100));
         fclose(out_file);
     }
 
@@ -6171,6 +6171,7 @@ void OutputCommercialBlock(int i, long prev, long start, long end, bool last)
     char scomment[80];
     char ecomment[80];
 
+    // Convert from frame array index to (timecode / fps) for external output
 
     if (prev > 0)
         prev = F2F(prev);
@@ -13104,6 +13105,14 @@ again:
     }
     if (t>0)
         fps = t  * 1.00000000000001;
+    if (strlen(line) > 131)
+    {
+        t = ((double)strtol(&line[131], NULL, 10))/100;
+        if (t > 99)
+            t = t / 10.0;
+    }
+    if (t>0)
+        fps = t  * 1.00000000000001;
     InitComSkip();
     frame_count = 1;
     while (fgets(line, sizeof(line), in_file) != NULL)
@@ -13228,7 +13237,9 @@ again:
             frame[0].pts = frame[1].pts;
         frame_count++;
     }
-    frame[frame_count].pts = (frame_count - 1) * fps;
+
+
+    frame[frame_count].pts = (frame_count - 1) / fps; // Should be avg_fps, but is never used.
 
     if (!dump_data_file)
     {

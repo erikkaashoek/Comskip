@@ -1159,13 +1159,13 @@ static double prev_frame_delay = 0.0;
         else
         {
             headerpos = avio_tell(is->pFormatCtx->pb);
-            if (initial_pts_set == 0 || framenum < 3)
+            if (initial_pts_set < 3 && !reviewing)
             {
                 if (!ISSAME(av_q2d(is->video_st->time_base)* initial_pts, av_q2d(is->video_st->time_base)* (best_effort_timestamp - (frame_delay * framenum) / av_q2d(is->video_st->time_base) - (is->video_st->start_time != AV_NOPTS_VALUE ? is->video_st->start_time : 0)))) {
                     initial_pts = best_effort_timestamp - (frame_delay * framenum) / av_q2d(is->video_st->time_base) - (is->video_st->start_time != AV_NOPTS_VALUE ? is->video_st->start_time : 0);
                     Debug( 10,"\nInitial pts = %10.3f\n", av_q2d(is->video_st->time_base)* initial_pts);
                 }
-                initial_pts_set = 1;
+                initial_pts_set++;
                 final_pts = 0;
                 pts_offset = 0.0;
 
