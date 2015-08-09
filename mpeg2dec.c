@@ -244,8 +244,8 @@ char tempstring[512];
 
 #define DUMP_OPEN if (output_timing) { sprintf(tempstring, "%s.timing.csv", basename); timing_file = myfopen(tempstring, "w"); DUMP_HEADER }
 #define DUMP_HEADER if (timing_file) fprintf(timing_file, "sep=,\ntype   ,real_pts, step        ,pts         ,clock       ,delta       ,offset, repeat\n");
-#define DUMP_TIMING(T, D, P, C, O) if (timing_file && !csStepping && !csJumping && !csStartJump) fprintf(timing_file, "%7s, %12.3f, %12.3f, %12.3f, %12.3f, %12.3f, %12.3f\n", \
-	T, (double) (D), (double) calculated_delay, (double) (P), (double) (C), ((double) (P) - (double) (C)), (O));
+#define DUMP_TIMING(T, D, P, C, O) if (timing_file && !csStepping && !csJumping && !csStartJump) fprintf(timing_file, "%7s, %12.3f, %12.3f, %12.3f, %12.3f, %12.3f, %12.3f, %d\n", \
+	T, (double) (D), (double) calculated_delay, (double) (P), (double) (C), ((double) (P) - (double) (C)), (O), repeat);
 #define DUMP_CLOSE if (timing_file) { fclose(timing_file); timing_file = NULL; }
 
 
@@ -373,6 +373,7 @@ int frames_with_loud_sound = 0;
 int retreive_frame_volume(double from_pts, double to_pts)
 {
     short *buffer;
+    int repeat=0;
     int volume = -1;
     VideoState *is = global_video_state;
     int i;
@@ -447,7 +448,7 @@ void backfill_frame_volumes()
     f = framenum-2;
     while (get_frame_pts(f) > base_apts && f > 1) // Find first frame with samples available, could be incomplete
         f--;
-    while (f < framenum-1 && get_frame_pts(f+1) <= top_apts && (top_apts - base_apts) > 1.0 /* && get_frame_pts(f-1) >= base_apts */) {
+    while (f < framenum-1 && get_frame_pts(f+1) <= top_apts && (top_apts - base_apts) > .5 /* && get_frame_pts(f-1) >= base_apts */) {
         volume = retreive_frame_volume(fmax(get_frame_pts(f), base_apts), get_frame_pts(f+1));
         if (volume > -1) set_frame_volume(f, volume);
         f++;
@@ -469,6 +470,7 @@ void sound_to_frames(VideoState *is, short **b, int s, int c, int format)
     float *(fb[16]);
     short *(sb[16]);
     static int old_sample_rate = 0;
+    int repeat = 0;
 
     audio_samples = (audio_buffer_ptr - audio_buffer);
 
@@ -1109,6 +1111,10 @@ int video_packet_process(VideoState *is,AVPacket *packet)
     static int extra_frame=0;
 static int find_29fps = 0;
 static int force_29fps = 0;
+static int find_25fps = 0;
+static int force_25fps = 0;
+static int find_24fps = 0;
+static int force_24fps = 0;
 static double prev_pts = 0.0;
 static double prev_real_pts = 0.0;
 static double prev_strange_step = 0.0;
@@ -1148,8 +1154,10 @@ static double prev_frame_delay = 0.0;
     if(frameFinished)
     {
         frame_delay = av_q2d(is->video_st->codec->time_base) * is->video_st->codec->ticks_per_frame ;
-        repeat = av_stream_get_parser(is->video_st) ? av_stream_get_parser(is->video_st)->repeat_pict+1 : 4;
+        repeat = av_stream_get_parser(is->video_st) ? av_stream_get_parser(is->video_st)->repeat_pict: 4;
 
+ //       if (prev_frame_delay != 0.0 && frame_delay != prev_frame_delay)
+ //           Debug(1, "Changing fps from %6.3f to %6.3f", 1.0/prev_frame_delay, 1.0/frame_delay);
         pev_best_effort_timestamp = best_effort_timestamp;
         best_effort_timestamp = av_frame_get_best_effort_timestamp(is->pFrame);
         calculated_delay = (best_effort_timestamp - pev_best_effort_timestamp) * av_q2d(is->video_st->time_base);
@@ -1178,24 +1186,69 @@ static double prev_frame_delay = 0.0;
 
         calculated_delay = real_pts - prev_real_pts;
 
-        if ( (!(fabs(frame_delay - 0.03336666) < 0.001 )) &&
-              ((fabs(calculated_delay - 0.0333333) < 0.0001) || (fabs(calculated_delay - 0.033) < 0.0001) || (fabs(calculated_delay - 0.034) < 0.0001) ||
-               (fabs(calculated_delay - 0.067) < 0.0001)     || (fabs(calculated_delay - 0.066) < 0.0001) || (fabs(calculated_delay - 0.06673332) < 0.0001)  ) ){
-            find_29fps++;
-        } else
-            find_29fps = 0;
-        if (force_29fps == 0 && find_29fps == 5) {
-            force_29fps = 1;
-            Debug(1 ,"Framerate forced to 29.97fps\n");
-        }
+        if (framenum < 500)
+        {
+            if ( (!(fabs(frame_delay - 0.03336666) < 0.001 )) &&
+            ((fabs(calculated_delay - 0.0333333) < 0.0001) || (fabs(calculated_delay - 0.033) < 0.0001) || (fabs(calculated_delay - 0.034) < 0.0001) ||
+            (fabs(calculated_delay - 0.067) < 0.0001)     || (fabs(calculated_delay - 0.066) < 0.0001) || (fabs(calculated_delay - 0.06673332) < 0.0001)  ) )
+            {
+                find_29fps++;
+            }
+            else
+                find_29fps = 0;
+            if (force_29fps == 0 && find_29fps == 5)
+            {
+                force_29fps = 1;
+                force_25fps = 0;
+                force_24fps = 0;
+                Debug(1 ,"Framerate forced to 29.97fps at frame %d\n", frame_count);
+            }
 
-        if (force_29fps) {
-            frame_delay=0.033366666666666669;
-            if  ((fabs(calculated_delay - 0.067) < 0.0001) || (fabs(calculated_delay - 0.066) < 0.0001) || (fabs(calculated_delay - 0.06673332) < 0.0001)) {
-         //       summed_repeat += 1;
-        //      calculated_delay = calculated_delay/2;
+            if ( (!(fabs(frame_delay - 0.040) < 0.001 )) &&
+                    ((fabs(calculated_delay - 0.04) < 0.0001)) || (fabs(calculated_delay - 0.039) < 0.0001) || (fabs(calculated_delay - 0.041) < 0.0001) )
+            {
+                find_25fps++;
+            }
+            else
+                find_25fps = 0;
+            if (force_25fps == 0 && find_25fps == 5)
+            {
+                force_29fps = 0;
+                force_25fps = 1;
+                force_24fps = 0;
+                Debug(1 ,"Framerate forced to 25.00fps at frame %d\n", frame_count);
+            }
+
+            if ( (find_24fps & 1 ) == 0 && (fabs(calculated_delay - 0.050) < 0.001 ) ||
+                    (find_24fps & 1 ) == 1 && (fabs(calculated_delay - 0.033) < 0.001 )
+               )
+            {
+                find_24fps++;
+            }
+            else
+                find_24fps = 0;
+            if (force_24fps == 0 && find_24fps == 5)
+            {
+                force_29fps = 0;
+                force_25fps = 0;
+                force_24fps = 1;
+                Debug(1 ,"Framerate forced to 24.00fps at frame %d\n", frame_count);
             }
         }
+
+        if (force_29fps)
+        {
+            frame_delay=0.033366666666666669;
+        }
+        if (force_25fps)
+        {
+            frame_delay=0.04;
+        }
+        if (force_24fps)
+        {
+            frame_delay=0.0416666666666667;
+        }
+
 //#define SHOW_VIDEO_TIMING
 #ifdef SHOW_VIDEO_TIMING
         if (framenum==0)
