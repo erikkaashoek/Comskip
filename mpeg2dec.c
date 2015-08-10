@@ -62,8 +62,6 @@ static InputStream *ist = &inputs;
 
 extern int      hardware_decode;
 int av_log_level=AV_LOG_INFO;
-#undef AV_TIME_BASE_Q
-static AVRational AV_TIME_BASE_Q = {1, AV_TIME_BASE};
 
 
 #define SDL_AUDIO_BUFFER_SIZE 1024
@@ -258,12 +256,6 @@ static int verbose = 0;
 
 extern int selftest;
 
-#ifdef _DEBUG
-static int dump_seek = 1;		// Set to 1 to dump the seeking process
-#else
-static int dump_seek = 0;		// Set to 1 to dump the seeking process
-#endif
-
 extern int frame_count;
 int	framenum;
 
@@ -297,8 +289,6 @@ int	seekDirection = 0;
 extern FILE * out_file;
 extern uint8_t ccData[500];
 extern int ccDataLen;
-static uint8_t				prevccData[500];
-static int					prevccDataLen;
 
 char				prevfield_t = 0;
 
@@ -563,7 +553,6 @@ int ac3_package_misalignment_count = 0;
 void audio_packet_process(VideoState *is, AVPacket *pkt)
 {
     int prev_codec_id = -1;
-    double frame_delay = 1.0;
     int len1, data_size;
     uint8_t *pp;
     double prev_audio_clock;
@@ -865,7 +854,6 @@ int SubmitFrame(AVStream        *video_st, AVFrame         *pFrame , double pts)
 {
     int res=0;
     int changed = 0;
-    AVCodecContext  *pCodecCtx = video_st->codec;
 
 //	bitrate = pFrame->bit_rate;
     if (pFrame->linesize[0] > 2000 || pFrame->height > 1200 || pFrame->linesize[0] < 100 || pFrame->height < 100)
@@ -958,13 +946,9 @@ void Set_seek(VideoState *is, double pts, double length)
 
 void DecodeOnePicture(FILE * f, double pts, double length)
 {
-    double frame_delay = 1.0;
     VideoState *is = global_video_state;
     AVPacket *packet;
     int ret;
-    int single_frame=0;
-    int seek_flags = 0;
-    int count = 0;
 
     int64_t pack_pts=0, comp_pts=0, pack_duration=0;
 
@@ -1100,11 +1084,6 @@ int video_packet_process(VideoState *is,AVPacket *packet)
     int len1, frameFinished;
     double pts, dts;
     double real_pts;
-    static int summed_repeat = 0;
-    static double last_jump_step = 0.0;
-    double current_jump_step;
-    static int last_jump_count = 0;
-    static long last_jump_frame = 0;
     static int extra_frame=0;
 static int find_29fps = 0;
 static int force_29fps = 0;
@@ -1338,7 +1317,6 @@ int stream_component_open(VideoState *is, int stream_index)
     AVFormatContext *pFormatCtx = is->pFormatCtx;
     AVCodecContext *codecCtx;
     AVCodec *codec;
-    AVDictionary *opts;
 
 
     if(stream_index < 0 || (unsigned int)stream_index >= pFormatCtx->nb_streams)
@@ -1565,7 +1543,6 @@ void file_open()
     VideoState *is;
     AVFormatContext *pFormatCtx;
     int subtitle_index= -1, audio_index= -1, video_index = -1;
-    int i;
     int retries = 0;
 
     if (global_video_state == NULL)
@@ -1791,19 +1768,15 @@ extern void __wgetmainargs (int *, wchar_t ***, wchar_t ***, int, _startupinfo
 
 int main (int argc, char ** argv)
 {
-    AVFormatContext *pFormatCtx;
     AVPacket pkt1, *packet = &pkt1;
-    int video_index = -1;
-    int audio_index = -1;
     int result = 0;
-    int i;
     int ret;
     double retry_target = 0.0;
     double old_clock = 0.0;
                     int empty_packet_count = 0;
 
 #ifdef SELFTEST
-    int tries = 0;
+    //int tries = 0;
 #endif
     retries = 0;
 
@@ -1812,6 +1785,7 @@ int main (int argc, char ** argv)
 
 #ifdef __MSVCRT_VERSION__
 
+    int i;
     int _argc = 0;
     wchar_t **_argv = 0;
     wchar_t **dummy_environ = 0;
@@ -2132,7 +2106,6 @@ again:
 #ifdef SELFTEST
             if (selftest == 1 && is->seek_req == 0 && framenum == 500)
             {
-                double frame_delay = 1/ get_fps();         // <------------------------ frame delay is the time in seconds till the next frame
                 Set_seek(is, 30.0, 10000.0);
                 framenum++;
             }
