@@ -1087,7 +1087,6 @@ int video_packet_process(VideoState *is,AVPacket *packet)
     int repeat;
     double pts, dts;
     double real_pts;
-    static int extra_frame=0;
 static int find_29fps = 0;
 static int force_29fps = 0;
 static int find_25fps = 0;
