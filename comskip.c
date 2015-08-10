@@ -181,7 +181,7 @@ static int aaa;
 #define F2T(X) (F2V(X))
 #define F2L(X,Y) (F2V(X) - F2V(Y))
 
-#define F2F(X) ((int) (F2T(X) * fps + 1.5 ))
+#define F2F(X) ((int) (F2T(X) * fps + 0.5 ))
 
 typedef struct
 {
@@ -6197,7 +6197,7 @@ void OutputCommercialBlock(int i, long prev, long start, long end, bool last)
         out_file = myfopen(out_filename, "a+");
         if (out_file)
         {
-            fprintf(out_file, "%i\t%i\n", (sage_framenumber_bug?s_start/2:s_start), (sage_framenumber_bug?s_end/2:s_end));
+            fprintf(out_file, "%i\t%i\n", F2F(sage_framenumber_bug?s_start/2:s_start), F2F(sage_framenumber_bug?s_end/2:s_end));
             fclose(out_file);
         }
         else  		// If the file can't be opened for writting, wait half a second and try again
@@ -6206,7 +6206,7 @@ void OutputCommercialBlock(int i, long prev, long start, long end, bool last)
             out_file = myfopen(out_filename, "a+");
             if (out_file)
             {
-                fprintf(out_file, "%i\t%i\n", (sage_framenumber_bug?s_start/2:s_start), (sage_framenumber_bug?s_end/2:s_end));
+                fprintf(out_file, "%i\t%i\n", F2F(sage_framenumber_bug?s_start/2:s_start), F2F(sage_framenumber_bug?s_end/2:s_end));
                 fclose(out_file);
             }
             else  	// If the file still can't be opened for writting, give up and exit
@@ -6220,7 +6220,7 @@ void OutputCommercialBlock(int i, long prev, long start, long end, bool last)
 
     if (zoomplayer_cutlist_file && prev < start && end - start > 2)
     {
-        fprintf(zoomplayer_cutlist_file, "JumpSegment(\"From=%.4f\",\"To=%.4f\")\n", (start) / fps, (end) / fps);
+        fprintf(zoomplayer_cutlist_file, "JumpSegment(\"From=%.4f\",\"To=%.4f\")\n", get_frame_pts(start), get_frame_pts(end));
     }
     CLOSEOUTFILE(zoomplayer_cutlist_file);
     if (plist_cutlist_file)
@@ -6229,7 +6229,7 @@ void OutputCommercialBlock(int i, long prev, long start, long end, bool last)
         {
             // NOTE: we could possibly simplify this to just printing start and end without the math
             fprintf(plist_cutlist_file, "<integer>%ld</integer> <integer>%ld</integer>\n",
-                    (unsigned long)((start) / fps * 90000), (unsigned long)((end) / fps * 90000));
+                    (unsigned long)(get_frame_pts(start) * 90000), (unsigned long)(get_frame_pts(end)* 90000));
         }
         if (last)
         {
@@ -6269,7 +6269,7 @@ void OutputCommercialBlock(int i, long prev, long start, long end, bool last)
 
     if (vcf_file && prev < start && start - prev > 5 && prev > 0 )
     {
-        fprintf(vcf_file, "VirtualDub.subset.AddRange(%li,%li);\n", prev-1, start - prev);
+        fprintf(vcf_file, "VirtualDub.subset.AddRange(%li,%li);\n", F2F(prev-1), F2F(start) - F2F(prev));
     }
     CLOSEOUTFILE(vcf_file);
 
@@ -6284,15 +6284,15 @@ void OutputCommercialBlock(int i, long prev, long start, long end, bool last)
 
     if (projectx_file && prev < start)
     {
-        fprintf(projectx_file, "%ld\n", prev+1);
-        fprintf(projectx_file, "%ld\n", start);
+        fprintf(projectx_file, "%ld\n", F2F(prev+1));
+        fprintf(projectx_file, "%ld\n", F2F(start));
     }
     CLOSEOUTFILE(projectx_file);
 
     if (avisynth_file && prev < start)
     {
-        fprintf(avisynth_file, "%strim(%ld,", (prev < 10 ? "" : " ++ "), prev+1);
-        fprintf(avisynth_file, "%ld)", start);
+        fprintf(avisynth_file, "%strim(%ld,", (prev < 10 ? "" : " ++ "), F2F(prev+1));
+        fprintf(avisynth_file, "%ld)", F2F(start));
     }
     if (avisynth_file && last)
     {
@@ -6306,7 +6306,7 @@ void OutputCommercialBlock(int i, long prev, long start, long end, bool last)
             fprintf(videoredo_file, "<VideoStreamPID>%d\n<AudioStreamPID>%d\n<SubtitlePID1>%d\n", selected_video_pid, selected_audio_pid, selected_subtitle_pid);
         s_start = max(start-videoredo_offset-1,0);
         s_end = max(end - videoredo_offset-1,0);
-        fprintf(videoredo_file, "<Cut>%.0f:%.0f\n", s_start / fps * 10000000, s_end / fps * 10000000);
+        fprintf(videoredo_file, "<Cut>%.0f:%.0f\n", get_frame_pts(s_start) * 10000000, get_frame_pts(s_end) * 10000000);
     }
     CLOSEOUTFILE(videoredo_file);
 
@@ -6319,7 +6319,7 @@ void OutputCommercialBlock(int i, long prev, long start, long end, bool last)
             fprintf(videoredo3_file, "<InputPIDList><VideoStreamPID>%d</VideoStreamPID>\n<AudioStreamPID>%d</AudioStreamPID><SubtitlePID1>%d</SubtitlePID1></InputPIDList>\n", selected_video_pid, selected_audio_pid, selected_subtitle_pid);
         s_start = max(start-videoredo_offset-1,0);
         s_end = max(end - videoredo_offset-1,0);
-        fprintf(videoredo3_file, "<Cut><CutTimeStart>%.0f</CutTimeStart> <CutTimeEnd>%.0f</CutTimeEnd> </Cut>\n", s_start / fps * 10000000, s_end / fps * 10000000);
+        fprintf(videoredo3_file, "<Cut><CutTimeStart>%.0f</CutTimeStart> <CutTimeEnd>%.0f</CutTimeEnd> </Cut>\n", get_frame_pts(s_start) * 10000000, get_frame_pts(s_end) * 10000000);
 
     }
     if (videoredo3_file)
@@ -6334,11 +6334,11 @@ void OutputCommercialBlock(int i, long prev, long start, long end, bool last)
 
     if (btv_file && prev < start)
     {
-        strcpy(scomment, dblSecondsToStrMinutes(start / fps));
-        strcpy(ecomment, dblSecondsToStrMinutes(end / fps));
+        strcpy(scomment, dblSecondsToStrMinutes(get_frame_pts(start)));
+        strcpy(ecomment, dblSecondsToStrMinutes(get_frame_pts(end)));
 
         fprintf(btv_file, "<Region><start comment=\"%s\">%.0f</start><end comment=\"%s\">%.0f</end></Region>\n",
-                scomment, start / fps * 10000000, ecomment, end / fps * 10000000);
+                scomment, get_frame_pts(start) * 10000000, ecomment, get_frame_pts(end) * 10000000);
         if (last)
         {
             fprintf(btv_file, "</cutlist>\n");
@@ -6425,18 +6425,18 @@ void OutputCommercialBlock(int i, long prev, long start, long end, bool last)
         {
             if (start - prev > fps)
             {
-                fprintf(womble_file, "CLIPLIST: #%i show\nCLIP: %s\n6 %li %li\n", i+1, mpegfilename,prev+1, start-prev);
+                fprintf(womble_file, "CLIPLIST: #%i show\nCLIP: %s\n6 %li %li\n", i+1, mpegfilename,F2F(prev+1), F2F(start) - F2F(prev));
             }
 // CLIPLIST: #2 commercial
 // CLIP: morse.mpg
 // 6 9963 5196
 
-            fprintf(womble_file, "CLIPLIST: #%i commercial\nCLIP: %s\n6 %li %li\n", i+1, mpegfilename, start, end - start);
+            fprintf(womble_file, "CLIPLIST: #%i commercial\nCLIP: %s\n6 %li %li\n", i+1, mpegfilename, F2F(start), F2F(end) - F2F(start));
         }
         else
         {
             if (end - prev > 0)
-                fprintf(womble_file, "CLIPLIST: #%i show\nCLIP: %s\n6 %li %li\n", i+1, mpegfilename, prev+1, end - prev);
+                fprintf(womble_file, "CLIPLIST: #%i show\nCLIP: %s\n6 %li %li\n", i+1, mpegfilename, F2F(prev+1), F2F(end) - F2F(prev));
         }
     }
     CLOSEOUTFILE(womble_file);
@@ -6455,12 +6455,12 @@ void OutputCommercialBlock(int i, long prev, long start, long end, bool last)
                 fprintf(mls_file, "%11i 1\n", 0);
         }
         else
-            fprintf(mls_file, "%11li 1\n", prev);
+            fprintf(mls_file, "%11li 1\n", F2F(prev));
         if (!last)
-            fprintf(mls_file, "%11li 0\n", start);
+            fprintf(mls_file, "%11li 0\n", F2F(start));
         else if (start < end - 5) {
-            fprintf(mls_file, "%11li 0\n", start);
-            fprintf(mls_file, "%11li 1\n", end);
+            fprintf(mls_file, "%11li 0\n", F2F(start));
+            fprintf(mls_file, "%11li 1\n", F2F(end));
         }
 
     }
@@ -6517,8 +6517,8 @@ void OutputCommercialBlock(int i, long prev, long start, long end, bool last)
     {
         if (end - start > 1)
         {
-            fprintf(mpeg2schnitt_file, "/o%ld ",	start);
-            fprintf(mpeg2schnitt_file, "/i%ld ", end);
+            fprintf(mpeg2schnitt_file, "/o%ld ",	F2F(start));
+            fprintf(mpeg2schnitt_file, "/i%ld ", F2F(end));
         }
         if (last)
         {
@@ -6531,7 +6531,7 @@ void OutputCommercialBlock(int i, long prev, long start, long end, bool last)
     {
         if (prev+1 < start)
         {
-            fprintf(cuttermaran_file, "<CutElements refVideoFile=\"0\" StartPosition=\"%li\" EndPosition=\"%li\">\n", prev+1, start-1);
+            fprintf(cuttermaran_file, "<CutElements refVideoFile=\"0\" StartPosition=\"%li\" EndPosition=\"%li\">\n", F2F(prev+1), F2F(start-1));
             fprintf(cuttermaran_file, "<CurrentFiles refVideoFiles=\"0\" /> <cutAudioFiles refAudioFile=\"1\" /></CutElements>\n");
         }
         if (last)
