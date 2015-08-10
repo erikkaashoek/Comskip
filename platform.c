@@ -1,6 +1,6 @@
 #include "platform.h"
 
-#if defined(_WIN32) //&& !defined(__MINGW32__) && !defined(__MINGW64__)
+#if defined(_WIN32)
 BOOL AnsiToUnicode16(const char *in_Src, WCHAR *out_Dst, INT in_MaxLen)
 {
     /* locals */
@@ -64,7 +64,7 @@ int myremove(char * f)
 }
 #endif
 
-#if !defined(_WIN32) // || defined(__MINGW32__) || defined(__MINGW64__)
+#if !defined(_WIN32)
 int mystat(char * f, stath s)
 {
   return stat(f, s);
