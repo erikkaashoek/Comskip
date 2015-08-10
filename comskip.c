@@ -181,7 +181,7 @@ static int aaa;
 #define F2T(X) (F2V(X))
 #define F2L(X,Y) (F2V(X) - F2V(Y))
 
-#define F2F(X) ((int) (F2T(X) * fps + 0.5 ))
+#define F2F(X) ((long) (F2T(X) * fps + 0.5 ))
 
 typedef struct
 {
@@ -6197,7 +6197,7 @@ void OutputCommercialBlock(int i, long prev, long start, long end, bool last)
         out_file = myfopen(out_filename, "a+");
         if (out_file)
         {
-            fprintf(out_file, "%i\t%i\n", F2F(sage_framenumber_bug?s_start/2:s_start), F2F(sage_framenumber_bug?s_end/2:s_end));
+            fprintf(out_file, "%li\t%li\n", F2F(sage_framenumber_bug?s_start/2:s_start), F2F(sage_framenumber_bug?s_end/2:s_end));
             fclose(out_file);
         }
         else  		// If the file can't be opened for writting, wait half a second and try again
@@ -6206,7 +6206,7 @@ void OutputCommercialBlock(int i, long prev, long start, long end, bool last)
             out_file = myfopen(out_filename, "a+");
             if (out_file)
             {
-                fprintf(out_file, "%i\t%i\n", F2F(sage_framenumber_bug?s_start/2:s_start), F2F(sage_framenumber_bug?s_end/2:s_end));
+                fprintf(out_file, "%li\t%li\n", F2F(sage_framenumber_bug?s_start/2:s_start), F2F(sage_framenumber_bug?s_end/2:s_end));
                 fclose(out_file);
             }
             else  	// If the file still can't be opened for writting, give up and exit
