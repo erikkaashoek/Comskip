@@ -6225,7 +6225,7 @@ void OutputCommercialBlock(int i, long prev, long start, long end, bool last)
 
     if (ffmeta_file) {
         if (prev != -1 && prev < start) {
-            fprintf(ffmeta_file, "[CHAPTER]\nTIMEBASE=1/100\nSTART=%" PRIu64 "\nEND=%" PRIu64 "\ntitle=Show Segment\n", (uint64_t)(get_frame_pts(prev) * 100), (uint64_t)(get_frame_pts(start) * 100));
+            fprintf(ffmeta_file, "[CHAPTER]\nTIMEBASE=1/100\nSTART=%" PRIu64 "\nEND=%" PRIu64 "\ntitle=Show Segment\n", (uint64_t)(get_frame_pts(prev+1) * 100), (uint64_t)(get_frame_pts(start) * 100));
         } else if (prev == -1 && start > 5) {
             fprintf(ffmeta_file, "[CHAPTER]\nTIMEBASE=1/100\nSTART=%" PRIu64 "\nEND=%" PRIu64 "\ntitle=Show Segment\n", (uint64_t)0, (uint64_t)(get_frame_pts(start) * 100));
         }
@@ -6238,7 +6238,7 @@ void OutputCommercialBlock(int i, long prev, long start, long end, bool last)
 
     if (ffsplit_file) {
         if (prev != -1 && prev < start) {
-            fprintf(ffsplit_file, "-c copy -ss %.3f -t %.3f segment%03d.ts \n", get_frame_pts(prev), get_frame_pts(start) - get_frame_pts(prev), i);
+            fprintf(ffsplit_file, "-c copy -ss %.3f -t %.3f segment%03d.ts \n", get_frame_pts(prev+1), get_frame_pts(start) - get_frame_pts(prev+1), i);
         } else if (prev == -1 && start > 5) {
             fprintf(ffsplit_file, "-c copy -ss %.3f -t %.3f segment%03d.ts \n", 0.0, get_frame_pts(start), i);
         }
