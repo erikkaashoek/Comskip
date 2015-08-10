@@ -7351,6 +7351,9 @@ bool OutputCleanMpg()
     int len;
     int prevperc,curperc;
     char *Buf;//[65536];
+#ifndef WIN32
+    FILE *infile;
+#endif
 
     bool firstbl = true;
 #define BufSize 1<<22
