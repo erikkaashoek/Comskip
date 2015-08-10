@@ -1785,6 +1785,7 @@ int main (int argc, char ** argv)
 
 #ifdef __MSVCRT_VERSION__
 
+    int i;
     int _argc = 0;
     wchar_t **_argv = 0;
     wchar_t **dummy_environ = 0;
