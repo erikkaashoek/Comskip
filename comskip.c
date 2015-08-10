@@ -174,7 +174,6 @@ double get_frame_pts(int f) {
     return(frame[f].pts);
 }
 
-static int aaa;
 #define F2V(X) (frame != NULL ? ((X) <= 0 ? frame[1].pts : ((X) >= frame_count ? frame[frame_count - 1].pts : frame[X].pts )) : (X) / fps)
 #define assert(T) (aaa = ((T) ? 1 : *(int *)0))
 //#define F2T(X) (F2V(X) - F2V(1))
@@ -976,7 +975,7 @@ char *CauseString(int i)
 
 double ValidateBlackFrames(long reason, double ratio, int remove)
 {
-    int i,k,j,last, last_length, prev;
+    int i,k,j,last;
     int prev_cause;
     int strict_count = 0;
     int negative_count = 0;
@@ -1015,7 +1014,6 @@ double ValidateBlackFrames(long reason, double ratio, int remove)
     summed_length = 0.0;
     while(i < black_count)
     {
-        prev = i;
         while (i < black_count && (black[i].cause & reason) == 0)
         {
             i++;
@@ -1125,7 +1123,6 @@ double ValidateBlackFrames(long reason, double ratio, int remove)
             k++;
             total_cause |= black[k].cause;
         }
-        last_length = (k - i)/2;
         last = (i+k)/2;
         if ((total_cause & reason) && (prev_cause & reason))
         {
@@ -1531,7 +1528,6 @@ bool BuildBlocks(bool recalc)
     prev_start = 1;
     prev_head = 0;
 
-again:
     while(i < black_count || a < ar_block_count)
     {
         if (!(commDetectMethod & LOGO) && i < black_count && (black[i].cause & (C_s | C_l)))
@@ -1935,12 +1931,11 @@ int show_silence=0;
 void OutputDebugWindow(bool showVideo, int frm, int grf)
 {
 #ifdef _WIN32
-    int i,j,x,y,a=0,c=0,r,s=0,g,gc,lb=0,e=0,f,n=0,bl,xd;
+    int i,j,x,y,a=0,c=0,r,s=0,g,gc,lb=0,e=0,n=0,bl,xd;
     int v,w;
     int bartop = 0;
     int b,cb;
     int barh = 32;
-    int vidtop = 30;
     char t[1024];
     char x1[80];
     char x2[80];
@@ -2589,7 +2584,6 @@ bool ReviewResult()
     int grf = 2;
     int i,j;
     long prev;
-    int b = -1;
     char tsfilename[MAX_PATH];
     if (!framearray) grf = 0;
     output_demux = 0;
@@ -2986,7 +2980,6 @@ int DetectCommercials(int f, double pts)
 {
     bool isBlack = 0;	/*Gil*/
     int i,j;
-    bool	logoAppeared = false;
     long oldBlack_count;
 
 
@@ -3350,10 +3343,9 @@ void InsertBlackFrame(int f, int b, int u, int v, int c)
 
 bool BuildMasterCommList(void)
 {
-    int		i, j, t, c,b;
+    int		i, j, t, c;
     int		a = 0,k,count = 0;
     int		cp=0,cpf, maxsc,rsc;
-    int lastLogoTest;
     int 	silence_count = 0;
     int		silence_start = 0;
     int		summed_volume1 = 0;
@@ -3370,8 +3362,6 @@ bool BuildMasterCommList(void)
     int		platauHistogram[256];
 
     double	length;
-    long	totalFrames = 0;
-    int		counter = 0;
     double	new_ar_ratio;
     FILE*	logo_file = NULL;
     bool	foundCommercials = false;
@@ -4388,7 +4378,6 @@ void BuildPunish()
     int j;
     int t;
     int l;
-    int shorttest;
     if (!length_sorted)
     {
         for (i=0 ; i< block_count; i++)
@@ -4440,17 +4429,13 @@ void WeighBlocks(void)
     double  cl;
     double	combined_length;
     double	tolerance;
-    double	sumb = 0.0;
-    double	sumf = 0.0;
     double  wscore = 0.0;
     double  lscore = 0.0;
-    bool	end_deleted = false;
-    bool	start_deleted = false;
-    int		framecount = 0;
+    //bool	end_deleted = false;
+    //bool	start_deleted = false;
     double	max_score = 99.99;
     int		max_combined_count = 25;
     bool	breakforcombine = false;
-    double	schange_modifier;
 
     if (commDetectMethod & AR)
     {
@@ -5388,7 +5373,7 @@ expand:
                           i, (int)cblock[i].length, j);
                     cblock[i].cause |= C_H7;
                     cblock[i].more |= C_H7;
-                    start_deleted = true;
+                    //start_deleted = true;
                     break;
                 }
                 i++;
@@ -5415,7 +5400,7 @@ expand:
                           i, (int)cblock[i].length, j);
                     cblock[i].cause |= C_H7;
                     cblock[i].more |= C_H7;
-                    end_deleted = true;
+                    //end_deleted = true;
                     break;
                 }
                 i++;
@@ -6620,14 +6605,12 @@ void BuildCommercial()
 
 bool OutputBlocks(void)
 {
-    int		i,k,laststart;
+    int		i,k;
     long	prev;
     double comlength;
     double	threshold;
-    bool	lastBlockWasCommercial = false;
     bool	foundCommercials = false;
     bool	deleted = false;
-    char	cs[10];
 
     if (global_threshold >= 0.0)
     {
@@ -7254,7 +7237,7 @@ void OutputStrict(double len, double delta, double tol)
 
 void OutputTraining()
 {
-    int i,s,e,r;
+    int i;
 //	return;
     if (!output_training)
         return;
@@ -7367,10 +7350,8 @@ void OutputTraining()
 
 static unsigned char MPEG2SysHdr[] = {0x00, 0x00, 0x01, 0xBB, 00, 0x12, 0x80, 0x8E, 0xD3, 0x04, 0xE1, 0x7F, 0xB9, 0xE0, 0xE0, 0xB8, 0xC0, 0x54, 0xBD, 0xE0, 0x3A, 0xBF, 0xE0, 0x02};
 
-                                     bool OutputCleanMpg()
+bool OutputCleanMpg()
 {
-
-    FILE *infile=0;
     int inf, outf;
     int i,j,c;
     int64_t startpos=0, endpos=0, begin=0;
@@ -7381,13 +7362,11 @@ static unsigned char MPEG2SysHdr[] = {0x00, 0x00, 0x01, 0xBB, 00, 0x12, 0x80, 0x
     bool firstbl = true;
 #define BufSize 1<<22
 
-    long dwPackStart;
+    //long dwPackStart=0xBA010000;
 
     if (outputdirname[0] == 0) return(true);
 
     if (!(Buf=(char*)malloc(BufSize))) return(false);
-
-    dwPackStart=0xBA010000;
 
 #ifdef WIN32
     outf = _creat(outputdirname, _S_IREAD | _S_IWRITE);
@@ -7578,8 +7557,8 @@ bool IsStandardCommercialLength(double length, double tolerance, bool strict)
 
 double FindNumber(char* str1, char* str2, double v)
 {
-    bool negative=false;
     char  tmp[255];
+    bool negative=false;
     int i;
     double res = -1;
     if (str1 == 0)
@@ -7626,8 +7605,6 @@ char * FindString(char* str1, char* str2, char *v)
     static char foundText[1024];
     char  tmp[255];
     char *t;
-    bool negative=false;
-    double res;
     int found = 0;
     if (str1 == 0)
     {
@@ -7650,7 +7627,7 @@ char * FindString(char* str1, char* str2, char *v)
             {
                 if (*str1 == '\\')
                 {
-                    *str1++;
+                    str1++;
                     if (*str1 == 'n')
                         *str1 = '\n';
 
@@ -7740,7 +7717,6 @@ void LoadIniFile()
 {
 //	FILE*				ini_file = NULL;
     char				data[60000];
-    char				tempstr[MAX_PATH];
     char*				ts;
     size_t				len = 0;
     double				tmp;
@@ -8027,16 +8003,12 @@ FILE* LoadFile(char *f)
 
 FILE* LoadSettings(int argc, char ** argv)
 {
-    char				data[20000];
     char				tempstr[MAX_PATH];
-    char				cwd[MAX_PATH];
 //	FILE*				ini_file = NULL;
     FILE*				logo_file = NULL;
     FILE*				log_file = NULL;
     FILE*				test_file = NULL;
     char *CEW_argv[10];
-    size_t				len = 0;
-    double				tmp;
     int					i = 0;
 //	int					play_nice_start = -1;
 //	int					play_nice_end = -1;
@@ -8102,7 +8074,6 @@ FILE* LoadSettings(int argc, char ** argv)
         end
     };
     int					nerrors;
-    int					exitcode = 0;
     incomingCommandLine[0]=0; // was:	sprintf(incomingCommandLine, "");
     if (strchr(argv[0], ' '))
     {
@@ -8162,7 +8133,6 @@ FILE* LoadSettings(int argc, char ** argv)
 
         // NULL entries were detected, some allocations must have failed
         Debug(0, "%s: insufficient memory\n", progname);
-        exitcode = 1;
         goto exit;
     }
 
@@ -8880,11 +8850,9 @@ void BuildBlackFrameCommList(void) {
 	int			k;
 	int			x;
 	int			len;
-	int			marked = 0;
 	double		remainder;
 	double		added;
 	bool		oldbreak;
-	static int	runs = 0;
 	if (black_count == 0) return;
 
 	// detect individual commercials from black frames
@@ -9218,7 +9186,7 @@ void ProcessARInfo(int minY, int maxY, int minX, int maxX)
 
 int MatchCutScene(unsigned char *cutscene)
 {
-    int i,j,x,y,d;
+    int x,y,d;
     int delta = 0;
     int step = 4;
     int c=0;
@@ -9244,8 +9212,7 @@ void RecordCutScene(int frame_count, int brightness)
 {
     char cs[MAXCSLENGTH];
     int c;
-    int i,j,x,y;
-    int delta = 0;
+    int x,y;
     int step = 4;
 
     if (width > 800) step = 8;
@@ -9288,7 +9255,7 @@ void RecordCutScene(int frame_count, int brightness)
 
 void LoadCutScene(const char *filename)
 {
-    int i,j,s,b,c;
+    int i,j,b,c;
     cutscene_file = myfopen(filename,"rb");
     if (cutscene_file != NULL)
     {
@@ -9313,10 +9280,10 @@ void LoadCutScene(const char *filename)
 
 bool CheckSceneHasChanged(void)
 {
-    int		i,j,k;
+    int		i;
     int		x;
     int		y;
-    int     delta,count;
+    int     delta;
     int		step;
     long	similar = 0;
     static long prevsimilar = 0;
@@ -9330,10 +9297,7 @@ bool CheckSceneHasChanged(void)
     int		brightCountminY;
     int		brightCountmaxX;
     int		brightCountmaxY;
-    int		pictureHeight;
     long	cause;
-    int		hi;
-    double	cur_ar_ratio;
     int  uniform = 0;
     double scale = 1.0;
 
@@ -10063,11 +10027,9 @@ FRAME[((Y)-edge_radius)*width+(X)+edge_radius]-FRAME[((Y)+edge_radius)*width+(X)
 
 void EdgeDetect(unsigned char* frame_ptr, int maskNumber)
 {
-    int				i;
     int				x;
     int				y;
     //	unsigned char	temp[MAXWIDTH * MAXHEIGHT];
-    unsigned char	herePixel;
 //	memset(for (i = 0; i <= (width * height); i++) temp[i] = 0;
     hedge_count = 0;
     vedge_count = 0;
@@ -10264,9 +10226,7 @@ double CheckStationLogoEdge(unsigned char* testFrame)
     int		index;
     int		x;
     int		y;
-    int		herePixel;
     int		testEdges = 0;
-    int		testNotEdges = 0;
 
     int goodEdges = 0;
 
@@ -10419,9 +10379,7 @@ double DoubleCheckStationLogoEdge(unsigned char* testFrame)
     int		index;
     int		x;
     int		y;
-    int		herePixel;
     int		testEdges = 0;
-    int		testNotEdges = 0;
 
     int goodEdges = 0;
 
@@ -10707,7 +10665,6 @@ bool ProcessLogoTest(int framenum_real, int curLogoTest, int close)
 
 void ResetLogoBuffers(void)
 {
-    int i;
     newestLogoBuffer = oldestLogoBuffer = 0;
     if (newestLogoBuffer == num_logo_buffers) newestLogoBuffer = 0; // rotates buffer
     logoFrameNum[newestLogoBuffer] = framenum_real;
@@ -10728,8 +10685,6 @@ void ResetLogoBuffers(void)
 void FillLogoBuffer(void)
 {
     int i;
-    int x;
-    int y;
     newestLogoBuffer++;
     if (newestLogoBuffer == num_logo_buffers) newestLogoBuffer = 0; // rotates buffer
     logoFrameNum[newestLogoBuffer] = framenum_real;
@@ -10754,9 +10709,8 @@ void FillLogoBuffer(void)
 
 bool SearchForLogoEdges(void)
 {
-    int		i,j;
+    int		i;
     int		x;
-    int		maxY,minY;
     int		y;
     double scale = ((double)height / 572) * ( (double) videowidth / 720 );
     double	logoPercentageOfScreen;
@@ -10766,8 +10720,6 @@ bool SearchForLogoEdges(void)
     int		tempMaxX;
     int		tempMinY;
     int		tempMaxY;
-    int		excludeUnderX = videowidth / 2;
-    int		index;
     int		last_non_logo_frame;
     int		logoFound = false;
     tlogoMinX = edge_radius + border;
@@ -11165,7 +11117,6 @@ void DumpEdgeMask(unsigned char* buffer, int direction)
     int x;
     int y;
     char outbuf[MAXWIDTH+1];
-    int i;
     switch (direction)
     {
     case HORIZ:
@@ -11221,7 +11172,6 @@ void DumpEdgeMasks(void)
     int x;
     int y;
     char outbuf[MAXWIDTH+1];
-    int i;
 
     for (x = clogoMinX; x <= clogoMaxX; x++)
     {
@@ -11260,8 +11210,8 @@ void DumpEdgeMasks(void)
 bool CheckFramesForLogo(int start, int end)
 {
     int		i;
-    int		j;
 #ifdef OLD_LIVE_TV
+    int		j;
     for (i = start; i <= end; i++)
     {
         for (j = 0; j < logo_block_count; j++)
@@ -11276,7 +11226,6 @@ bool CheckFramesForLogo(int start, int end)
     return (reverseLogoLogic);
 #else
     double sum = 0.0;
-    j = 0;
     for (i = start; i <= end; i++)
         sum += (frame[i].currentGoodEdge > logo_threshold ? 1 : 0);
 
@@ -11293,7 +11242,6 @@ double CalculateLogoFraction(int start, int end)
 {
     int		i,j;
     int		count=0;
-    bool	logoPresent = false;
     j = 0;
     for (i = start; i <= end; i++)
     {
@@ -11322,7 +11270,6 @@ bool CheckFrameForLogo(int i)
 char CheckFramesForCommercial(int start, int end)
 {
     int		i;
-    int		j;
     if (start >= end )
         return ('0');						// Too short to decide
     i = 0;
@@ -11342,7 +11289,6 @@ char CheckFramesForCommercial(int start, int end)
 char CheckFramesForReffer(int start, int end)
 {
     int		i;
-    int		j;
     if (reffer_count < 0)
         return(' ');
     if (start >= end )
@@ -11472,8 +11418,6 @@ void LoadLogoMaskData(void)
     char	data[2000];
     char	*ptr = NULL;
     long	tmpLong = 0;
-    long	start = 0;
-    long	end = 0;
     size_t	len = 0;
 
     logo_file = myfopen(logofilename, "r");
@@ -12757,7 +12701,6 @@ void OutputAspect(void)
 //	long	j;
     char	array[MAX_PATH];
     FILE*	raw;
-    char	lp[10];
 
     if (!output_aspect)
         return;
@@ -12798,7 +12741,6 @@ void OutputBlackArray()
 //	long	j;
     char	array[MAX_PATH];
     FILE*	raw;
-    char	lp[10];
 
 return;
 
@@ -13048,33 +12990,24 @@ void PrintArgs(void)
 void ProcessCSV(FILE *in_file)
 {
     bool	lineProcessed = false;
-    bool	lastFrameHadLogo = false;
-    int		logoTrendCounter = 0;
     bool	lastLogoTest = false,curLogoTest = false;
 //	bool	isDim = false;
     char	line[2048];
     char	split[256];
     int		cont = 0;
 
-    int		old_height = 0;
-    int		old_width = 0;
     int		minminY=10000,maxmaxY = 0;
     int		minminX=10000,maxmaxX = 0;
-    int		hi;
-    int		silence_count = 0;
-    int     schange_found = 0;
     int		cutscene_nonzero_count = 0;
     int old_format = true;
     int     use_bright = 0;
     double  t;
-    int		i,j,k;
+    int		i;
     int		x;
     int		f;
     int		col;
-    int		curframe;
     int		ccDataFrame;
 
-    double	cur_ar_ratio;
 //	time_t	ltime;
 again:
     logoInfoAvailable = true;
@@ -13858,7 +13791,6 @@ void AddXDS(unsigned char hi, unsigned char lo)
             }
             else
             {
-dumpname:
                 for (i=0; i < 256; i++)
                 {
                     XDSbuf[i] &= 0x7f;
@@ -13878,9 +13810,6 @@ dumpname:
 
 void AddCC(int i)
 {
-    int offset;
-    static int		col = 0;
-    static int		row = 0;
     bool			tempBool;
     long			current_frame = framenum;
     int hi,lo;
@@ -14321,7 +14250,7 @@ void ProcessCCData(void)
     int				i;
     int proceed = 0;
     int is_CC = 0;
-    int is_dish = 0;
+    //int is_dish = 0;
     int is_GA = 0;
     int cctype = 0;
     int offset;
@@ -14466,7 +14395,7 @@ void ProcessCCData(void)
             offset += 3;
         }
         packetCount = cctype / 2;
-        is_dish = 1;
+        //is_dish = 1;
     }
 
     if (proceed)
@@ -14850,21 +14779,17 @@ void BuildCommListAsYouGo(void)
     int			k;
     int			x;
     int			len;
-    int			marked = 0;
     double		remainder;
     double		added;
     bool		oldbreak;
-    int local_blacklevel;
-    static int	runs = 0;
     bool		useLogo;
+    int local_blacklevel;
     int*		onTheFlyBlackFrame;
     int			onTheFlyBlackCount = 0;
-    int			brightness_buffer = 5;
 
     if (framenum_real - lastFrameCommCalculated <= 15 * fps) return;
 
 #ifdef OLD_LIVE_TV
-
     local_blacklevel = min_brightness_found + brightness_buffer;
 
     if (local_blacklevel < max_avg_brightness)
