@@ -1205,7 +1205,7 @@ static double prev_frame_delay = 0.0;
             }
 
             if ( (!(fabs(frame_delay - 0.040) < 0.001 )) &&
-                    ((fabs(calculated_delay - 0.04) < 0.0001)) || (fabs(calculated_delay - 0.039) < 0.0001) || (fabs(calculated_delay - 0.041) < 0.0001) )
+                    (((fabs(calculated_delay - 0.04) < 0.0001)) || (fabs(calculated_delay - 0.039) < 0.0001) || (fabs(calculated_delay - 0.041) < 0.0001)) )
             {
                 find_25fps++;
             }
@@ -1219,8 +1219,8 @@ static double prev_frame_delay = 0.0;
                 Debug(1 ,"Framerate forced to 25.00fps at frame %d\n", frame_count);
             }
 
-            if ( (find_24fps & 1 ) == 0 && (fabs(calculated_delay - 0.050) < 0.001 ) ||
-                    (find_24fps & 1 ) == 1 && (fabs(calculated_delay - 0.033) < 0.001 )
+            if ( ((find_24fps & 1 ) == 0 && (fabs(calculated_delay - 0.050) < 0.001 )) ||
+                    ((find_24fps & 1 ) == 1 && (fabs(calculated_delay - 0.033) < 0.001 ))
                )
             {
                 find_24fps++;
