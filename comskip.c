@@ -975,7 +975,7 @@ char *CauseString(int i)
 
 double ValidateBlackFrames(long reason, double ratio, int remove)
 {
-    int i,k,j,last, last_length, prev;
+    int i,k,j,last;
     int prev_cause;
     int strict_count = 0;
     int negative_count = 0;
@@ -1014,7 +1014,6 @@ double ValidateBlackFrames(long reason, double ratio, int remove)
     summed_length = 0.0;
     while(i < black_count)
     {
-        prev = i;
         while (i < black_count && (black[i].cause & reason) == 0)
         {
             i++;
@@ -1124,7 +1123,6 @@ double ValidateBlackFrames(long reason, double ratio, int remove)
             k++;
             total_cause |= black[k].cause;
         }
-        last_length = (k - i)/2;
         last = (i+k)/2;
         if ((total_cause & reason) && (prev_cause & reason))
         {
@@ -1933,12 +1931,11 @@ int show_silence=0;
 void OutputDebugWindow(bool showVideo, int frm, int grf)
 {
 #ifdef _WIN32
-    int i,j,x,y,a=0,c=0,r,s=0,g,gc,lb=0,e=0,f,n=0,bl,xd;
+    int i,j,x,y,a=0,c=0,r,s=0,g,gc,lb=0,e=0,n=0,bl,xd;
     int v,w;
     int bartop = 0;
     int b,cb;
     int barh = 32;
-    int vidtop = 30;
     char t[1024];
     char x1[80];
     char x2[80];
@@ -4428,8 +4425,8 @@ void WeighBlocks(void)
     double	tolerance;
     double  wscore = 0.0;
     double  lscore = 0.0;
-    bool	end_deleted = false;
-    bool	start_deleted = false;
+    //bool	end_deleted = false;
+    //bool	start_deleted = false;
     double	max_score = 99.99;
     int		max_combined_count = 25;
     bool	breakforcombine = false;
@@ -5370,7 +5367,7 @@ expand:
                           i, (int)cblock[i].length, j);
                     cblock[i].cause |= C_H7;
                     cblock[i].more |= C_H7;
-                    start_deleted = true;
+                    //start_deleted = true;
                     break;
                 }
                 i++;
@@ -5397,7 +5394,7 @@ expand:
                           i, (int)cblock[i].length, j);
                     cblock[i].cause |= C_H7;
                     cblock[i].more |= C_H7;
-                    end_deleted = true;
+                    //end_deleted = true;
                     break;
                 }
                 i++;
@@ -7346,10 +7343,8 @@ void OutputTraining()
 
 static unsigned char MPEG2SysHdr[] = {0x00, 0x00, 0x01, 0xBB, 00, 0x12, 0x80, 0x8E, 0xD3, 0x04, 0xE1, 0x7F, 0xB9, 0xE0, 0xE0, 0xB8, 0xC0, 0x54, 0xBD, 0xE0, 0x3A, 0xBF, 0xE0, 0x02};
 
-                                     bool OutputCleanMpg()
+bool OutputCleanMpg()
 {
-
-    FILE *infile=0;
     int inf, outf;
     int i,j,c;
     int64_t startpos=0, endpos=0, begin=0;
@@ -7360,13 +7355,11 @@ static unsigned char MPEG2SysHdr[] = {0x00, 0x00, 0x01, 0xBB, 00, 0x12, 0x80, 0x
     bool firstbl = true;
 #define BufSize 1<<22
 
-    long dwPackStart;
+    //long dwPackStart=0xBA010000;
 
     if (outputdirname[0] == 0) return(true);
 
     if (!(Buf=(char*)malloc(BufSize))) return(false);
-
-    dwPackStart=0xBA010000;
 
 #ifdef WIN32
     outf = _creat(outputdirname, _S_IREAD | _S_IWRITE);
@@ -8074,7 +8067,6 @@ FILE* LoadSettings(int argc, char ** argv)
         end
     };
     int					nerrors;
-    int					exitcode = 0;
     incomingCommandLine[0]=0; // was:	sprintf(incomingCommandLine, "");
     if (strchr(argv[0], ' '))
     {
@@ -8134,7 +8126,6 @@ FILE* LoadSettings(int argc, char ** argv)
 
         // NULL entries were detected, some allocations must have failed
         Debug(0, "%s: insufficient memory\n", progname);
-        exitcode = 1;
         goto exit;
     }
 
@@ -11212,8 +11203,8 @@ void DumpEdgeMasks(void)
 bool CheckFramesForLogo(int start, int end)
 {
     int		i;
-    int		j;
 #ifdef OLD_LIVE_TV
+    int		j;
     for (i = start; i <= end; i++)
     {
         for (j = 0; j < logo_block_count; j++)
@@ -11228,7 +11219,6 @@ bool CheckFramesForLogo(int start, int end)
     return (reverseLogoLogic);
 #else
     double sum = 0.0;
-    j = 0;
     for (i = start; i <= end; i++)
         sum += (frame[i].currentGoodEdge > logo_threshold ? 1 : 0);
 
@@ -14242,7 +14232,7 @@ void ProcessCCData(void)
     int				i;
     int proceed = 0;
     int is_CC = 0;
-    int is_dish = 0;
+    //int is_dish = 0;
     int is_GA = 0;
     int cctype = 0;
     int offset;
@@ -14387,7 +14377,7 @@ void ProcessCCData(void)
             offset += 3;
         }
         packetCount = cctype / 2;
-        is_dish = 1;
+        //is_dish = 1;
     }
 
     if (proceed)
@@ -14774,15 +14764,14 @@ void BuildCommListAsYouGo(void)
     double		remainder;
     double		added;
     bool		oldbreak;
-    int local_blacklevel;
     bool		useLogo;
+    int local_blacklevel;
     int*		onTheFlyBlackFrame;
     int			onTheFlyBlackCount = 0;
 
     if (framenum_real - lastFrameCommCalculated <= 15 * fps) return;
 
 #ifdef OLD_LIVE_TV
-
     local_blacklevel = min_brightness_found + brightness_buffer;
 
     if (local_blacklevel < max_avg_brightness)
