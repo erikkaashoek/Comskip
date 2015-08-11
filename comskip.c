@@ -171,6 +171,10 @@ long				max_frame_count;
 double get_frame_pts(int f) {
     if (!frame)
         return(0.0);
+    if (f < 1)
+        f = 1;
+    if (f> frame_count -1)
+        f> frame_count -1;
     return(frame[f].pts);
 }
 
@@ -180,7 +184,7 @@ double get_frame_pts(int f) {
 #define F2T(X) (F2V(X))
 #define F2L(X,Y) (F2V(X) - F2V(Y))
 
-#define F2F(X) ((long) (F2T(X) * fps + 0.5 ))
+#define F2F(X) ((long) (F2T(X) * fps + 1.5 ))
 
 typedef struct
 {
