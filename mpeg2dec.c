@@ -1085,7 +1085,8 @@ int video_packet_process(VideoState *is,AVPacket *packet)
     double frame_delay;
     int len1, frameFinished;
     int repeat;
-    double pts, dts;
+    double pts;
+//    double dts;
     double real_pts;
 static int find_29fps = 0;
 static int force_29fps = 0;
@@ -1159,7 +1160,8 @@ static double prev_frame_delay = 0.0;
             real_pts = av_q2d(is->video_st->time_base)* ( best_effort_timestamp - (is->video_st->start_time != AV_NOPTS_VALUE ? is->video_st->start_time : 0) - initial_pts) ;
             final_pts = best_effort_timestamp -  (is->video_st->start_time != AV_NOPTS_VALUE ? is->video_st->start_time : 0);
         }
-        dts =  av_q2d(is->video_st->time_base)* ( is->pFrame->pkt_dts - (is->video_st->start_time != AV_NOPTS_VALUE ? is->video_st->start_time : 0)) ;
+
+//        dts =  av_q2d(is->video_st->time_base)* ( is->pFrame->pkt_dts - (is->video_st->start_time != AV_NOPTS_VALUE ? is->video_st->start_time : 0)) ;
 
 
         calculated_delay = real_pts - prev_real_pts;
