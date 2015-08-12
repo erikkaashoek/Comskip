@@ -498,7 +498,7 @@ void sound_to_frames(VideoState *is, short **b, int s, int c, int format)
     }
 
     if (s+audio_samples > AUDIOBUFFER ) {
-        Debug(1,"Audio buffer overflow, resetting audio buffer\n");
+        Debug(1,"Panic: Audio buffer overflow, resetting audio buffer\n");
        audio_buffer_ptr = audio_buffer;
        top_apts = base_apts = 0;
        audio_samples=0;
