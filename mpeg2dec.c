@@ -333,7 +333,7 @@ static void signal_handler (int sig)
 
 #define AUDIOBUFFER	800000
 
-static double base_apts = 0.0, apts, top_apts;
+static double base_apts = 0.0, apts, top_apts = 0.0;
 static DECLARE_ALIGNED(16, short, audio_buffer[AUDIOBUFFER]);
 static short *audio_buffer_ptr = audio_buffer;
 static int audio_samples = 0;
@@ -371,7 +371,7 @@ int retreive_frame_volume(double from_pts, double to_pts)
     int s_per_frame = (to_pts - from_pts) * (double)(is->audio_st->codec->sample_rate+1);
 
 
-    if (s_per_frame > 1 && base_apts!= 0 && base_apts <= from_pts && to_pts < top_apts )
+    if (s_per_frame > 1 && base_apts <= from_pts && to_pts < top_apts )
     {
         calculated_delay = 0.0;
 
@@ -438,7 +438,7 @@ void backfill_frame_volumes()
     f = framenum-2;
     while (get_frame_pts(f) + initial_pts> base_apts && f > 1) // Find first frame with samples available, could be incomplete
         f--;
-    while (f < framenum-1 && (get_frame_pts(f+1) + initial_pts)<= top_apts && (top_apts - base_apts) > .5 /* && get_frame_pts(f-1) >= base_apts */) {
+    while (f < framenum-1 && (get_frame_pts(f+1) + initial_pts)<= top_apts && (top_apts - base_apts) > .2 /* && get_frame_pts(f-1) >= base_apts */) {
         volume = retreive_frame_volume(fmax(get_frame_pts(f) + initial_pts, base_apts), get_frame_pts(f+1) + initial_pts);
         if (volume > -1) set_frame_volume(f, volume);
         f++;
@@ -481,7 +481,8 @@ void sound_to_frames(VideoState *is, short **b, int s, int c, int format)
     old_sample_rate = is->audio_st->codec->sample_rate;
 
     old_base_apts = base_apts;
-    base_apts = (is->audio_clock - ((double)audio_samples /(double)(is->audio_st->codec->sample_rate)));
+    if (fabs(base_apts - (is->audio_clock - ((double)audio_samples /(double)(is->audio_st->codec->sample_rate))))> 0.0001)
+        base_apts = (is->audio_clock - ((double)audio_samples /(double)(is->audio_st->codec->sample_rate)));
         if (ALIGN_AC3_PACKETS && is->audio_st->codec->codec_id == AV_CODEC_ID_AC3) {
                     if (   ISSAME(base_apts - old_base_apts, 0.032)
                         || ISSAME(base_apts - old_base_apts, -0.032)
@@ -647,6 +648,8 @@ void audio_packet_process(VideoState *is, AVPacket *pkt)
                         )
                         prev_audio_clock = is->audio_clock; // Ignore AC3 packet jitter
             }
+#define AUDIO_REPAIR
+#ifdef AUDIO_REPAIR
         if ( initial_apts_set && fabs( is->audio_clock - prev_audio_clock) > 0.02) {
             if (fabs( is->audio_clock - prev_audio_clock) < 1) {
                  is->audio_clock = prev_audio_clock; //Ignore small jitter
@@ -657,6 +660,7 @@ void audio_packet_process(VideoState *is, AVPacket *pkt)
                 is->audio_clock = prev_audio_clock;
             }
         }
+#endif // AUDIO_REPAIR
     }
 
     initial_apts_set = 1;
