@@ -216,6 +216,7 @@ int initial_pts_set = 0;
 double initial_apts;
 double apts_offset = 0.0;
 int initial_apts_set = 0;
+int do_audio_repair = 1;
 
 //int bitrate;
 int muxrate,byterate=10000;
@@ -497,7 +498,7 @@ void sound_to_frames(VideoState *is, short **b, int s, int c, int format)
     }
 
     if (s+audio_samples > AUDIOBUFFER ) {
-        Debug(1,"Panic: Audio buffer overflow\n");
+        Debug(1,"Audio buffer overflow, resetting audio buffer\n");
        audio_buffer_ptr = audio_buffer;
        top_apts = base_apts = 0;
        audio_samples=0;
@@ -650,7 +651,7 @@ void audio_packet_process(VideoState *is, AVPacket *pkt)
             }
 #define AUDIO_REPAIR
 #ifdef AUDIO_REPAIR
-        if ( initial_apts_set && fabs( is->audio_clock - prev_audio_clock) > 0.02) {
+        if ( do_audio_repair && initial_apts_set && fabs( is->audio_clock - prev_audio_clock) > 0.02) {
             if (fabs( is->audio_clock - prev_audio_clock) < 1) {
                  is->audio_clock = prev_audio_clock; //Ignore small jitter
             }
@@ -660,6 +661,9 @@ void audio_packet_process(VideoState *is, AVPacket *pkt)
                 is->audio_clock = prev_audio_clock;
             }
         }
+        if (!do_audio_repair)
+            apts_offset = 0;
+
 #endif // AUDIO_REPAIR
     }
 
@@ -1268,6 +1272,8 @@ static double prev_frame_delay = 0.0;
             ){
             if ( (prev_strange_framenum + 1 != framenum) &&( prev_strange_step < fabs(calculated_delay - frame_delay))) {
                 Debug(1 ,"Strange video pts step of %6.5f instead of %6.5f at frame %d\n", calculated_delay+0.0005, frame_delay+0.0005, framenum); // Unknown strange step
+                if (calculated_delay < -0.5)
+                    do_audio_repair = 0;        // Disable audio repair with messed up video timeline
             }
             prev_strange_framenum = framenum;
             prev_strange_step = fabs(calculated_delay - frame_delay);
