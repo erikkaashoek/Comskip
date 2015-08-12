@@ -3006,6 +3006,8 @@ int DetectCommercials(int f, double pts)
 //	curvolume = RetreiveVolume(framenum_real);
     //curvolume = RetreiveVolume(frame_count);
 
+    if (pts < 0.0)
+        pts = 0.0;
     frame[frame_count].pts = pts;
     if (frame_count == 1)
         frame[0].pts = pts;
