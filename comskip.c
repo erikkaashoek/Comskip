@@ -173,8 +173,8 @@ double get_frame_pts(int f) {
         return(0.0);
     if (f < 1)
         f = 1;
-    if (f> frame_count -1)
-        f> frame_count -1;
+    if (f > frame_count -1)
+        f = frame_count -1;
     return(frame[f].pts);
 }
 
