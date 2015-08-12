@@ -1652,7 +1652,7 @@ bool BuildBlocks(bool recalc)
         if (bfcount < min_black_frames_for_break && cblock[i-1].cause == C_b)
         {
 
-            Debug(10, "Combining blocks %i and %i at %i because there are only %i black frames seperating them.\n",
+            Debug(10, "Combining blocks %i and %i at %i because there are only %i black frames separating them.\n",
                   i-1, i, cblock[i-1].f_end , bfcount);
 
             cblock[i-1].f_end	= cblock[i].f_end;
