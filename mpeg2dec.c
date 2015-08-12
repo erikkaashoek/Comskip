@@ -208,7 +208,7 @@ int selection_restart_count = 0;
 int found_pids=0;
 
 int64_t pts;
-int64_t initial_pts;
+double initial_pts;
 int64_t final_pts;
 double pts_offset = 0.0;
 
@@ -436,10 +436,10 @@ void backfill_frame_volumes()
     if (framenum < 3)
         return;
     f = framenum-2;
-    while (get_frame_pts(f) > base_apts && f > 1) // Find first frame with samples available, could be incomplete
+    while (get_frame_pts(f) + initial_pts> base_apts && f > 1) // Find first frame with samples available, could be incomplete
         f--;
-    while (f < framenum-1 && get_frame_pts(f+1) <= top_apts && (top_apts - base_apts) > .5 /* && get_frame_pts(f-1) >= base_apts */) {
-        volume = retreive_frame_volume(fmax(get_frame_pts(f), base_apts), get_frame_pts(f+1));
+    while (f < framenum-1 && (get_frame_pts(f+1) + initial_pts)<= top_apts && (top_apts - base_apts) > .5 /* && get_frame_pts(f-1) >= base_apts */) {
+        volume = retreive_frame_volume(fmax(get_frame_pts(f) + initial_pts, base_apts), get_frame_pts(f+1) + initial_pts);
         if (volume > -1) set_frame_volume(f, volume);
         f++;
     }
@@ -637,7 +637,7 @@ void audio_packet_process(VideoState *is, AVPacket *pkt)
     if (pkt->pts != AV_NOPTS_VALUE)
     {
         prev_audio_clock = is->audio_clock;
-        is->audio_clock = av_q2d(is->audio_st->time_base)*( pkt->pts -  (is->video_st->start_time != AV_NOPTS_VALUE ? is->video_st->start_time : 0) - initial_pts) - apts_offset;
+        is->audio_clock = av_q2d(is->audio_st->time_base)*( pkt->pts -  (is->video_st->start_time != AV_NOPTS_VALUE ? is->video_st->start_time : 0)) - apts_offset;
             if (ALIGN_AC3_PACKETS && is->audio_st->codec->codec_id == AV_CODEC_ID_AC3) {
                     if (   ISSAME(is->audio_clock - prev_audio_clock, 0.032)
                         || ISSAME(is->audio_clock - prev_audio_clock, -0.032)
@@ -841,7 +841,7 @@ static void ResetInputFile()
     framenum = 0;
 //	frame_count = 0;
     sound_frame_counter = 0;
-    initial_pts = 0;
+    initial_pts = 0.0;
     initial_pts_set = 0;
     initial_apts_set = 0;
     initial_apts = 0;
@@ -1155,16 +1155,16 @@ static double prev_frame_delay = 0.0;
             headerpos = avio_tell(is->pFormatCtx->pb);
             if (initial_pts_set < 3 && !reviewing)
             {
-                if (!ISSAME(av_q2d(is->video_st->time_base)* initial_pts, av_q2d(is->video_st->time_base)* (best_effort_timestamp - (frame_delay * framenum) / av_q2d(is->video_st->time_base) - (is->video_st->start_time != AV_NOPTS_VALUE ? is->video_st->start_time : 0)))) {
-                    initial_pts = best_effort_timestamp - (frame_delay * framenum) / av_q2d(is->video_st->time_base) - (is->video_st->start_time != AV_NOPTS_VALUE ? is->video_st->start_time : 0);
-                    Debug( 10,"\nInitial pts = %10.3f\n", av_q2d(is->video_st->time_base)* initial_pts);
+                if (!ISSAME(initial_pts, av_q2d(is->video_st->time_base)* (best_effort_timestamp - (frame_delay * framenum) / av_q2d(is->video_st->time_base) - (is->video_st->start_time != AV_NOPTS_VALUE ? is->video_st->start_time : 0)))) {
+                    initial_pts = (best_effort_timestamp  - (is->video_st->start_time != AV_NOPTS_VALUE ? is->video_st->start_time : 0)) * av_q2d(is->video_st->time_base) - (frame_delay * framenum);
+                    Debug( 10,"\nInitial pts = %10.3f\n", initial_pts);
                 }
                 initial_pts_set++;
                 final_pts = 0;
                 pts_offset = 0.0;
 
             }
-            real_pts = av_q2d(is->video_st->time_base)* ( best_effort_timestamp - (is->video_st->start_time != AV_NOPTS_VALUE ? is->video_st->start_time : 0) - initial_pts) ;
+            real_pts = av_q2d(is->video_st->time_base)* ( best_effort_timestamp - (is->video_st->start_time != AV_NOPTS_VALUE ? is->video_st->start_time : 0))  - initial_pts;
             final_pts = best_effort_timestamp -  (is->video_st->start_time != AV_NOPTS_VALUE ? is->video_st->start_time : 0);
         }
 
@@ -2067,7 +2067,7 @@ again:
                     file_close();
                     file_open();
                     sound_frame_counter = 0;
-                    initial_pts = 0;
+                    initial_pts = 0.0;
                     initial_pts_set = 0;
                     initial_apts_set = 0;
                     apts_offset = 0.0;
