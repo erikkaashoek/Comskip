@@ -1250,8 +1250,6 @@ static double prev_frame_delay = 0.0;
             if (!ISSAME(3*frame_delay/ is->video_st->codec->ticks_per_frame, calculated_delay))
                 if (!ISSAME(1*frame_delay/ is->video_st->codec->ticks_per_frame, calculated_delay))
                     pts_offset = pts_offset + frame_delay - calculated_delay;
-                    if (fabs(pts_offset) > 0.5)
-                        pts_offset = pts_offset;
         }
 
 //		Debug(0 ,"pst[%3d] = %12.3f, inter = %d, ticks = %d\n", framenum, pts/frame_delay, is->pFrame->interlaced_frame, is->video_st->codec->ticks_per_frame);
