@@ -650,22 +650,19 @@ void audio_packet_process(VideoState *is, AVPacket *pkt)
                         )
                         prev_audio_clock = is->audio_clock; // Ignore AC3 packet jitter
             }
-#define AUDIO_REPAIR
-#ifdef AUDIO_REPAIR
-        if ( do_audio_repair && initial_apts_set && fabs( is->audio_clock - prev_audio_clock) > 0.02) {
-            if (fabs( is->audio_clock - prev_audio_clock) < 1) {
+
+        if ( initial_apts_set && fabs( is->audio_clock - prev_audio_clock) > 0.02) {
+            if (do_audio_repair && fabs( is->audio_clock - prev_audio_clock) < 1) {
                  is->audio_clock = prev_audio_clock; //Ignore small jitter
             }
             else {
                 Debug(1 ,"Strange audio pts step of %6.5f instead of %6.5f at frame %d\n", (is->audio_clock - prev_audio_clock)+0.0005, 0.0 , framenum);
-                apts_offset += is->audio_clock - prev_audio_clock ;
-                is->audio_clock = prev_audio_clock;
+                if (do_audio_repair) {
+                    apts_offset += is->audio_clock - prev_audio_clock ;
+                    is->audio_clock = prev_audio_clock;
+                }
             }
         }
-        if (!do_audio_repair)
-            apts_offset = 0;
-
-#endif // AUDIO_REPAIR
     }
 
     initial_apts_set = 1;
