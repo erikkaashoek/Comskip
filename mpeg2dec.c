@@ -217,6 +217,7 @@ double initial_apts;
 double apts_offset = 0.0;
 int initial_apts_set = 0;
 int do_audio_repair = 1;
+extern int timeline_repair;
 
 //int bitrate;
 int muxrate,byterate=10000;
@@ -1166,6 +1167,8 @@ static double prev_frame_delay = 0.0;
                 if (!ISSAME(initial_pts, av_q2d(is->video_st->time_base)* (best_effort_timestamp - (frame_delay * framenum) / av_q2d(is->video_st->time_base) - (is->video_st->start_time != AV_NOPTS_VALUE ? is->video_st->start_time : 0)))) {
                     initial_pts = (best_effort_timestamp  - (is->video_st->start_time != AV_NOPTS_VALUE ? is->video_st->start_time : 0)) * av_q2d(is->video_st->time_base) - (frame_delay * framenum);
                     Debug( 10,"\nInitial pts = %10.3f\n", initial_pts);
+                if (!timeline_repair)
+                    initial_pts = 0.0;
                 }
                 initial_pts_set++;
                 final_pts = 0;
@@ -1254,11 +1257,15 @@ static double prev_frame_delay = 0.0;
 
 
         pts_offset *= 0.9;
-        if (framenum > 1 && fabs(calculated_delay - pts_offset - frame_delay) < 1.0) { // Allow max 0.5 second timeline jitter to be compensated
-            if (!ISSAME(3*frame_delay/ is->video_st->codec->ticks_per_frame, calculated_delay))
-                if (!ISSAME(1*frame_delay/ is->video_st->codec->ticks_per_frame, calculated_delay))
-                    pts_offset = pts_offset + frame_delay - calculated_delay;
+        if (timeline_repair) {
+            if (framenum > 1 && fabs(calculated_delay - pts_offset - frame_delay) < 1.0) { // Allow max 0.5 second timeline jitter to be compensated
+                if (!ISSAME(3*frame_delay/ is->video_st->codec->ticks_per_frame, calculated_delay))
+                    if (!ISSAME(1*frame_delay/ is->video_st->codec->ticks_per_frame, calculated_delay))
+                        pts_offset = pts_offset + frame_delay - calculated_delay;
+            }
         }
+        else
+            do_audio_repair = 0;
 
 //		Debug(0 ,"pst[%3d] = %12.3f, inter = %d, ticks = %d\n", framenum, pts/frame_delay, is->pFrame->interlaced_frame, is->video_st->codec->ticks_per_frame);
 

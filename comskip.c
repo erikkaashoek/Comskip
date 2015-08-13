@@ -582,6 +582,7 @@ bool				output_videoredo3 = false;
 bool				output_ipodchap = false;
 int					videoredo_offset = 2;
 int					edl_offset = 0;
+int                 timeline_repair = 1;
 int                 edl_skip_field = 0;
 bool				output_edl = false;
 bool				output_live = false;
@@ -7928,6 +7929,7 @@ void LoadIniFile()
         if ((tmp = FindNumber(data, "output_edl=", (double) output_edl)) > -1) output_edl = (bool) tmp;
         if ((tmp = FindNumber(data, "output_live=", (double) output_live)) > -1) output_live = (bool) tmp;
         if ((tmp = FindNumber(data, "edl_offset=", (double) edl_offset)) != -1) edl_offset = (int) tmp;
+        if ((tmp = FindNumber(data, "timeline_repair=", (double) timeline_repair)) != -1) timeline_repair = (int) tmp;
         if ((tmp = FindNumber(data, "edl_skip_field=", (double) edl_skip_field)) != -1) edl_skip_field = (int) tmp;
         if ((tmp = FindNumber(data, "output_edlp=", (double) output_edlp)) > -1) output_edlp = (bool) tmp;
         if ((tmp = FindNumber(data, "output_bsplayer=", (double) output_bsplayer)) > -1) output_bsplayer = (bool) tmp;
