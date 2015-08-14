@@ -1164,7 +1164,7 @@ static double prev_frame_delay = 0.0;
                 if (!ISSAME(initial_pts, av_q2d(is->video_st->time_base)* (best_effort_timestamp - (frame_delay * framenum) / av_q2d(is->video_st->time_base) - (is->video_st->start_time != AV_NOPTS_VALUE ? is->video_st->start_time : 0)))) {
                     initial_pts = (best_effort_timestamp  - (is->video_st->start_time != AV_NOPTS_VALUE ? is->video_st->start_time : 0)) * av_q2d(is->video_st->time_base) - (frame_delay * framenum);
                     Debug( 10,"\nInitial pts = %10.3f\n", initial_pts);
-                if (!timeline_repair)
+                if (timeline_repair<2)
                     initial_pts = 0.0;
                 }
                 initial_pts_set++;

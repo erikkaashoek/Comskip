@@ -7794,7 +7794,8 @@ void LoadIniFile()
         if ((tmp = FindNumber(data, "disable_heuristics=", (double) disable_heuristics)) > -1) disable_heuristics = (int)tmp;
         AddIniString("[CPU Load Reduction]\n");
         if ((tmp = FindNumber(data, "thread_count=", (double) thread_count)) > -1) thread_count = (int)tmp;
-        if ((tmp = FindNumber(data, "hardware_decode=", (double) hardware_decode)) > -1) hardware_decode = (int)tmp;
+        if (!hardware_decode)
+            if ((tmp = FindNumber(data, "hardware_decode=", (double) hardware_decode)) > -1) hardware_decode = (int)tmp;
 
         if ((tmp = FindNumber(data, "play_nice_start=", (double) play_nice_start)) > -1) play_nice_start = (int)tmp;
         if ((tmp = FindNumber(data, "play_nice_end=", (double) play_nice_end)) > -1) play_nice_end = (int)tmp;
@@ -8045,6 +8046,7 @@ FILE* LoadSettings(int argc, char ** argv)
     struct arg_lit*		cl_debugwindow			= arg_lit0("w", "debugwindow", "Show debug window");
     struct arg_lit*		cl_quiet				= arg_lit0("q", "quiet", "Not output logging to the console window");
     struct arg_lit*		cl_demux				= arg_lit0("m", "demux", "Demux the input into elementary streams");
+    struct arg_lit*		cl_hwassist				= arg_lit0(NULL, "hwassist", "Activate Hardware Assisted video decoding");
     struct arg_int*		cl_verbose				= arg_intn("v", "verbose", NULL, 0, 1, "Verbose level");
     struct arg_file*	cl_ini					= arg_filen(NULL, "ini", NULL, 0, 1, "Ini file to use");
     struct arg_file*	cl_logo					= arg_filen(NULL, "logo", NULL, 0, 1, "Logo file to use");
@@ -8067,6 +8069,7 @@ FILE* LoadSettings(int argc, char ** argv)
         cl_output_training,
         cl_output_plist,
         cl_demux,
+        cl_hwassist,
         cl_pid,
         cl_ts,
         cl_detectmethod,
@@ -8501,6 +8504,11 @@ FILE* LoadSettings(int argc, char ** argv)
     if (cl_demux->count)
     {
         output_demux = true;
+    }
+
+    if (cl_hwassist->count)
+    {
+        hardware_decode = 1;
     }
 
     if (!loadingTXT && !useExistingLogoFile && cl_logo->count==0)
