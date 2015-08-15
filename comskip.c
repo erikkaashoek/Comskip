@@ -9328,6 +9328,7 @@ bool CheckSceneHasChanged(void)
     brightCount = 0;
     step = 4;
     if (videowidth > 800) step = 8;
+    if (videowidth > 1600) step = 16;
     if (videowidth < 400) step = 2;
 
     memcpy(lastHistogram, histogram, sizeof(histogram));
@@ -9393,8 +9394,8 @@ bool CheckSceneHasChanged(void)
             minX = x;
         }
         x = videowidth - border - delta;
-        if (brightCountmaxX < 5)
-        {
+//        if (brightCountmaxX < 5)
+//        {
             for (y = border + delta; y <= height - border - delta; y += step)
             {
                 if (haslogo[y * width + x])
@@ -9409,7 +9410,7 @@ bool CheckSceneHasChanged(void)
                 //brightCountmaxX = 0;
                 maxX = x;
             }
-        }
+//        }
 
         delta += step;
         if (delta > videowidth / 2 || delta > height / 2)
