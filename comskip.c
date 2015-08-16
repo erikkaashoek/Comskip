@@ -3827,6 +3827,7 @@ scanagain:
                     t = 1;
                 maxsc = 255;
                 cp = 0;
+                cpf = 0;
                 while (j > t)
                 {
                     rsc = 255;
@@ -10995,7 +10996,7 @@ bool SearchForLogoEdges(void)
 
     if (logoInfoAvailable && startOverAfterLogoInfoAvail)
     {
-        Debug(3, "logoMinX=%i\tlogoMaxX=%i\tlogoMinY=%i\tlogoMaxY=%i\n", clogoMinX, clogoMaxX, clogoMinY, clogoMaxY);
+        Debug(3, "Logo found at frame %i\tlogoMinX=%i\tlogoMaxX=%i\tlogoMinY=%i\tlogoMaxY=%i\n", framenum_real, clogoMinX, clogoMaxX, clogoMinY, clogoMaxY);
         SaveLogoMaskData();
         Debug(3, "******************* End of Logo Processing ***************\n");
         return false;

@@ -1280,7 +1280,8 @@ static int    prev_strange_framenum = 0;
 
         calculated_delay = pts - prev_pts;
 
-        if (framenum > 1 && fabs(calculated_delay - frame_delay) > 0.01
+        if (!reviewing
+            && framenum > 1 && fabs(calculated_delay - frame_delay) > 0.01
             && !ISSAME(3*frame_delay/ is->video_st->codec->ticks_per_frame, calculated_delay)
             && !ISSAME(1*frame_delay/ is->video_st->codec->ticks_per_frame, calculated_delay)
             ){
