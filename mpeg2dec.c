@@ -760,7 +760,12 @@ static void print_fps (int final)
         last_count = 0;
         return;
     }
+#ifdef DONATOR
+#else
+#ifndef DEBUG
 again:
+#endif
+#endif
     gettimeofday (&tv_end, NULL);
 
     if (!frame_counter)
@@ -967,7 +972,7 @@ void DecodeOnePicture(FILE * f, double pts, double length)
     AVPacket *packet;
     int ret;
 
-    int64_t pack_pts=0, comp_pts=0, pack_duration=0;
+//    int64_t pack_pts=0, comp_pts=0, pack_duration=0;
 
     file_open();
     is = global_video_state;
@@ -1032,15 +1037,18 @@ void DecodeOnePicture(FILE * f, double pts, double length)
         }
         if(packet->stream_index == is->videoStream)
         {
+/*
             if (packet->pts != AV_NOPTS_VALUE)
                 comp_pts = packet->pts;
             pack_pts = comp_pts; // av_rescale_q(comp_pts, is->video_st->time_base, AV_TIME_BASE_Q);
             pack_duration = packet->duration; //av_rescale_q(packet->duration, is->video_st->time_base, AV_TIME_BASE_Q);
             comp_pts += packet->duration;
+ */
             pass = 0;
             retries = 1;
             if (video_packet_process(is, packet) )
             {
+
                 if (retries == 0)
                 {
                     av_free_packet(packet);
@@ -1113,7 +1121,7 @@ static double prev_pts = 0.0;
 static double prev_real_pts = 0.0;
 static double prev_strange_step = 0.0;
 static int    prev_strange_framenum = 0;
-static double prev_frame_delay = 0.0;
+//static double prev_frame_delay = 0.0;
 
     double calculated_delay;
 
@@ -1256,7 +1264,7 @@ static double prev_frame_delay = 0.0;
 
 
         pts_offset *= 0.9;
-        if (timeline_repair) {
+        if (!reviewing && timeline_repair) {
             if (framenum > 1 && fabs(calculated_delay - pts_offset - frame_delay) < 1.0) { // Allow max 0.5 second timeline jitter to be compensated
                 if (!ISSAME(3*frame_delay/ is->video_st->codec->ticks_per_frame, calculated_delay))
                     if (!ISSAME(1*frame_delay/ is->video_st->codec->ticks_per_frame, calculated_delay))
@@ -1325,7 +1333,7 @@ static double prev_frame_delay = 0.0;
         is->video_clock += frame_delay;
         prev_pts = pts;
         prev_real_pts = real_pts;
-        prev_frame_delay = frame_delay;
+//        prev_frame_delay = frame_delay;
         return 1;
     }
 quit:
@@ -1611,11 +1619,11 @@ int stream_component_open(VideoState *is, int stream_index)
 static void log_callback_report(void *ptr, int level, const char *fmt, va_list vl)
 {
     va_list vl2;
-    int l;
+//    int l;
     char line[1024];
     static int print_prefix = 1;
 
-    l = av_log_get_level();
+    av_log_get_level();
     if (level > av_log_level)
         return;
     va_copy(vl2, vl);

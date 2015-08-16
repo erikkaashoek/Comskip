@@ -4569,7 +4569,7 @@ void WeighBlocks(void)
 //				j++;
 //				combined_length += cblock[j].length;
 //			}
-expand:
+//expand:
             k = j;
             if (i > 0 && ((CUTCAUSE(cblock[i-1].cause) == C_b) || (CUTCAUSE(cblock[i-1].cause) == C_u)))
                 combined_length -= cblock[i].b_head / fps / 4 ;
@@ -8039,7 +8039,6 @@ FILE* LoadSettings(int argc, char ** argv)
     FILE*				logo_file = NULL;
     FILE*				log_file = NULL;
     FILE*				test_file = NULL;
-    char *CEW_argv[10];
     int					i = 0;
 //	int					play_nice_start = -1;
 //	int					play_nice_end = -1;
@@ -8779,6 +8778,8 @@ FILE* LoadSettings(int argc, char ** argv)
 
     if (!loadingTXT && (output_srt || output_smi ))
     {
+#ifdef PROCESS_CC
+        char *CEW_argv[10];
         i = 0;
         CEW_argv[i++] = "comskip.exe";
         if (output_smi)
@@ -8789,7 +8790,6 @@ FILE* LoadSettings(int argc, char ** argv)
         else
             CEW_argv[i++] = "-srt";
         CEW_argv[i++] = (char *)in->filename[0];
-#ifdef PROCESS_CC
         CEW_init (i, CEW_argv);
 #endif
     }
@@ -9324,13 +9324,12 @@ bool CheckSceneHasChanged(void)
     int     delta;
     int		step;
     long	similar = 0;
-    static long prevsimilar = 0;
+//    static long prevsimilar = 0;
     int		hasBright = 0;
     int		dimCount = 0;
     bool	isDim = false;
     int pixels = 0;
     int		hereBright;
-    int		brightCount;
     int		brightCountminX;
     int		brightCountminY;
     int		brightCountmaxX;
@@ -9344,11 +9343,10 @@ bool CheckSceneHasChanged(void)
     maxY = height - border;
     minX = border;
     maxX = videowidth - border;
-    brightCount = 0;
     step = 2;
-    if (videowidth > 800) step = 4;
-    if (videowidth > 1600) step = 8;
-    if (videowidth < 400) step = 1;
+    if (videowidth > 1200) step = 3;
+    if (videowidth > 1800) step = 4;
+    if (videowidth < 600) step = 1;
 
     memcpy(lastHistogram, histogram, sizeof(histogram));
     last_brightness = brightness;
@@ -9356,9 +9354,6 @@ bool CheckSceneHasChanged(void)
 
     // compare current frame with last frame here
     memset(histogram, 0, sizeof(histogram));
-
-#define NEW_AR_ALGO
-#ifdef NEW_AR_ALGO
 
     delta = 0;
     brightCountminX = 0;
@@ -9435,37 +9430,6 @@ bool CheckSceneHasChanged(void)
         if (delta > videowidth / 2 || delta > height / 2)
             break;
     }
-
-
-#else
-    brightCount = 0;
-    for (y = border; y < (height - border) / 2; y += step)
-    {
-        for (x = lineStart[y]; x <= lineEnd[y]; x += step)
-        {
-            hereBright = frame_ptr[y * width + x];
-            histogram[hereBright]++;
-            if (hereBright > test_brightness)
-                brightCount++;
-        }
-        if (brightCount < 5)
-            minY = y;
-    }
-
-    brightCount = 0;
-    for (y = height - border; y >= (height - border) / 2; y -= step)
-    {
-        for (x = lineStart[y]; x <= lineEnd[y]; x += step)
-        {
-            hereBright = frame_ptr[y * width + x];
-            histogram[hereBright]++;
-            if (hereBright > test_brightness)
-                brightCount++;
-        }
-        if (brightCount < 5)
-            maxY = y;
-    }
-#endif
 
 #ifdef FRAME_WITH_HISTOGRAM
     if (framearray) memcpy(frame[frame_count].histogram, histogram, sizeof(histogram));
@@ -9621,7 +9585,7 @@ bool CheckSceneHasChanged(void)
 
     sceneChangePercent = (int)(100.0 * similar / pixels);
 //	sceneChangePercent = (int)(100.0 * (1.0 - ((float)abs(prevsimilar - similar) / pixels)));
-    prevsimilar = similar;
+//    prevsimilar = similar;
 
     if (framearray) frame[frame_count].schange_percent = sceneChangePercent;
 
@@ -14809,8 +14773,10 @@ void BuildCommListAsYouGo(void)
 {
     long		c_start[MAX_COMMERCIALS];
     long		c_end[MAX_COMMERCIALS];
+#ifdef ADAPT_LIVE_COMMERCIAL
     long		ic_start[MAX_COMMERCIALS];
     long		ic_end[MAX_COMMERCIALS];
+#endif
     char		filename[255];
     int			commercials = 0;
     int			i;
@@ -14822,7 +14788,9 @@ void BuildCommListAsYouGo(void)
     double		added;
     bool		oldbreak;
     bool		useLogo;
+#ifdef OLD_LIVE_TV
     int local_blacklevel;
+#endif
     int*		onTheFlyBlackFrame;
     int			onTheFlyBlackCount = 0;
 
@@ -14833,8 +14801,6 @@ void BuildCommListAsYouGo(void)
 
     if (local_blacklevel < max_avg_brightness)
         local_blacklevel = max_avg_brightness;
-#else
-    local_blacklevel = max_avg_brightness;
 #endif
 
     if (black_count > 0
@@ -14931,7 +14897,9 @@ void BuildCommListAsYouGo(void)
                         {
 
                             c_end[commercials - 1] = onTheFlyBlackFrame[x - 1];
+#ifdef ADAPT_LIVE_COMMERCIAL
                             ic_end[commercials - 1] = x - 1;
+#endif
                             Debug(
                                 10,
                                 "Logo detected between frames %i and %i.  Setting commercial to %i to %i.\n",
@@ -14944,7 +14912,9 @@ void BuildCommListAsYouGo(void)
                         else if (onTheFlyBlackFrame[x] > c_end[commercials - 1] + fps)
                         {
                             c_end[commercials - 1] = onTheFlyBlackFrame[x];
+#ifdef ADAPT_LIVE_COMMERCIAL
                             ic_end[commercials - 1] = x;
+#endif
                             Debug(
                                 5,
                                 "--start: %i, end: %i, len: %.2fs\t%.2fs\n",
@@ -14977,8 +14947,10 @@ void BuildCommListAsYouGo(void)
                                 onTheFlyBlackFrame[x],
                                 ((onTheFlyBlackFrame[x] - onTheFlyBlackFrame[i]) / fps)
                             );
+#ifdef ADAPT_LIVE_COMMERCIAL
                             ic_start[commercials] = i;
                             ic_end[commercials] = x;
+#endif
                             c_start[commercials] = onTheFlyBlackFrame[i];
                             c_end[commercials++] = onTheFlyBlackFrame[x];
 
