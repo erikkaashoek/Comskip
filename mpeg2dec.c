@@ -658,8 +658,8 @@ void audio_packet_process(VideoState *is, AVPacket *pkt)
             else {
                 Debug(1 ,"Strange audio pts step of %6.5f instead of %6.5f at frame %d\n", (is->audio_clock - prev_audio_clock)+0.0005, 0.0 , framenum);
                 if (do_audio_repair) {
-                    apts_offset += is->audio_clock - prev_audio_clock ;
-                    is->audio_clock = prev_audio_clock;
+//                    apts_offset += is->audio_clock - prev_audio_clock ;
+//                    is->audio_clock = prev_audio_clock;
                 }
             }
         }
@@ -1631,7 +1631,7 @@ static void log_callback_report(void *ptr, int level, const char *fmt, va_list v
  //   av_log_default_callback(ptr, level, fmt, vl);
     av_log_format_line(ptr, level, fmt, vl2, line, sizeof(line), &print_prefix);
     va_end(vl2);
-    Debug(10, line);
+        Debug(10, line);
 
  //   fputs(line, report_file);
  //   fflush(report_file);
