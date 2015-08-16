@@ -805,7 +805,8 @@ again:
 
     tv_beg = tv_end;
 
-    cur_second = (int)(get_frame_pts(framenum));
+//    cur_second = (int)(get_frame_pts(framenum));
+    cur_second = (int)((framenum)/get_fps());
     cur_hour = cur_second / (60 * 60);
     cur_second -= cur_hour * 60 * 60;
     cur_minute = cur_second / 60;
@@ -819,7 +820,8 @@ again:
 
     fprintf (stderr, "%s - %d frames in %.2f sec(%.2f fps), "
              "%.2f sec(%.2f fps), %d%%\r", cur_pos, frame_counter,
-             total_elapsed / 100.0, tfps, elapsed / 100.0, fps, (int) (100.0 * get_frame_pts(framenum) / global_video_state->duration));
+//             total_elapsed / 100.0, tfps, elapsed / 100.0, fps, (int) (100.0 * get_frame_pts(framenum) / global_video_state->duration));
+             total_elapsed / 100.0, tfps, elapsed / 100.0, fps, (int) (100.0 * (framenum)/get_fps() / global_video_state->duration));
     fflush(stderr);
     last_count = frame_counter;
 }
@@ -1398,6 +1400,7 @@ int stream_component_open(VideoState *is, int stream_index)
     AVFormatContext *pFormatCtx = is->pFormatCtx;
     AVCodecContext *codecCtx;
     AVCodec *codec;
+    int w;
 
 
     if(stream_index < 0 || (unsigned int)stream_index >= pFormatCtx->nb_streams)
@@ -1472,6 +1475,14 @@ int stream_component_open(VideoState *is, int stream_index)
         else
         {
 #ifdef DONATOR
+            if (lowres == 10) {
+                w = codecCtx->width;
+                lowres = 0;
+                while (w > 600) {
+                    w = w >> 1;
+                    lowres++;
+                }
+            }
             codecCtx->lowres = lowres;
 #endif
 //            /* if(lowres) */ codecCtx->flags |= CODEC_FLAG_EMU_EDGE;
