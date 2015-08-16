@@ -10024,9 +10024,9 @@ FRAME[((Y)-edge_radius)*width+(X)+edge_radius]-FRAME[((Y)+edge_radius)*width+(X)
 
 #define AR_DIST	20
 
-#define LOGO_Y_LOOP	for (y = (logo_at_bottom ? height/2 : edge_radius + border); y < (subtitles? height/2 : (height - edge_radius - border)); y += edge_step)
+#define LOGO_Y_LOOP	for (y = (logo_at_bottom ? height/2 : edge_radius + border); y < (subtitles? height/2 : (height - edge_radius - border)); y = (y==height/4 ? 3*height/4 : y+edge_step))
 // #define LOGO_X_LOOP for (x = max(edge_radius + (int)(width * borderIgnore), minX+AR_DIST); x < min((width - edge_radius - (int)(width * borderIgnore)),maxX-AR_DIST); x += edge_step)
-#define LOGO_X_LOOP for (x = edge_radius + border; x < (videowidth - edge_radius - border); x = (x==videowidth/4 ? 3* videowidth/4 : x+edge_step))
+#define LOGO_X_LOOP for (x = edge_radius + border; x < (videowidth - edge_radius - border); x = (x==videowidth/3 ? 2*videowidth/3 : x+edge_step))
 
 void EdgeDetect(unsigned char* frame_ptr, int maskNumber)
 {
