@@ -10025,7 +10025,7 @@ FRAME[((Y)-edge_radius)*width+(X)+edge_radius]-FRAME[((Y)+edge_radius)*width+(X)
 
 #define AR_DIST	20
 
-#define LOGO_Y_LOOP	for (y = (logo_at_bottom ? height/2 : edge_radius + border); y < (subtitles? height/2 : (height - edge_radius - border)); y = (y==height/4 ? 3*height/4 : y+edge_step))
+#define LOGO_Y_LOOP	for (y = (logo_at_bottom ? height/2 : edge_radius + border); y < (subtitles? height/2 : (height - edge_radius - border)); y = (y==height/3 ? 2*height/3 : y+edge_step))
 // #define LOGO_X_LOOP for (x = max(edge_radius + (int)(width * borderIgnore), minX+AR_DIST); x < min((width - edge_radius - (int)(width * borderIgnore)),maxX-AR_DIST); x += edge_step)
 #define LOGO_X_LOOP for (x = edge_radius + border; x < (videowidth - edge_radius - border); x = (x==videowidth/3 ? 2*videowidth/3 : x+edge_step))
 
@@ -11006,7 +11006,7 @@ bool SearchForLogoEdges(void)
 }
 
 
-#define MAX_SEARCH 10
+#define MAX_SEARCH 25
 
 int ClearEdgeMaskArea(unsigned char* temp, unsigned char* test)
 {
@@ -11017,9 +11017,9 @@ int ClearEdgeMaskArea(unsigned char* temp, unsigned char* test)
     int offset;
     int ix,iy;
 
-    for (y = (logo_at_bottom ? height/2 : border); y < (subtitles? height/2 : height - border); y++)
+    LOGO_Y_LOOP
     {
-        for (x = border; x < videowidth - border; x = (x == videowidth/4 ? 3 * videowidth/4 : x+1))
+        LOGO_X_LOOP
         {
             count = 0;
             if (temp[y * width + x] == 1)
@@ -11030,25 +11030,27 @@ int ClearEdgeMaskArea(unsigned char* temp, unsigned char* test)
 
                 for (offset = edge_step; offset < MAX_SEARCH; offset += edge_step)
                 {
-                    iy = offset;
-                    for (ix= -offset; ix <= offset; ix += edge_step)
-                        if (y+iy > 0 && y+iy<height && x+ix > 0 && x+ix < videowidth && test[(y+iy) * width + x+ix] == 1)
+                    iy = min(y+offset,height-1);
+                    for (ix= max(x-offset,0); ix <= min(x+offset, width-1); ix += edge_step)
+                        if (test[iy * width + ix] == 1)
 //							goto found;
                             count++;
 
-                    iy = -offset;
-                    for (ix= -offset; ix <= offset; ix += edge_step)
-                        if (y+iy > 0 && y+iy<height && x+ix > 0 && x+ix < videowidth && test[(y+iy) * width + x+ix] == 1)
+                    iy = max(y-offset,0);
+                    for (ix= max(x-offset,0); ix <= min(x+offset, width-1); ix += edge_step)
+                        if (test[iy * width + ix] == 1)
 //							goto found;
                             count++;
-                    ix = offset;
-                    for (iy= -offset+edge_step; iy <= offset-edge_step; iy += edge_step)
-                        if (y+iy > 0 && y+iy<height && x+ix > 0 && x+ix < videowidth && test[(y+iy) * width + x+ix] == 1)
+
+                    ix = min(x+offset, width-1);
+                    for (iy= max(y-offset+edge_step,0); iy <=  min(y+offset-edge_step,height-1); iy += edge_step)
+                        if (test[iy * width + ix] == 1)
 //							goto found;
                             count++;
-                    ix = -offset;
-                    for (iy= -offset+edge_step; iy <= offset-edge_step; iy += edge_step)
-                        if (y+iy > 0 && y+iy<height && x+ix > 0 && x+ix < videowidth && test[(y+iy) * width + x+ix] == 1)
+
+                    ix = max(x-offset,0);
+                    for (iy= max(y-offset+edge_step,0); iy <=  min(y+offset-edge_step,height-1); iy += edge_step)
+                        if (test[iy * width + ix] == 1)
 //							goto found;
                             count++;
                     if (count >= edge_weight)
