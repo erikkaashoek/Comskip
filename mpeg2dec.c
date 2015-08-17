@@ -737,7 +737,7 @@ void audio_packet_process(VideoState *is, AVPacket *pkt)
     }
 }
 
-static void print_fps (int final)
+static double print_fps (int final)
 {
     static uint32_t frame_counter = 0;
     static struct timeval tv_beg, tv_start;
@@ -749,16 +749,16 @@ static void print_fps (int final)
     char cur_pos[100] = "0:00:00";
 
     if (verbose)
-        return;
+        return 0.0;
 
     if(csStepping)
-        return;
+        return 0.0;
 
     if(final < 0)
     {
         frame_counter = 0;
         last_count = 0;
-        return;
+        return 0.0;
     }
 #ifdef DONATOR
 #else
@@ -787,7 +787,7 @@ again:
         fprintf (stderr,"\n%d frames decoded in %.2f seconds (%.2f fps)\n",
                  frame_counter, total_elapsed / 100.0, tfps);
         fflush(stderr);
-        return;
+        return tfps;
     }
 
     frame_counter++;
@@ -806,7 +806,7 @@ again:
 #endif
 
     if (elapsed < 100)	/* only display every 1.00 seconds */
-        return;
+        return 0.0;
 
     tv_beg = tv_end;
 
@@ -829,6 +829,7 @@ again:
              total_elapsed / 100.0, tfps, elapsed / 100.0, fps, (int) (100.0 * (framenum)/get_fps() / global_video_state->duration));
     fflush(stderr);
     last_count = frame_counter;
+    return tfps;
 }
 
 
@@ -1409,7 +1410,6 @@ int stream_component_open(VideoState *is, int stream_index)
     AVFormatContext *pFormatCtx = is->pFormatCtx;
     AVCodecContext *codecCtx;
     AVCodec *codec;
-    int w;
 
 
     if(stream_index < 0 || (unsigned int)stream_index >= pFormatCtx->nb_streams)
@@ -1484,6 +1484,7 @@ int stream_component_open(VideoState *is, int stream_index)
         else
         {
 #ifdef DONATOR
+            int w;
             if (lowres == 10) {
                 w = codecCtx->width;
                 lowres = 0;
@@ -1872,6 +1873,7 @@ int main (int argc, char ** argv)
     AVPacket pkt1, *packet = &pkt1;
     int result = 0;
     int ret;
+    double tfps;
     double retry_target = 0.0;
     double old_clock = 0.0;
                     int empty_packet_count = 0;
@@ -2220,10 +2222,11 @@ again:
         BuildCommListAsYouGo();
     }
 
-        Debug( 10,"\nParsed %d video frames and %d audio frames of %4.2f fps\n", framenum, sound_frame_counter, get_fps());
+        tfps = print_fps (1);
+
+        Debug( 10,"\nParsed %d video frames and %d audio frames at %8.2f fps\n", framenum, sound_frame_counter, tfps);
         Debug( 10,"\nMaximum Volume found is %d\n", max_volume_found);
 
-        print_fps (1);
 
         in_file = 0;
         if (framenum>0)
