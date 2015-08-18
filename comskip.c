@@ -11006,7 +11006,7 @@ bool SearchForLogoEdges(void)
 }
 
 
-#define MAX_SEARCH 25
+#define MAX_SEARCH 8
 
 int ClearEdgeMaskArea(unsigned char* temp, unsigned char* test)
 {
