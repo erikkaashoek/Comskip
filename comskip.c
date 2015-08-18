@@ -12375,6 +12375,24 @@ void OutputFrame(int frame_number)
     fclose(raw);
 }
 
+int FindFrameWithPts(double t)
+{
+    int mx,mn;
+    mx = frame_count;
+    mn = 1;
+    if (frame) {
+    while( mx > mn+1) {
+        if (t < frame[(mx+mn)/2].pts) {
+            mx = (mx+mn+0.5)/2;
+        } else if (t > frame[(mx+mn)/2].pts) {
+            mn = (mx+mn+0.5)/2;
+        } else
+            return((mx+mn+0.5)/2);
+    }
+    return((mx+mn)/2);
+    } else
+        return(t * fps);
+}
 
 int InputReffer(char *extension, int setfps)
 {
@@ -12445,12 +12463,12 @@ int InputReffer(char *extension, int setfps)
                 switch (col)
                 {
                 case 0:
-                    reffer[reffer_count].start_frame = strtol(split, NULL, 10);
+                    reffer[reffer_count].start_frame = FindFrameWithPts(((double)strtol(split, NULL, 10))/fps);
                     if (sage_framenumber_bug) reffer[reffer_count].start_frame *= 2;
                     break;
 
                 case 1:
-                    reffer[reffer_count].end_frame = strtol(split, NULL, 10);
+                    reffer[reffer_count].end_frame = FindFrameWithPts(((double)strtol(split, NULL, 10))/fps);
                     if (reffer[reffer_count].end_frame < reffer[reffer_count].start_frame)
                     {
                         Debug(0,"Error in .ref file, end < start frame\n");
