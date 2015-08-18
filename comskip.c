@@ -1497,10 +1497,10 @@ bool BuildBlocks(bool recalc)
 //		ValidateBlackFrames(C_a, 3.0, true);
 
 
-    Debug(8, "Black Frame List\n---------------------------\nBlack Frame Count = %i\nnr \tframe\tbright\tuniform\tvolume\t\tcause\tdimcount  bright\n", black_count);
+    Debug(8, "Black Frame List\n---------------------------\nBlack Frame Count = %i\nnr \tframe\tpts\tbright\tuniform\tvolume\t\tcause\tdimcount  bright\n", black_count);
     for (k = 0; k < black_count; k++)
     {
-        Debug(8, "%3i\t%6i\t%6i\t%6i\t%6i\t%6s\t%6i\t%6i\n", k, black[k].frame, black[k].brightness, black[k].uniform, black[k].volume,&(CauseString(black[k].cause)[10]), frame[black[k].frame].dimCount, frame[black[k].frame].hasBright);
+        Debug(8, "%3i\t%6i\t%.3f\t%6i\t%6i\t%6i\t%6s\t%6i\t%6i\n", k, black[k].frame, get_frame_pts(black[k].frame), black[k].brightness, black[k].uniform, black[k].volume,&(CauseString(black[k].cause)[10]), frame[black[k].frame].dimCount, frame[black[k].frame].hasBright);
         if (k+1 < black_count && black[k].frame+1 != black[k+1].frame)
             Debug(8, "-----------------------------\n");
 
