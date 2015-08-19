@@ -7170,6 +7170,9 @@ bool OutputBlocks(void)
         Debug(1,   "Average framerate:          %2.3f\n", avg_fps);
 
         Debug(1,   "Total commercial length:    %s\n",	dblSecondsToStrMinutes(comlength));
+        Debug(1,   "Cut codes:\n");
+        Debug(1,   "  F: scene\t c: change\n  A: aspect\t t: cutscene\n  E: exceeds\t l: logo\n  L: logo\t v: volume\n  B: bright\t s: scene_change\n  C: combined\t a: aspect_ratio\n  N: nonstrict\t u: uniform_frame\n  S: strict\t b: black_frame\n  \t\t r: resolution\n");
+        Debug(1,   "----------------------------------------------------\n");
         Debug(1,   "Block list after weighing\n----------------------------------------------------\n", threshold);
         Debug(
             1,
