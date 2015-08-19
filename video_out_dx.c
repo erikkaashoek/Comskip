@@ -542,7 +542,7 @@ static int create_window (dx_instance_t * instance)
       * (for later use in event_handler).
       * We need to use SetWindowLongPtr when it is available in mingw */
      SetWindowLong (instance->window, GWL_USERDATA, (LONG) instance);
-     SetWindowPos(instance->window, HWND_TOP, 0, 0, 0, 0, SWP_SHOWWINDOW|SWP_NOSIZE);
+     SetWindowPos(instance->window, HWND_TOP, 100, 0, 0, 0, SWP_SHOWWINDOW|SWP_NOSIZE);
 
      ShowWindow (instance->window, SW_SHOW);
 
