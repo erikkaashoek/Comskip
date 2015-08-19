@@ -7176,7 +7176,7 @@ bool OutputBlocks(void)
         Debug(1,   "Block list after weighing\n----------------------------------------------------\n", threshold);
         Debug(
             1,
-            "  #     sbf  bs  be     fs     fe    sc      len   scr cmb   ar                   cut bri  logo   vol  sil corr stdev        cc\n"
+            "  #     sbf  bs  be     fs     fe        ts        te       len     sc   scr cmb   ar                   cut    bri logo   vol sil   corr stdev   cc\n"
         );
 
 //		if (output_training) {
@@ -7201,7 +7201,7 @@ bool OutputBlocks(void)
 
             Debug(
                 1,
-                "%3i:%c%c %4i %3i %3i %6i %6i %6.2f %8.3f %5.2f %3i %4.2f %s %4i%c %4.2f %4i%c %2i%c %6.3f %5i %-10s",
+                "%3i:%c%c %4i %3i %3i %6i %6i %8.2fs %8.2fs %8.2fs %6.2f %5.2f %3i %4.2f %s %4i%c %4.2f %4i%c %2i%c %6.3f %5i %-10s",
                 i,
                 CheckFramesForCommercial(cblock[i].f_start+cblock[i].b_head,cblock[i].f_end - cblock[i].b_tail),
                 CheckFramesForReffer(cblock[i].f_start+cblock[i].b_head,cblock[i].f_end - cblock[i].b_tail),
@@ -7210,8 +7210,10 @@ bool OutputBlocks(void)
                 cblock[i].b_tail,
                 cblock[i].f_start,
                 cblock[i].f_end,
-                cblock[i].score,
+                get_frame_pts(cblock[i].f_start),
+                get_frame_pts(cblock[i].f_end),
                 cblock[i].length,
+                cblock[i].score,
 //				cblock[i].schange_count,
                 cblock[i].schange_rate,
                 cblock[i].combined_count,
