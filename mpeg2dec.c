@@ -1505,8 +1505,6 @@ int stream_component_open(VideoState *is, int stream_index)
 #else
             codecCtx->thread_count= 1;
 #endif
-
-//        codecCtx->lowres = min(av_codec_get_max_lowres(codecCtx->codec),lowres);
     }
 
 
@@ -1627,6 +1625,8 @@ static void log_callback_report(void *ptr, int level, const char *fmt, va_list v
     char line[1024];
     static int print_prefix = 1;
 
+    if (reviewing)
+        return;
     av_log_get_level();
     if (level > av_log_level)
         return;

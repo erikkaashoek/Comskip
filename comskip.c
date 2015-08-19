@@ -789,6 +789,7 @@ bool				loadingCSV = false;
 bool				loadingTXT = false;
 int					helpflag = 0;
 int				    timeflag = 0;
+#define MAXTIMEFLAG 2
 int					recalculate=0;
 char *helptext[]=
 {
@@ -2456,7 +2457,12 @@ void OutputDebugWindow(bool showVideo, int frm, int grf)
                 break;
             }
         }
-        if (timeflag && framearray)
+        if (timeflag == 2 && framearray)
+        {
+            sprintf(frametext, "%8.2f", F2T(frm));
+        }
+        else
+        if (timeflag == 1 && framearray)
         {
             sprintf(frametext, "%s", dblSecondsToStrMinutes(F2T(frm)));
         }
@@ -2961,7 +2967,9 @@ bool ReviewResult()
             }
             if (key == 116)  				// F5 key
             {
-                timeflag = !timeflag;
+                timeflag++;
+                if (timeflag > MAXTIMEFLAG)
+                    timeflag = 0;
                 oldfrm = -1;
             }
             if (key == '.')
