@@ -789,6 +789,7 @@ bool				loadingCSV = false;
 bool				loadingTXT = false;
 int					helpflag = 0;
 int				    timeflag = 0;
+#define MAXTIMEFLAG 2
 int					recalculate=0;
 char *helptext[]=
 {
@@ -2456,7 +2457,12 @@ void OutputDebugWindow(bool showVideo, int frm, int grf)
                 break;
             }
         }
-        if (timeflag && framearray)
+        if (timeflag == 2 && framearray)
+        {
+            sprintf(frametext, "%8.2f", F2T(frm));
+        }
+        else
+        if (timeflag == 1 && framearray)
         {
             sprintf(frametext, "%s", dblSecondsToStrMinutes(F2T(frm)));
         }
@@ -2961,7 +2967,9 @@ bool ReviewResult()
             }
             if (key == 116)  				// F5 key
             {
-                timeflag = !timeflag;
+                timeflag++;
+                if (timeflag > MAXTIMEFLAG)
+                    timeflag = 0;
                 oldfrm = -1;
             }
             if (key == '.')
@@ -11007,7 +11015,7 @@ bool SearchForLogoEdges(void)
 }
 
 
-#define MAX_SEARCH 25
+#define MAX_SEARCH 8
 
 int ClearEdgeMaskArea(unsigned char* temp, unsigned char* test)
 {
@@ -12376,6 +12384,24 @@ void OutputFrame(int frame_number)
     fclose(raw);
 }
 
+int FindFrameWithPts(double t)
+{
+    int mx,mn;
+    mx = frame_count;
+    mn = 1;
+    if (frame) {
+    while( mx > mn+1) {
+        if (t < frame[(mx+mn)/2].pts) {
+            mx = (mx+mn+0.5)/2;
+        } else if (t > frame[(mx+mn)/2].pts) {
+            mn = (mx+mn+0.5)/2;
+        } else
+            return((mx+mn+0.5)/2);
+    }
+    return((mx+mn)/2);
+    } else
+        return(t * fps);
+}
 
 int InputReffer(char *extension, int setfps)
 {
@@ -12446,12 +12472,12 @@ int InputReffer(char *extension, int setfps)
                 switch (col)
                 {
                 case 0:
-                    reffer[reffer_count].start_frame = strtol(split, NULL, 10);
+                    reffer[reffer_count].start_frame = FindFrameWithPts(((double)strtol(split, NULL, 10))/fps);
                     if (sage_framenumber_bug) reffer[reffer_count].start_frame *= 2;
                     break;
 
                 case 1:
-                    reffer[reffer_count].end_frame = strtol(split, NULL, 10);
+                    reffer[reffer_count].end_frame = FindFrameWithPts(((double)strtol(split, NULL, 10))/fps);
                     if (reffer[reffer_count].end_frame < reffer[reffer_count].start_frame)
                     {
                         Debug(0,"Error in .ref file, end < start frame\n");

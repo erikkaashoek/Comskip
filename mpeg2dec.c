@@ -1470,6 +1470,7 @@ int stream_component_open(VideoState *is, int stream_index)
 
 #ifdef DONATOR
             is_h264 = 1;
+
 //            dxva2_init(codecCtx);
 #else
 
@@ -1493,7 +1494,7 @@ int stream_component_open(VideoState *is, int stream_index)
                     lowres++;
                 }
             }
-            codecCtx->lowres = lowres;
+ //           codecCtx->lowres = lowres;
 #endif
 //            /* if(lowres) */ codecCtx->flags |= CODEC_FLAG_EMU_EDGE;
         }
@@ -1504,7 +1505,6 @@ int stream_component_open(VideoState *is, int stream_index)
 #else
             codecCtx->thread_count= 1;
 #endif
-
     }
 
 
@@ -1551,6 +1551,7 @@ int stream_component_open(VideoState *is, int stream_index)
 
         is->pFrame = av_frame_alloc();
         codecCtx->flags |= CODEC_FLAG_GRAY;
+        codecCtx->lowres = min(av_codec_get_max_lowres(codecCtx->codec),lowres);
         if (codecCtx->codec_id == CODEC_ID_H264)
         {
 #ifdef DONATOR
@@ -1565,8 +1566,7 @@ int stream_component_open(VideoState *is, int stream_index)
 #ifdef DONATOR
         else
         {
-            if (codecCtx->codec_id != CODEC_ID_MPEG1VIDEO)
-                codecCtx->lowres = lowres;
+//            if (codecCtx->codec_id != CODEC_ID_MPEG1VIDEO)
         }
 #endif
 
@@ -1625,6 +1625,8 @@ static void log_callback_report(void *ptr, int level, const char *fmt, va_list v
     char line[1024];
     static int print_prefix = 1;
 
+    if (reviewing)
+        return;
     av_log_get_level();
     if (level > av_log_level)
         return;
