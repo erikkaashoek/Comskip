@@ -119,10 +119,6 @@ extern int xPos,yPos,lMouseDown;
 
 extern int framenum_infer;
 
-extern struct _stati64 instat;
-#define filesize stat.st_size
-
-
 extern int64_t headerpos;
 int				vo_init_done = 0;
 extern int soft_seeking;
@@ -149,6 +145,7 @@ typedef struct
     bool	isblack;
     int64_t		goppos;
     double	pts;
+    char    pict_type;
     int		minX;
     int		maxX;
     int		hasBright;
@@ -452,6 +449,7 @@ extern int						framenum;
 //extern int64_t			pts;
 extern int64_t			initial_pts;
 extern int				initial_pts_set;
+extern char pict_type;
 
 int			ascr,scr;
 int						framenum_real;
@@ -1498,10 +1496,10 @@ bool BuildBlocks(bool recalc)
 //		ValidateBlackFrames(C_a, 3.0, true);
 
 
-    Debug(8, "Black Frame List\n---------------------------\nBlack Frame Count = %i\nnr \tframe\tpts\tbright\tuniform\tvolume\t\tcause\tdimcount  bright\n", black_count);
+    Debug(8, "Black Frame List\n---------------------------\nBlack Frame Count = %i\nnr \tframe\tpts\tbright\tuniform\tvolume\t\tcause\tdimcount  bright   type\n", black_count);
     for (k = 0; k < black_count; k++)
     {
-        Debug(8, "%3i\t%6i\t%.3f\t%6i\t%6i\t%6i\t%6s\t%6i\t%6i\n", k, black[k].frame, get_frame_pts(black[k].frame), black[k].brightness, black[k].uniform, black[k].volume,&(CauseString(black[k].cause)[10]), frame[black[k].frame].dimCount, frame[black[k].frame].hasBright);
+        Debug(8, "%3i\t%6i\t%8.3f\t%6i\t%6i\t%6i\t%6s\t%6i\t%6i\t%c\n", k, black[k].frame, get_frame_pts(black[k].frame), black[k].brightness, black[k].uniform, black[k].volume,&(CauseString(black[k].cause)[10]), frame[black[k].frame].dimCount, frame[black[k].frame].hasBright, frame[black[k].frame].pict_type);
         if (k+1 < black_count && black[k].frame+1 != black[k+1].frame)
             Debug(8, "-----------------------------\n");
 
@@ -3037,6 +3035,7 @@ int DetectCommercials(int f, double pts)
     if (pts < 0.0)
         pts = 0.0;
     frame[frame_count].pts = pts;
+    frame[frame_count].pict_type = pict_type;
     if (frame_count == 1)
         frame[0].pts = pts;
 //    curvolume = retreive_frame_volume(get_frame_pts(frame_count-1), get_frame_pts(frame_count));
@@ -14281,8 +14280,6 @@ void AddCC(int i)
 
 }
 
-extern char field_t;
-
 void ProcessCCData(void)
 {
     int				i;
@@ -14318,7 +14315,7 @@ void ProcessCCData(void)
         *p++ = 0;
         if (ccData[0] == 'G')
             temp[7*3] = '0' + (temp[7*3] & 0x03);
-        Debug(10, "CCData for framenum %4i%c, length:%4i: %s\n", framenum, field_t, ccDataLen, temp);
+        Debug(10, "CCData for framenum %4i%c, length:%4i: %s\n", framenum, pict_type, ccDataLen, temp);
 
         p = (unsigned char *)temp;
         for (i = 0; i < ccDataLen; i++)
@@ -14329,7 +14326,7 @@ void ProcessCCData(void)
             *p++ = ' ';
         }
         *p++ = 0;
-        Debug(10, "CCData for framenum %4i%c, length:%4i: %s\n", framenum, field_t, ccDataLen, temp);
+        Debug(10, "CCData for framenum %4i%c, length:%4i: %s\n", framenum, pict_type, ccDataLen, temp);
 
     }
 

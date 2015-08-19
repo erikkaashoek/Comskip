@@ -238,7 +238,7 @@ extern int64_t _ftelli64(FILE *);
 int soft_seeking=0;
 extern char	basename[];
 
-char field_t;
+char pict_type;
 
 char tempstring[512];
 //test
@@ -292,8 +292,6 @@ int	seekDirection = 0;
 extern FILE * out_file;
 extern uint8_t ccData[500];
 extern int ccDataLen;
-
-char				prevfield_t = 0;
 
 extern int height,width, videowidth;
 extern int output_debugwindow;
@@ -832,16 +830,6 @@ again:
     return tfps;
 }
 
-
-
-char field_t;
-void SetField(char t)
-{
-    field_t = t;
-//	printf(" %c", t);
-}
-
-
 static void ResetInputFile()
 {
     global_video_state->seek_req = true;
@@ -909,12 +897,11 @@ int SubmitFrame(AVStream        *video_st, AVFrame         *pFrame , double pts)
     }
 
     if (pFrame->pict_type == AV_PICTURE_TYPE_B)
-        SetField('B');
+        pict_type = 'B';
     else if (pFrame->pict_type == AV_PICTURE_TYPE_I)
-        SetField('I');
+        pict_type = 'I';
     else
-        SetField('P');
-
+        pict_type = 'P';
 
     if (framenum == 0 && pass == 0 && test_pts == 0.0)
         test_pts = pts;
