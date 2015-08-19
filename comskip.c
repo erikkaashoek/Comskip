@@ -7168,10 +7168,13 @@ bool OutputBlocks(void)
         Debug(1,   "Average framerate:          %2.3f\n", avg_fps);
 
         Debug(1,   "Total commercial length:    %s\n",	dblSecondsToStrMinutes(comlength));
+        Debug(1,   "Cut codes:\n");
+        Debug(1,   "  F: scene\t c: change\n  A: aspect\t t: cutscene\n  E: exceeds\t l: logo\n  L: logo\t v: volume\n  B: bright\t s: scene_change\n  C: combined\t a: aspect_ratio\n  N: nonstrict\t u: uniform_frame\n  S: strict\t b: black_frame\n  \t\t r: resolution\n");
+        Debug(1,   "----------------------------------------------------\n");
         Debug(1,   "Block list after weighing\n----------------------------------------------------\n", threshold);
         Debug(
             1,
-            "  #     sbf  bs  be     fs     fe    sc      len   scr cmb   ar                   cut bri  logo   vol  sil corr stdev        cc\n"
+            "  #     sbf  bs  be     fs     fe        ts        te       len     sc   scr cmb   ar                   cut    bri logo   vol sil   corr stdev   cc\n"
         );
 
 //		if (output_training) {
@@ -7196,7 +7199,7 @@ bool OutputBlocks(void)
 
             Debug(
                 1,
-                "%3i:%c%c %4i %3i %3i %6i %6i %6.2f %8.3f %5.2f %3i %4.2f %s %4i%c %4.2f %4i%c %2i%c %6.3f %5i %-10s",
+                "%3i:%c%c %4i %3i %3i %6i %6i %8.2fs %8.2fs %8.2fs %6.2f %5.2f %3i %4.2f %s %4i%c %4.2f %4i%c %2i%c %6.3f %5i %-10s",
                 i,
                 CheckFramesForCommercial(cblock[i].f_start+cblock[i].b_head,cblock[i].f_end - cblock[i].b_tail),
                 CheckFramesForReffer(cblock[i].f_start+cblock[i].b_head,cblock[i].f_end - cblock[i].b_tail),
@@ -7205,8 +7208,10 @@ bool OutputBlocks(void)
                 cblock[i].b_tail,
                 cblock[i].f_start,
                 cblock[i].f_end,
-                cblock[i].score,
+                get_frame_pts(cblock[i].f_start),
+                get_frame_pts(cblock[i].f_end),
                 cblock[i].length,
+                cblock[i].score,
 //				cblock[i].schange_count,
                 cblock[i].schange_rate,
                 cblock[i].combined_count,
