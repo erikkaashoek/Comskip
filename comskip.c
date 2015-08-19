@@ -1599,14 +1599,12 @@ bool BuildBlocks(bool recalc)
         if (b_count > 0 && v_count > 1.5*b_count)
         {
             b_start = black_start;
-            b_end = black_end;
-            b_counted = b_count;
+            b_end = black_end + v_count;
         }
         else if (b_count == 0 && v_count > 5)
         {
             b_start = b_start - 1 + v_count / 2;
             b_end = b_end + 1 - v_count / 2;
-            b_counted = 3;
         }
         cblock[block_count].cause = cause;
 
