@@ -2289,4 +2289,3 @@ SetThreadExecutionState(ES_CONTINUOUS);
     exit (!result);
 #endif
 }
-
