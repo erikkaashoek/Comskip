@@ -119,10 +119,6 @@ extern int xPos,yPos,lMouseDown;
 
 extern int framenum_infer;
 
-extern struct _stati64 instat;
-#define filesize stat.st_size
-
-
 extern int64_t headerpos;
 int				vo_init_done = 0;
 extern int soft_seeking;
@@ -149,6 +145,7 @@ typedef struct
     bool	isblack;
     int64_t		goppos;
     double	pts;
+    char    pict_type;
     int		minX;
     int		maxX;
     int		hasBright;
@@ -452,6 +449,7 @@ extern int						framenum;
 //extern int64_t			pts;
 extern int64_t			initial_pts;
 extern int				initial_pts_set;
+extern char pict_type;
 
 int			ascr,scr;
 int						framenum_real;
@@ -1498,10 +1496,10 @@ bool BuildBlocks(bool recalc)
 //		ValidateBlackFrames(C_a, 3.0, true);
 
 
-    Debug(8, "Black Frame List\n---------------------------\nBlack Frame Count = %i\nnr \tframe\tbright\tuniform\tvolume\t\tcause\tdimcount  bright\n", black_count);
+    Debug(8, "Black Frame List\n---------------------------\nBlack Frame Count = %i\nnr \tframe\tpts\tbright\tuniform\tvolume\t\tcause\tdimcount  bright   type\n", black_count);
     for (k = 0; k < black_count; k++)
     {
-        Debug(8, "%3i\t%6i\t%6i\t%6i\t%6i\t%6s\t%6i\t%6i\n", k, black[k].frame, black[k].brightness, black[k].uniform, black[k].volume,&(CauseString(black[k].cause)[10]), frame[black[k].frame].dimCount, frame[black[k].frame].hasBright);
+        Debug(8, "%3i\t%6i\t%8.3f\t%6i\t%6i\t%6i\t%6s\t%6i\t%6i\t%c\n", k, black[k].frame, get_frame_pts(black[k].frame), black[k].brightness, black[k].uniform, black[k].volume,&(CauseString(black[k].cause)[10]), frame[black[k].frame].dimCount, frame[black[k].frame].hasBright, frame[black[k].frame].pict_type);
         if (k+1 < black_count && black[k].frame+1 != black[k+1].frame)
             Debug(8, "-----------------------------\n");
 
@@ -3037,6 +3035,7 @@ int DetectCommercials(int f, double pts)
     if (pts < 0.0)
         pts = 0.0;
     frame[frame_count].pts = pts;
+    frame[frame_count].pict_type = pict_type;
     if (frame_count == 1)
         frame[0].pts = pts;
 //    curvolume = retreive_frame_volume(get_frame_pts(frame_count-1), get_frame_pts(frame_count));
@@ -3726,7 +3725,8 @@ scanagain:
                     InsertBlackFrame(j,frame[j].brightness,frame[j].uniform,0, C_l);
                     Debug(
                         3,
-                        "Frame %6i - Cutpoint added when Logo disappears\n",
+                        "Frame %6i (%.3fs) - Cutpoint added when Logo disappears\n",
+                        get_frame_pts(j),
                         j
                     );
                     continue;
@@ -3799,8 +3799,8 @@ scanagain:
                     InsertBlackFrame(cp,frame[cp].brightness,frame[cp].uniform,frame[cp].volume, C_l);
                     Debug(
                         3,
-                        "Frame %6i - Cutpoint added %i seconds after Logo disappears at change percentage of %d\n",
-                        cp, (int)F2L(cp, logo_block[i].end), maxsc
+                        "Frame %6i (%.3fs) - Cutpoint added %i seconds after Logo disappears at change percentage of %d\n",
+                        cp, get_frame_pts(cp), (int)F2L(cp, logo_block[i].end), maxsc
                     );
                 }
             }
@@ -3820,8 +3820,8 @@ scanagain:
                     InsertBlackFrame(j,frame[j].brightness,frame[j].uniform,0, C_l);
                     Debug(
                         3,
-                        "Frame %6i - Cutpoint added when Logo appears\n",
-                        j
+                        "Frame %6i (%.3fs) - Cutpoint added when Logo appears\n",
+                        j, get_frame_pts(j)
                     );
 
                     continue;
@@ -3895,8 +3895,8 @@ scanagain:
                     InsertBlackFrame(cp,frame[cp].brightness,frame[cp].uniform,frame[cp].volume, C_l);
                     Debug(
                         3,
-                        "Frame %6i - Cutpoint added %i seconds before Logo disappears at change percentage of %d\n",
-                        cp, (int)F2L(cp, logo_block[i].end), maxsc
+                        "Frame %6i (%.3fs) - Cutpoint added %i seconds before Logo disappears at change percentage of %d\n",
+                        cp, get_frame_pts(cp), (int)F2L(cp, logo_block[i].end), maxsc
                     );
                 }
             }
@@ -7169,10 +7169,13 @@ bool OutputBlocks(void)
         Debug(1,   "Average framerate:          %2.3f\n", avg_fps);
 
         Debug(1,   "Total commercial length:    %s\n",	dblSecondsToStrMinutes(comlength));
+        Debug(1,   "Cut codes:\n");
+        Debug(1,   "  F: scene\t c: change\n  A: aspect\t t: cutscene\n  E: exceeds\t l: logo\n  L: logo\t v: volume\n  B: bright\t s: scene_change\n  C: combined\t a: aspect_ratio\n  N: nonstrict\t u: uniform_frame\n  S: strict\t b: black_frame\n  \t\t r: resolution\n");
+        Debug(1,   "----------------------------------------------------\n");
         Debug(1,   "Block list after weighing\n----------------------------------------------------\n", threshold);
         Debug(
             1,
-            "  #     sbf  bs  be     fs     fe    sc      len   scr cmb   ar                   cut bri  logo   vol  sil corr stdev        cc\n"
+            "  #     sbf  bs  be     fs     fe        ts        te       len     sc   scr cmb   ar                   cut    bri logo   vol sil   corr stdev   cc\n"
         );
 
 //		if (output_training) {
@@ -7197,7 +7200,7 @@ bool OutputBlocks(void)
 
             Debug(
                 1,
-                "%3i:%c%c %4i %3i %3i %6i %6i %6.2f %8.3f %5.2f %3i %4.2f %s %4i%c %4.2f %4i%c %2i%c %6.3f %5i %-10s",
+                "%3i:%c%c %4i %3i %3i %6i %6i %8.2fs %8.2fs %8.2fs %6.2f %5.2f %3i %4.2f %s %4i%c %4.2f %4i%c %2i%c %6.3f %5i %-10s",
                 i,
                 CheckFramesForCommercial(cblock[i].f_start+cblock[i].b_head,cblock[i].f_end - cblock[i].b_tail),
                 CheckFramesForReffer(cblock[i].f_start+cblock[i].b_head,cblock[i].f_end - cblock[i].b_tail),
@@ -7206,8 +7209,10 @@ bool OutputBlocks(void)
                 cblock[i].b_tail,
                 cblock[i].f_start,
                 cblock[i].f_end,
-                cblock[i].score,
+                get_frame_pts(cblock[i].f_start),
+                get_frame_pts(cblock[i].f_end),
                 cblock[i].length,
+                cblock[i].score,
 //				cblock[i].schange_count,
                 cblock[i].schange_rate,
                 cblock[i].combined_count,
@@ -9610,19 +9615,19 @@ bool CheckSceneHasChanged(void)
         if ((brightness <= max_avg_brightness) && hasBright <= maxbright * width * height / 720 / 480 && !isDim /* && uniform < non_uniformity */  /* && !lastLogoTest because logo disappearance is detected too late*/)
         {
             cause |= C_b;
-            Debug(7, "Frame %6i - Black frame with brightness of %i,uniform of %i and volume of %i\n", framenum_real, brightness, uniform, black[black_count-1].volume);
+            Debug(7, "Frame %6i (%.3fs) - Black frame with brightness of %i,uniform of %i and volume of %i\n", framenum_real, get_frame_pts(framenum_real), brightness, uniform, black[black_count-1].volume);
         }
         else if (non_uniformity > 0)
         {
             if ((brightness <= max_avg_brightness) && uniform < non_uniformity )
             {
                 cause |= C_u;
-                Debug(7, "Frame %6i - Black frame with brightness of %i,uniform of %i and volume of %i\n", framenum_real, brightness, uniform, black[black_count-1].volume);
+                Debug(7, "Frame %6i (%.3fs) - Black frame with brightness of %i,uniform of %i and volume of %i\n", framenum_real, get_frame_pts(framenum_real), brightness, uniform, black[black_count-1].volume);
             }
             if (brightness > max_avg_brightness && uniform < non_uniformity && brightness < 180)
             {
                 cause |= C_u;
-                Debug(7, "Frame %6i - Uniform frame with brightness of %i and uniform of %i\n", framenum_real, brightness, uniform);
+                Debug(7, "Frame %6i (%.3fs) - Uniform frame with brightness of %i and uniform of %i\n", framenum_real, get_frame_pts(framenum_real), brightness, uniform);
             }
         }
     }
@@ -9632,7 +9637,7 @@ bool CheckSceneHasChanged(void)
         if ((old_width != 0 && width != old_width) || (old_height != 0 && height != old_height))
         {
             cause |= C_r;
-            Debug(7, "Frame %6i - Resolution change from %d x %d to %d x %d \n", framenum_real, old_width, old_height, width, height);
+            Debug(7, "Frame %6i (%.3fs) - Resolution change from %d x %d to %d x %d \n", framenum_real, get_frame_pts(framenum_real), old_width, old_height, width, height);
             old_width = width;
             old_height = height;
             ResetLogoBuffers();
@@ -9655,12 +9660,12 @@ bool CheckSceneHasChanged(void)
         {
             if (abs(brightness - last_brightness) > brightness_jump)
             {
-                Debug( 7,"Frame %6i - Black frame because large brightness change from %i to %i with uniform %i\n", framenum_real, last_brightness, brightness, uniform);
+                Debug( 7,"Frame %6i (%.3fs) - Black frame because large brightness change from %i to %i with uniform %i\n", framenum_real, get_frame_pts(framenum_real), last_brightness, brightness, uniform);
                 cause |= C_s;
             }
             else if (sceneChangePercent < schange_cutlevel)
             {
-                Debug( 7,"Frame %6i - Black frame because large scene change of %i, uniform %i\n", framenum_real, sceneChangePercent, uniform);
+                Debug( 7,"Frame %6i (%.3fs) - Black frame because large scene change of %i, uniform %i\n", framenum_real, get_frame_pts(framenum_real), sceneChangePercent, uniform);
 
                 cause |= C_s;
             }
@@ -9711,7 +9716,7 @@ bool CheckSceneHasChanged(void)
         schange[schange_count].frame = framenum_real;
         schange_count++;
 //	   memcpy(lastHistogram, histogram, sizeof(histogram));
-        //			Debug(7, "Frame %6i - Scene change with change percentage of %i\n", framenum_real, sceneChangePercent);
+        //			Debug(7, "Frame %6i (%.3fs) - Scene change with change percentage of %i\n", framenum_real, get_frame_pts(framenum_real), sceneChangePercent);
     }
 
     for (i=0; i < 255; i++)
@@ -14275,8 +14280,6 @@ void AddCC(int i)
 
 }
 
-extern char field_t;
-
 void ProcessCCData(void)
 {
     int				i;
@@ -14312,7 +14315,7 @@ void ProcessCCData(void)
         *p++ = 0;
         if (ccData[0] == 'G')
             temp[7*3] = '0' + (temp[7*3] & 0x03);
-        Debug(10, "CCData for framenum %4i%c, length:%4i: %s\n", framenum, field_t, ccDataLen, temp);
+        Debug(10, "CCData for framenum %4i%c, length:%4i: %s\n", framenum, pict_type, ccDataLen, temp);
 
         p = (unsigned char *)temp;
         for (i = 0; i < ccDataLen; i++)
@@ -14323,7 +14326,7 @@ void ProcessCCData(void)
             *p++ = ' ';
         }
         *p++ = 0;
-        Debug(10, "CCData for framenum %4i%c, length:%4i: %s\n", framenum, field_t, ccDataLen, temp);
+        Debug(10, "CCData for framenum %4i%c, length:%4i: %s\n", framenum, pict_type, ccDataLen, temp);
 
     }
 
@@ -15408,4 +15411,3 @@ void dump_data(char *start, int length)
 
 //	fclose(dump_data_file);
 }
-

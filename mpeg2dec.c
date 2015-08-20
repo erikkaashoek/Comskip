@@ -238,7 +238,7 @@ extern int64_t _ftelli64(FILE *);
 int soft_seeking=0;
 extern char	basename[];
 
-char field_t;
+char pict_type;
 
 char tempstring[512];
 //test
@@ -292,8 +292,6 @@ int	seekDirection = 0;
 extern FILE * out_file;
 extern uint8_t ccData[500];
 extern int ccDataLen;
-
-char				prevfield_t = 0;
 
 extern int height,width, videowidth;
 extern int output_debugwindow;
@@ -832,16 +830,6 @@ again:
     return tfps;
 }
 
-
-
-char field_t;
-void SetField(char t)
-{
-    field_t = t;
-//	printf(" %c", t);
-}
-
-
 static void ResetInputFile()
 {
     global_video_state->seek_req = true;
@@ -909,12 +897,11 @@ int SubmitFrame(AVStream        *video_st, AVFrame         *pFrame , double pts)
     }
 
     if (pFrame->pict_type == AV_PICTURE_TYPE_B)
-        SetField('B');
+        pict_type = 'B';
     else if (pFrame->pict_type == AV_PICTURE_TYPE_I)
-        SetField('I');
+        pict_type = 'I';
     else
-        SetField('P');
-
+        pict_type = 'P';
 
     if (framenum == 0 && pass == 0 && test_pts == 0.0)
         test_pts = pts;
@@ -1176,8 +1163,8 @@ static int    prev_strange_framenum = 0;
                 if (!ISSAME(initial_pts, av_q2d(is->video_st->time_base)* (best_effort_timestamp - (frame_delay * framenum) / av_q2d(is->video_st->time_base) - (is->video_st->start_time != AV_NOPTS_VALUE ? is->video_st->start_time : 0)))) {
                     initial_pts = (best_effort_timestamp  - (is->video_st->start_time != AV_NOPTS_VALUE ? is->video_st->start_time : 0)) * av_q2d(is->video_st->time_base) - (frame_delay * framenum);
                     Debug( 10,"\nInitial pts = %10.3f\n", initial_pts);
-                if (timeline_repair<2)
-                    initial_pts = 0.0;
+                    if (timeline_repair<2)
+                        initial_pts = 0.0;
                 }
                 initial_pts_set++;
                 final_pts = 0;
@@ -2290,4 +2277,3 @@ SetThreadExecutionState(ES_CONTINUOUS);
     exit (!result);
 #endif
 }
-
