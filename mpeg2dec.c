@@ -290,7 +290,7 @@ int	seekIter = 0;
 int	seekDirection = 0;
 
 extern FILE * out_file;
-extern uint8_t *ccData;
+extern uint8_t ccData[500];
 extern int ccDataLen;
 
 extern int height,width, videowidth;
@@ -1330,8 +1330,16 @@ static int    prev_strange_framenum = 0;
             for (i = 0; i < is->pFrame->nb_side_data; i++) {
                 AVFrameSideData *sd = is->pFrame->side_data[i];
                 if (sd->type != AV_FRAME_DATA_A53_CC) continue;
-                ccData = sd->data;
-                ccDataLen = sd->size;
+                ccDataLen = sd->size + 7;
+                ccData[0] = 'G';
+                ccData[1] = 'A';
+                ccData[2] = '9';
+                ccData[3] = '4';
+                ccData[4] = 3;
+                ccData[5] = sd->size / 3 + 64;
+                for (i=0; i<sd->size; i++) {
+                  ccData[i+7] = sd->data[i];
+                }
                 if (processCC) ProcessCCData();
                 if (output_srt) process_block(ccData, (int)ccDataLen);
             }
