@@ -11014,7 +11014,7 @@ bool SearchForLogoEdges(void)
 }
 
 
-#define MAX_SEARCH 8
+#define MAX_SEARCH_FRACTION 0.02
 
 int ClearEdgeMaskArea(unsigned char* temp, unsigned char* test)
 {
@@ -11036,7 +11036,7 @@ int ClearEdgeMaskArea(unsigned char* temp, unsigned char* test)
 //					goto found;
                     count++;
 
-                for (offset = edge_step; offset < MAX_SEARCH; offset += edge_step)
+                for (offset = edge_step; offset < (int) (MAX_SEARCH_FRACTION * width); offset += edge_step)
                 {
                     iy = min(y+offset,height-1);
                     for (ix= max(x-offset,0); ix <= min(x+offset, width-1); ix += edge_step)

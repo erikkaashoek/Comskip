@@ -957,7 +957,8 @@ void Set_seek(VideoState *is, double pts, double length)
         pts = size*pts/length;
         is->seek_flags |= AVSEEK_FLAG_BYTE;
     }
-    is->seek_pos = (pts - 1.6 < 0.0 ? 0.0 : pts - 1.6) / av_q2d(is->video_st->time_base);
+#define MAX_GOP_SIZE 2.0
+    is->seek_pos = (pts - MAX_GOP_SIZE < 0.0 ? 0.0 : pts - MAX_GOP_SIZE) / av_q2d(is->video_st->time_base);
     if (is->video_st->start_time != AV_NOPTS_VALUE)
     {
         is->seek_pos += is->video_st->start_time;
