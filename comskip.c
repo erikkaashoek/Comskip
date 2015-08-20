@@ -1859,19 +1859,11 @@ void CleanLogoBlocks()
     }
     n = cblock[block_count-1].f_end - cblock[0].f_start;
     if (n>0) {
-<<<<<<< HEAD
-    avg_brightness /= n;
-    avg_volume /= n;
-    avg_silence /= n;
-    avg_uniform /= n;
-    avg_schange /= n;
-=======
         avg_brightness /= n;
         avg_volume /= n;
         avg_silence /= n;
         avg_uniform /= n;
         avg_schange /= n;
->>>>>>> erik-edit
     }
 //	Debug(1, "Average brightness is %i\n",avg_brightness);
 //	Debug(1, "Average volume is %i\n",avg_volume);
