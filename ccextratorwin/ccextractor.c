@@ -1,14 +1,15 @@
-/* CCExtractor, cfsmp3@gmail.com 
+/* CCExtractor, cfsmp3@gmail.com
 Version 0.34
 Credits: McPoodle for SCC_RIP (CCExtractor started as
 optimized port with HDTV support added)
 Scott Larson - Useful posts in several forums
 Neuron2 - Documentation
-Ken Schultz - Added something to McPoodle's 
+Ken Schultz - Added something to McPoodle's
 CCExtract.gpl that helped
 John Bell- Samples, code.
 License: GPL 2.0
 */
+#include "../platform.h"
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -44,20 +45,20 @@ LONG min_pts, max_pts, last_pts;
 int pts_set; //0 = No, 1 = Just received but not an I-Frame yet, 2 = Ready
 
 // Number of CC 2-byte blocks written in this continuous chuck
-unsigned c1count, c2count;                                 
+unsigned c1count, c2count;
 // Total IN THIS FILE
-unsigned c1count_total, c2count_total; 
+unsigned c1count_total, c2count_total;
 // Grand total before the current file, used for the .srt timing
-unsigned c1global=0, c2global=0; 
+unsigned c1global=0, c2global=0;
 unsigned pts_big_change;
 
 #define MPEG_CLOCK_FREQ 90000 // This is part of the standard
 
-// These two just for debugging 
-// Original 5 bytes the MPEG clock came from 
-unsigned char ptsdata[5]; 
-// Original 5 bytes the previous MPEG clock came from 
-unsigned char lastptsdata[5]; 
+// These two just for debugging
+// Original 5 bytes the MPEG clock came from
+unsigned char ptsdata[5];
+// Original 5 bytes the previous MPEG clock came from
+unsigned char lastptsdata[5];
 
 // Stuff common to both loops
 unsigned char *fbuffer = NULL;
@@ -65,10 +66,10 @@ LONG past; /* Position in file, if in sync same as ftell()  */
 unsigned char *pesheaderbuf = NULL;
 LONG inputsize;
 int last_reported_progress;
-int processed_enough; // If 1, we have enough lines, time, etc. 
+int processed_enough; // If 1, we have enough lines, time, etc.
 
 // Small buffer to help us with the initial sync
-unsigned char startbytes[STARTBYTESLENGTH]; 
+unsigned char startbytes[STARTBYTESLENGTH];
 unsigned int startbytes_pos;
 unsigned int startbytes_avail;
 
@@ -106,7 +107,7 @@ int fix_padding = 0; // Replace 0000 with 8080 in HDTV (needed for some cards)
 int rawmode = 0; // Broadcast or DVD
 int extract = 1; // Extract 1st, 2nd or both fields
 int cc_channel = 1; // Channel we want to dump in srt mode
-int debug_608=0; // Show CC decoder debug? 
+int debug_608=0; // Show CC decoder debug?
 LONG subs_delay=0; // ms to delay (or advance) subs
 struct boundary_time extraction_start, extraction_end; // Segment we actually process
 LONG screens_to_process=-1; // How many screenfuls we want?
@@ -114,8 +115,8 @@ char *basefilename=NULL; // Input filename without the extension
 char **inputfile=NULL; // List of files to process
 int direct_rollup=0; // Write roll-up captions directly instead of line by line?
 int num_input_files=0; // How many?
-int inputfile_capacity=0; 
-int nofontcolor=0; // 1 = don't put <font color> tags 
+int inputfile_capacity=0;
+int nofontcolor=0; // 1 = don't put <font color> tags
 int next_input_file=0;
 int write_format=OF_SRT; // 0=Raw, 1=srt, 2=SMI
 int encoding = ENC_LATIN_1;
@@ -133,7 +134,7 @@ int spell_builtin_added=0; // so we don't do it twice
 struct s_write wbout1, wbout2; // Output structures
 
 /* these are only used by DVD raw mode: */
-int loopcount = 1; /* loop 1: 5 elements, loop 2: 8 elements, 
+int loopcount = 1; /* loop 1: 5 elements, loop 2: 8 elements,
                    loop 3: 11 elements, rest: 15 elements */
 int datacount = 0; /* counts within loop */
 
@@ -154,7 +155,7 @@ const unsigned char lc6[]={0xfe};
 FILE *clean;
 int in; // descriptor number to input
 
-typedef enum
+enum
 {
     NTSC_CC_f1         = 0,
     NTSC_CC_f2         = 1,
@@ -252,12 +253,12 @@ const char *spell_builtin[]=
 	"Friday","Saturday","Sunday","Halloween","United States",
 	"Spain","France","Italy","England",
 	NULL
-}; 
+};
 
 LONG getfilesize (int in)
 {
     LONG current=LSEEK (in, 0, SEEK_CUR);
-    LONG length = LSEEK (in,0,SEEK_END);    
+    LONG length = LSEEK (in,0,SEEK_END);
     LSEEK (in,current,SEEK_SET);
     return length;
 }
@@ -343,8 +344,8 @@ void usage (void)
 	printf ("                       considered comments and discarded.\n\n");
 	printf ("Options that affect how ccextractor reads and writes (buffering):\n");
     printf ("    -bo -bufferoutput: Buffer writes. Might help a bit with performance.\n");
-    printf ("     -bi -bufferinput: Forces input buffering.\n");    
-    printf (" -nobi -nobufferinput: Disables input buffering.\n\n");    
+    printf ("     -bi -bufferinput: Forces input buffering.\n");
+    printf (" -nobi -nobufferinput: Disables input buffering.\n\n");
 	printf ("Options that affect the built-in closed caption decoder:\n");
 	printf ("                 -dru: Direct Roll-Up. When in roll-up mode, write character by\n");
 	printf ("                       character instead of line by line. Note that this\n");
@@ -402,12 +403,12 @@ unsigned totalblockswritten_thisfile (void)
 void init_write (struct s_write *wb)
 {
     wb->fh=NULL;
-    wb->filename=NULL;	
+    wb->filename=NULL;
     wb->buffer=(unsigned char *) malloc (BUFSIZE);
     wb->used=0;
     wb->data608=(struct eia608 *) malloc (sizeof (struct eia608));
     init_eia608 (wb->data608);
-} 
+}
 
 void writeraw (const unsigned char *data, int length, struct s_write *wb)
 {
@@ -419,7 +420,7 @@ void writeraw (const unsigned char *data, int length, struct s_write *wb)
             if (data!=NULL)
                 fwrite (data,length,1,wb->fh);
             wb->used=0;
-        }		
+        }
         else
         {
             memcpy (wb->buffer+wb->used, data, length);
@@ -441,7 +442,7 @@ void writedata (const unsigned char *data, int length, struct s_write *wb)
 			return;
 		}
 	}
-    if (write_format==OF_RAW)    
+    if (write_format==OF_RAW)
         writeraw (data,length,wb);
     else
         if (data!=NULL)
@@ -453,30 +454,30 @@ void flushbuffer (struct s_write *wb, int closefile)
     if (buffer_output)
         writedata (NULL,0,wb);
 
-    if (closefile && wb!=NULL && wb->fh!=NULL)	
-        fclose (wb->fh);	
+    if (closefile && wb!=NULL && wb->fh!=NULL)
+        fclose (wb->fh);
 }
 
 int too_many_blocks ()
 {
     if (first_gop_time.inited)
-    {		
+    {
         int mis1=(int) ((gop_time.ccblocks-first_gop_time.ccblocks+
 			frames_since_last_gop)-c1count);
         if (mis1<0) // More than we need. Skip this block
             return 1;
-    }				
+    }
     return 0;
 }
 
 void printdata (const unsigned char *data1, int length1,
 				const unsigned char *data2, int length2)
-{	
+{
     if (rawmode==0) /* Broadcast */
-    {		
+    {
         if (length1 && extract!=2)
         {
-            writedata (data1,length1,&wbout1);			
+            writedata (data1,length1,&wbout1);
         }
         if (length2 && extract!=1)
         {
@@ -506,8 +507,8 @@ void printdata (const unsigned char *data1, int length1,
         datacount++;
         writedata (lc5,sizeof (lc5), &wbout1);
         writedata (data1,length1,&wbout1);
-        if (((loopcount == 1) && (datacount < 5)) || ((loopcount == 2) && 
-            (datacount < 8)) || (( loopcount == 3) && (datacount < 11)) || 
+        if (((loopcount == 1) && (datacount < 5)) || ((loopcount == 2) &&
+            (datacount < 8)) || (( loopcount == 3) && (datacount < 11)) ||
             ((loopcount > 3) && (datacount < 15)))
         {
             writedata (lc6,sizeof (lc6), &wbout1);
@@ -564,7 +565,7 @@ void prepare_for_new_file (void)
     min_pts=0xFFFFFFFF;
     max_pts=0;
     last_pts=0;
-    pts_set = 0; 
+    pts_set = 0;
     inputsize=0;
     last_reported_progress=-1;
     stat_numuserheaders = 0;
@@ -581,9 +582,9 @@ void prepare_for_new_file (void)
     first_gop_time.inited=0;
 	gop_rollover=0;
     printed_gop.inited=0;
-    c1count =0;c2count=0;                           
+    c1count =0;c2count=0;
     c1count_total =0;
-    c2count_total=0; 
+    c2count_total=0;
     past=0;
     pts_big_change=0;
     startbytes_pos=0;
@@ -595,14 +596,14 @@ void prepare_for_new_file (void)
 
 int parsedelay (char *par)
 {
-	int sign=0; 
+	int sign=0;
 	char *c=par;
 	while (*c)
-	{		
+	{
 		if (*c=='-' || *c=='+')
 		{
 			if (c!=par) // Sign only at the beginning
-				return 1; 
+				return 1;
 			if (*c=='-')
 				sign=1;
 		}
@@ -610,7 +611,7 @@ int parsedelay (char *par)
 		{
 			if (!isdigit (*c))
 				return 1;
-			subs_delay=subs_delay*10 + (*c-'0');			
+			subs_delay=subs_delay*10 + (*c-'0');
 		}
 		c++;
 	}
@@ -648,7 +649,7 @@ int stringztoms (char *s, struct boundary_time *bt)
 			hh=mm;
 			mm=ss;
 			ss=value;
-			value=-1;			
+			value=-1;
 		}
 		else
 		{
@@ -669,7 +670,7 @@ int stringztoms (char *s, struct boundary_time *bt)
 	bt->set=1;
 	bt->hh=hh;
 	bt->mm=mm;
-	bt->ss=ss;	
+	bt->ss=ss;
 	secs =(hh*3600+mm*60+ss);
 	bt->time_in_ms=secs*1000;
 	bt->time_in_ccblocks=(LONG) (secs*29.97);
@@ -686,10 +687,10 @@ int add_word (const char *word)
 	{
 		// Time to grow
 		spell_capacity+=50;
-		spell_lower=(char **) realloc (spell_lower, sizeof (char *) * 
+		spell_lower=(char **) realloc (spell_lower, sizeof (char *) *
 			spell_capacity);
-		spell_correct=(char **) realloc (spell_correct, sizeof (char *) * 
-			spell_capacity);		
+		spell_correct=(char **) realloc (spell_correct, sizeof (char *) *
+			spell_capacity);
 	}
 	len =strlen (word);
 	new_lower = (char *) malloc (len+1);
@@ -792,7 +793,7 @@ void CEW_reinit()
             writeraw (BROADCAST_HEADER,sizeof (BROADCAST_HEADER),&wbout1);
         else
         {
-            if (encoding==ENC_UNICODE) // Write BOM				
+            if (encoding==ENC_UNICODE) // Write BOM
                 writeraw (LITTLE_ENDIAN_BOM, sizeof (LITTLE_ENDIAN_BOM), &wbout1);
            write_subtitle_file_header (&wbout1);
         }
@@ -804,11 +805,11 @@ int CEW_init(int argc, char *argv[])
 #endif
 {
     char *output_filename=NULL;
-    char *clean_filename=NULL;    
+    char *clean_filename=NULL;
     char *c;
     char *extension;
 	int i;
-    time_t start, final;
+    time_t start;
 
     header();
 
@@ -831,7 +832,7 @@ int CEW_init(int argc, char *argv[])
                 inputfile=(char **) realloc (inputfile,sizeof (char *) * inputfile_capacity);
             }
             inputfile[num_input_files]=argv[i];
-            num_input_files++;            
+            num_input_files++;
         }
         if (strcmp (argv[i],"-bo")==0 ||
             strcmp (argv[i],"--bufferoutput")==0)
@@ -857,13 +858,13 @@ int CEW_init(int argc, char *argv[])
             extract = 12;
         if (strcmp (argv[i],"-noff")==0)
             ff_cleanup = 0;
-        if (strcmp (argv[i],"-fp")==0 || 
+        if (strcmp (argv[i],"-fp")==0 ||
             strcmp (argv[i],"--fixpadding")==0)
             fix_padding = 1;
-        if (strcmp (argv[i],"-noap")==0 || 
+        if (strcmp (argv[i],"-noap")==0 ||
             strcmp (argv[i],"--noautopad")==0)
             autopad = 0;
-        if (strcmp (argv[i],"-gp")==0 || 
+        if (strcmp (argv[i],"-gp")==0 ||
             strcmp (argv[i],"--goppad")==0)
 			gop_pad = 1;
         if (strcmp (argv[i],"-debug")==0)
@@ -909,7 +910,7 @@ int CEW_init(int argc, char *argv[])
 			}
 			i++;
 		}
-		if ((strcmp (argv[i],"-scr")==0 || 
+		if ((strcmp (argv[i],"-scr")==0 ||
 			strcmp (argv[i],"--screenfuls")==0) && i<argc-1)
 		{
 			screens_to_process=atoi (argv[i+1]);
@@ -937,7 +938,7 @@ int CEW_init(int argc, char *argv[])
 				exit (-1);
 			}
 			i++;
-		}		
+		}
         if (strcmp (argv[i],"-1")==0)
             extract = 1;
         if (strcmp (argv[i],"-2")==0)
@@ -1052,7 +1053,7 @@ int CEW_init(int argc, char *argv[])
     printf ("[Autopad: %s] ", autopad ? "Yes": "No");
 	printf ("[GOP pad: %s] ", gop_pad ? "Yes": "No");
     printf ("[Print CC decoder traces: %s]\n", debug_608 ? "Yes": "No");
-    printf ("[Target format: %s] ",extension);    
+    printf ("[Target format: %s] ",extension);
     printf ("[Encoding: [");
     switch (encoding)
     {
@@ -1067,7 +1068,7 @@ int CEW_init(int argc, char *argv[])
             break;
     }
 	printf ("] ");
-	printf ("[Delay: %ld] ",subs_delay);    
+	printf ("[Delay: %ld] ",subs_delay);
 	printf ("[Input type: %s]\n",input_bin?".bin":"MPEG");
 	printf ("[Add font color data: %s] ", nofontcolor? "No" : "Yes");
 	printf ("[Convert case: ");
@@ -1107,7 +1108,7 @@ int CEW_init(int argc, char *argv[])
 
     if (wbout1.filename==NULL)
     {
-        wbout1.filename = (char *) malloc (strlen (inputfile[0])+3+strlen (extension)); 
+        wbout1.filename = (char *) malloc (strlen (inputfile[0])+3+strlen (extension));
         wbout1.filename[0]=0;
     }
     if (wbout2.filename==NULL)
@@ -1165,13 +1166,13 @@ int CEW_init(int argc, char *argv[])
                 writeraw (BROADCAST_HEADER,sizeof (BROADCAST_HEADER),&wbout1);
             else
             {
-                if (encoding==ENC_UNICODE) // Write BOM				
+                if (encoding==ENC_UNICODE) // Write BOM
                     writeraw (LITTLE_ENDIAN_BOM, sizeof (LITTLE_ENDIAN_BOM), &wbout1);
                 write_subtitle_file_header (&wbout1);
             }
 
         }
-        if (extract == 12) 
+        if (extract == 12)
             printf (" and \n");
         if (extract!=1)
         {
@@ -1192,7 +1193,7 @@ int CEW_init(int argc, char *argv[])
                 writeraw (BROADCAST_HEADER,sizeof (BROADCAST_HEADER),&wbout2);
             else
             {
-                if (encoding==ENC_UNICODE) // Write BOM				
+                if (encoding==ENC_UNICODE) // Write BOM
                     writeraw (LITTLE_ENDIAN_BOM, sizeof (LITTLE_ENDIAN_BOM), &wbout1);
                 write_subtitle_file_header (&wbout2);
             }
@@ -1207,7 +1208,7 @@ int CEW_init(int argc, char *argv[])
             exit (-4);
         }
     }
-    encoded_crlf_length = encode_line (encoded_crlf,(unsigned char *) "\r\n"); 
+    encoded_crlf_length = encode_line (encoded_crlf,(unsigned char *) "\r\n");
     encoded_br_length = encode_line (encoded_br, (unsigned char *) "<br>");
 	build_parity_table();
 
@@ -1224,9 +1225,9 @@ int CEW_init(int argc, char *argv[])
         printf ("\r-----------------------------------------------------------------\n");
         printf ("\rOpening file: %s\n", inputfile[i]);
 #ifdef _WIN32
-        in=OPEN (inputfile[i],O_RDONLY | O_BINARY); 
+        in=OPEN (inputfile[i],O_RDONLY | O_BINARY);
 #else
-        in=OPEN (inputfile[i],O_RDONLY); 
+        in=OPEN (inputfile[i],O_RDONLY);
 #endif
         if (in == -1)
         {
@@ -1235,7 +1236,7 @@ int CEW_init(int argc, char *argv[])
         }
         prepare_for_new_file();
         next_input_file++;
-    
+
         inputsize = getfilesize (in);
 		if (!input_bin)
 		{
@@ -1255,14 +1256,14 @@ int CEW_init(int argc, char *argv[])
 						unsigned i;
 						for (i=0; i<188;i++)
 						{
-							if (startbytes[i]==0x47 && startbytes[i+188]==0x47 && 
+							if (startbytes[i]==0x47 && startbytes[i+188]==0x47 &&
 	                            startbytes[i+188*2]==0x47 && startbytes[i+188*3]==0x47)
 							{
-								// Four sync bytes, that's good enough 
+								// Four sync bytes, that's good enough
 								startbytes_pos=i;
 								ts_mode=1;
 								break;
-							}				
+							}
 						}
 					}
 					else
@@ -1276,7 +1277,7 @@ int CEW_init(int argc, char *argv[])
                     bytesinbuffer=STARTBYTESLENGTH;
 					break;
 			}
-		
+
 		/* -----------------------------------------------------------------
 		MAIN LOOP
 		----------------------------------------------------------------- */
@@ -1294,8 +1295,8 @@ int CEW_init(int argc, char *argv[])
                     else
 					{
 						int vbi_blocks=0;
-						// VBI data? if yes, use myth loop  						
-						if (startbytes_avail==STARTBYTESLENGTH) 
+						// VBI data? if yes, use myth loop
+						if (startbytes_avail==STARTBYTESLENGTH)
 						{
 							unsigned int i;
 							unsigned int c=0;
@@ -1309,7 +1310,7 @@ int CEW_init(int argc, char *argv[])
 								uc[0]=uc[1];
 								uc[1]=uc[2];
 								uc[2]=startbytes[i];
-							}							
+							}
 						}
 //						if (vbi_blocks>10) // Too much coincidence
 //							myth_loop();
@@ -1318,7 +1319,7 @@ int CEW_init(int argc, char *argv[])
 					}
                     break;
             }
-        
+
 			if (stat_hdtv)
 			{
 				printf ("\rCC type 0: %d (%s)\n", cc_stats[0], cc_types[0]);
@@ -1332,11 +1333,11 @@ int CEW_init(int argc, char *argv[])
 				printf ("Min PTS: %u\n",min_pts);
 				printf ("Max PTS: %u\n",max_pts);
 				total_secs = (int) ((max_pts-min_pts)/MPEG_CLOCK_FREQ);
-				printf ("Total frames: %u\n", total_frames_count);        
+				printf ("Total frames: %u\n", total_frames_count);
 				if (pts_big_change)
 	                printf ("Reference clock was reset at some point, unable to provide length\n");
 				else
-					printf ("Length according to PTS (MM:SS:100s): %u (%u:%02u:%03u)\n", total_secs, 
+					printf ("Length according to PTS (MM:SS:100s): %u (%u:%02u:%03u)\n", total_secs,
 					total_secs/60, total_secs%60, (max_pts-min_pts)%900);
 				printf ("Total 2-byte blocks for field 1: %u\n",c1count+c1count_total);
 				printf ("Total 2-byte blocks for field 2: %u\n",c2count+c2count_total);
@@ -1358,7 +1359,7 @@ int CEW_init(int argc, char *argv[])
 		}
 		close (in);
         secs = (int) (totalblockswritten_thisfile()/29.97);
-    
+
         printf ("\rTotal length according to CC blocks (MM:SS): %02u:%02u\n",secs/60,secs%60);
         printf ("Number of likely false picture headers (discarded): %d\n",false_pict_header);
 
@@ -1366,7 +1367,7 @@ int CEW_init(int argc, char *argv[])
         c2global+=c2count+c2count_total;
     }
     if (clean!=NULL)
-        fclose (clean);	
+        fclose (clean);
     flushbuffer (&wbout1,false);
     flushbuffer (&wbout2,false);
     if (wbout1.fh!=NULL)

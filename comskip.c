@@ -547,7 +547,7 @@ double				uniform_percentile = 0.003;
 double				score_percentile = 0.71;
 double				logo_percentile = 0.92;
 double				logo_fraction = 0.40;
-int					commDetectMethod = BLACK_FRAME + LOGO + RESOLUTION_CHANGE +  AR + SILENCE; // + CC
+int					commDetectMethod = BLACK_FRAME + LOGO + RESOLUTION_CHANGE +  AR + SILENCE + (PROCESS_CC ? CC : 0);
 int					giveUpOnLogoSearch = 2000;			// If no logo is identified after x seconds into the show - give up.
 int					delay_logo_search = 0;			// If no logo is identified after x seconds into the show - give up.
 bool				cut_on_ar_change = 1;
@@ -1835,11 +1835,12 @@ void CleanLogoBlocks()
             }
         }
         n = cblock[i].f_end - cblock[i].f_start+1;
+        if (n>0) {
         cblock[i].brightness = sum_brightness * 1000 / n;
         cblock[i].volume = sum_volume / n;
         cblock[i].silence = sum_silence / n;
         cblock[i].uniform = sum_uniform / n;
-
+        }
         if ((cblock[i].schange_count = CountSceneChanges(cblock[i].f_start, cblock[i].f_end)))
         {
             cblock[i].schange_rate = (double)cblock[i].schange_count / n;
@@ -1857,12 +1858,13 @@ void CleanLogoBlocks()
         avg_schange += cblock[i].schange_rate*n;
     }
     n = cblock[block_count-1].f_end - cblock[0].f_start;
+    if (n>0) {
     avg_brightness /= n;
     avg_volume /= n;
     avg_silence /= n;
     avg_uniform /= n;
     avg_schange /= n;
-
+    }
 //	Debug(1, "Average brightness is %i\n",avg_brightness);
 //	Debug(1, "Average volume is %i\n",avg_volume);
 
@@ -2496,7 +2498,7 @@ void OutputDebugWindow(bool showVideo, int frm, int grf)
         }
         else if (helpflag)
             ShowHelp(helptext);
-        else if (show_XDS)
+        else if (show_XDS && XDS_block_count)
         {
             tt[0] = t;
             i = (XDS_block_count > 0 ? XDS_block_count-1 : 0);
@@ -13022,6 +13024,9 @@ void PrintArgs(void)
 }
 
 
+#ifdef PROCESS_CC
+long process_block (unsigned char *data, long length);
+#endif
 
 
 void ProcessCSV(FILE *in_file)
