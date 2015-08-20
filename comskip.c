@@ -13022,6 +13022,9 @@ void PrintArgs(void)
 }
 
 
+#ifdef PROCESS_CC
+long process_block (unsigned char *data, long length);
+#endif
 
 
 void ProcessCSV(FILE *in_file)

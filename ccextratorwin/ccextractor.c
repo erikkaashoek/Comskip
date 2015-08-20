@@ -808,7 +808,7 @@ int CEW_init(int argc, char *argv[])
     char *c;
     char *extension;
 	int i;
-    time_t start, final;
+    time_t start;
 
     header();
 

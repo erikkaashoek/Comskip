@@ -830,6 +830,11 @@ again:
     return tfps;
 }
 
+#ifdef PROCESS_CC
+void CEW_reinit();
+long process_block (unsigned char *data, long length);
+#endif
+
 static void ResetInputFile()
 {
     global_video_state->seek_req = true;

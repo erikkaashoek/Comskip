@@ -91,7 +91,7 @@ void update_clock (void)
 		if (dif<0) // Only a problem for more than one sec
 		{
 			// TO DO: Deal with this.
-			printf ("\nThe clock is going backwards -  %u seconds)\n",									
+			printf ("\nThe clock is going backwards -  %ld seconds)\n",									
 				(last_pts-current_pts)/MPEG_CLOCK_FREQ);
 		}
 		if (dif<0 || dif>=5) 
@@ -184,7 +184,7 @@ void buffered_seek (int offset)
 			// We got into the start buffer (hopefully)
 			startbytes_pos+=filebuffer_pos;
 			filebuffer_pos=0;
-			if (startbytes_pos<0)
+			if (startbytes_pos<=0)
 			{
 				printf ("PANIC: Attempt to seek before buffer start, this is a bug!");
 				exit (-4);
@@ -473,7 +473,6 @@ long ts_getmoredata(void)
 // Returns number of bytes read, or zero for EOF
 LONG general_getmoredata(void)
 {    
-	int i = 0;
 	do 
 	{		
 		int want = (int) (BUFSIZE-inbuf);
@@ -489,7 +488,7 @@ LONG general_getmoredata(void)
 void raw_loop ()
 {
 	LONG got;
-	unsigned long i;
+	long i;
 	do
 	{
 		inbuf=0;
