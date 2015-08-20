@@ -1835,11 +1835,12 @@ void CleanLogoBlocks()
             }
         }
         n = cblock[i].f_end - cblock[i].f_start+1;
+        if (n>0) {
         cblock[i].brightness = sum_brightness * 1000 / n;
         cblock[i].volume = sum_volume / n;
         cblock[i].silence = sum_silence / n;
         cblock[i].uniform = sum_uniform / n;
-
+        }
         if ((cblock[i].schange_count = CountSceneChanges(cblock[i].f_start, cblock[i].f_end)))
         {
             cblock[i].schange_rate = (double)cblock[i].schange_count / n;
@@ -1857,12 +1858,13 @@ void CleanLogoBlocks()
         avg_schange += cblock[i].schange_rate*n;
     }
     n = cblock[block_count-1].f_end - cblock[0].f_start;
+    if (n>0) {
     avg_brightness /= n;
     avg_volume /= n;
     avg_silence /= n;
     avg_uniform /= n;
     avg_schange /= n;
-
+    }
 //	Debug(1, "Average brightness is %i\n",avg_brightness);
 //	Debug(1, "Average volume is %i\n",avg_volume);
 
