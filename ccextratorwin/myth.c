@@ -1,6 +1,6 @@
-/* This code comes from MythTV. 
+/* This code comes from MythTV.
 For now, integration with ccextractor is a quick hack. It could get better with time. */
-
+#include "../platform.h"
 #include "ccextractor.h"
 #include "608.h"
 #ifdef _WIN32
@@ -35,7 +35,7 @@ int cc608_parity_table[256];
 #define PACKET_START_CODE_PREFIX    ((unsigned int)0x00000100)
 #define ISO_11172_END_CODE          ((unsigned int)0x000001b9)
 
-#define AV_NOPTS_VALUE          int64_t_C(0x8000000000000000)
+#define AV_NOPTS_VALUE          (int64_t)(0x8000000000000000)
 
 /* mpeg2 */
 #define PROGRAM_STREAM_MAP 0x1bc
@@ -295,7 +295,7 @@ int get_be16()
 int get_byte ()
 {
 	unsigned char b;
-	buffered_read_byte(&b);  
+	buffered_read_byte(&b);
     if (result==1)
         return b;
     else
@@ -334,11 +334,11 @@ static int find_next_start_code(int *size_ptr,
 
     state = *header_state;
     n = *size_ptr;
-    while (n > 0) 
+    while (n > 0)
     {
         unsigned char cx;
         buffered_read_byte (&cx);
-        if (result!=1)        
+        if (result!=1)
             break;
         v = cx;
         n--;
@@ -358,7 +358,7 @@ found:
 
 void url_fskip (int length)
 {
-    buffered_seek (length);    
+    buffered_seek (length);
 }
 
 static long mpegps_psm_parse(void)
@@ -393,7 +393,7 @@ static long mpegps_psm_parse(void)
 
 static int mpegps_read_pes_header(int *pstart_code,
                                   LONG *ppts, LONG *pdts)
-{    
+{
     int len, size, startcode, c, flags, header_len;
     LONG pts, dts, last_pos;
 
@@ -411,7 +411,7 @@ redo:
     if (startcode == SYSTEM_HEADER_START_CODE)
         goto redo;
     if (startcode == PADDING_STREAM ||
-        startcode == PRIVATE_STREAM_2) 
+        startcode == PRIVATE_STREAM_2)
     {
         /* skip them */
         len = get_be16();
@@ -499,7 +499,7 @@ redo:
     else if( c!= 0xf )
         goto redo;
 
-    if (startcode == PRIVATE_STREAM_1 /* && psm_es_type[startcode & 0xff] */) 
+    if (startcode == PRIVATE_STREAM_1 /* && psm_es_type[startcode & 0xff] */)
     {
         if (len < 1)
             goto redo;
@@ -535,7 +535,7 @@ static int cc608_good_parity(const int *parity_table, unsigned int data)
 
 
 void ProcessVBIDataPacket()
-{    
+{
     static const unsigned int min_blank = 6;
     LONG linemask      = 0;
     const unsigned char *meat = av.data;
@@ -551,9 +551,9 @@ void ProcessVBIDataPacket()
     // [i]tv0 means there is a linemask
     // [I]TV0 means there is no linemask and all lines are present
     if ((meat[0]=='t') && (meat[1]=='v') && (meat[2] == '0'))
-    {		
-        /// TODO this is almost certainly not endian safe....		
-        memcpy(&linemask, meat + 3, 8);		
+    {
+        /// TODO this is almost certainly not endian safe....
+        memcpy(&linemask, meat + 3, 8);
         meat += 11;
     }
     else if ((meat[0]=='T') && (meat[1]=='V') && (meat[2] == '0'))
@@ -567,24 +567,24 @@ void ProcessVBIDataPacket()
         .arg(QChar(buf[0])).arg(QChar(buf[1])).arg(QChar(buf[2]))); */
         printf ("Unknown VBI data stream\n");
         return;
-    }	
+    }
     for (i = 0; i < 36; i++)
     {
 		unsigned int line ;
-        unsigned int field; 
+        unsigned int field;
         unsigned int id2;
 
         if (!((linemask >> i) & 0x1))
             continue;
 
         line  = ((i < 18) ? i : i-18) + min_blank;
-        field = (i<18) ? 0 : 1; 
+        field = (i<18) ? 0 : 1;
         id2 = *meat & 0xf;
 
         switch (id2)
         {
         case VBI_TYPE_TELETEXT:
-            // SECAM lines  6-23 
+            // SECAM lines  6-23
             // PAL   lines  6-22
             // NTSC  lines 10-21 (rare)
             // ttd->Decode(buf+1, VBI_IVTV);
@@ -596,7 +596,7 @@ void ProcessVBIDataPacket()
             {
                 int data = (meat[2] << 8) | meat[1];
                 if (cc608_good_parity(cc608_parity_table, data))
-                {                     
+                {
                     if (field==0)
                     {
                         printdata (meat+1,2,0,0);
@@ -671,9 +671,9 @@ redo:
         } else {
             goto skip;
         }
-    } 
-    else 
-        if (startcode >= 0x1e0 && startcode <= 0x1ef) 
+    }
+    else
+        if (startcode >= 0x1e0 && startcode <= 0x1ef)
         {
             static const unsigned char avs_seqh[4] = { 0, 0, 1, 0xb0 };
             unsigned char buf[8];
@@ -705,11 +705,11 @@ redo:
             codec_id = CODEC_ID_MPEG2VBI;
         } else {
 skip:
-            // skip packet 
+            // skip packet
             url_fskip(len);
             goto redo;
         }
-        // no stream found: add a new stream 
+        // no stream found: add a new stream
         /* st = av_new_stream(s, startcode);
         if (!st)
         goto skip;
@@ -718,7 +718,7 @@ skip:
         if (codec_id != CODEC_ID_PCM_S16BE)
         st->need_parsing = 1;
 
-        // notify the callback of the change in streams 
+        // notify the callback of the change in streams
         if (s->streams_changed) {
         s->streams_changed(s->stream_change_data);
         }
@@ -726,16 +726,16 @@ skip:
 found:
         /* if(st->discard >= AVDISCARD_ALL)
         goto skip; */
-        if (startcode >= 0xa0 && startcode <= 0xbf) 
-        {          
+        if (startcode >= 0xa0 && startcode <= 0xbf)
+        {
 
             // for LPCM, we just skip the header and consider it is raw
-            // audio data 		
+            // audio data
             if (len <= 3)
                 goto skip;
-            get_byte(); // emphasis (1), muse(1), reserved(1), frame number(5) 
-            get_byte(); // quant (2), freq(2), reserved(1), channels(3) 
-            get_byte(); // dynamic range control (0x80 = off) 
+            get_byte(); // emphasis (1), muse(1), reserved(1), frame number(5)
+            get_byte(); // quant (2), freq(2), reserved(1), channels(3)
+            get_byte(); // dynamic range control (0x80 = off)
             len -= 3;
             //freq = (b1 >> 4) & 3;
             //st->codec->sample_rate = lpcm_freq_tab[freq];
@@ -745,12 +745,12 @@ found:
         }
         // av_new_packet(pkt, len);
         /*
-            printf ("Paquete de %lu bytes, codec_id=%d, type=%d\n",(unsigned long) len, 
-            codec_id, type); 
+            printf ("Paquete de %lu bytes, codec_id=%d, type=%d\n",(unsigned long) len,
+            codec_id, type);
         */
         //get_buffer(fh, pkt->data, pkt->size);
-        av.size=len;	
-        av.data=(unsigned char *) realloc (av.data,av.size);		
+        av.size=len;
+        av.data=(unsigned char *) realloc (av.data,av.size);
         if (av.data==NULL)
         {
             printf ("\rNot enough memory, realloc() failed. Giving up.\n");
@@ -804,9 +804,9 @@ void build_parity_table (void)
 }
 
 void myth_loop(void)
-{	
+{
     int rc;
-	int has_vbi=0;	
+	int has_vbi=0;
 	unsigned char *desp ;
 	LONG saved;
     av.data=NULL;
@@ -850,7 +850,7 @@ void myth_loop(void)
             used = process_block(desp,length);
             memmove (desp,desp+used,(unsigned int) (length-used));
             saved=length-used;
-		} 
+		}
 
         if (inputsize>0)
         {

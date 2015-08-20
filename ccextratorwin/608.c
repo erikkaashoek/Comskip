@@ -261,7 +261,6 @@ unsigned get_decoder_line_encoded (unsigned char *buffer, int line_num, struct e
                 break;
         }
         buffer+=bytes;
-        line;
     }
     if (italics)
     {
@@ -469,7 +468,7 @@ int write_cc_buffer_as_srt (struct eia608_screen *data, struct s_write *wb)
     if (debug_608)
     {
         printf ("\r");
-        printf (timeline);
+        printf ("%s", timeline);
     }
     fwrite (enc_buffer,enc_buffer_used,1,wb->fh);		
     
@@ -518,7 +517,7 @@ int write_cc_buffer_as_sami (struct eia608_screen *data, struct s_write *wb)
 		return 0; 
 	endms = (LONG) (((totalblockswritten_thisfile()+pg)*1000)/29.97)+subs_delay;
     endms--; // To prevent overlapping with next line.
-    sprintf ((char *) str,"<SYNC start=\"%llu\"><P class=\"UNKNOWNCC\">\r\n",startms);
+    sprintf ((char *) str,"<SYNC start=\"%ld\"><P class=\"UNKNOWNCC\">\r\n",startms);
     if (debug_608 && encoding!=ENC_UNICODE)
     {
         printf ("\r%s\n", str);
@@ -549,7 +548,7 @@ int write_cc_buffer_as_sami (struct eia608_screen *data, struct s_write *wb)
     }
     enc_buffer_used=encode_line (enc_buffer,(unsigned char *) str);
     fwrite (enc_buffer,enc_buffer_used,1,wb->fh);
-    sprintf ((char *) str,"<SYNC start=\"%llu\"><P class=\"UNKNOWNCC\">&nbsp</P></SYNC>\r\n\r\n",endms);
+    sprintf ((char *) str,"<SYNC start=\"%ld\"><P class=\"UNKNOWNCC\">&nbsp</P></SYNC>\r\n\r\n",endms);
     if (debug_608 && encoding!=ENC_UNICODE)
     {
         printf ("\r%s\n", str);

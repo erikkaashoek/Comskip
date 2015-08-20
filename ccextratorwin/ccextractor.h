@@ -1,4 +1,7 @@
+
+
 #include <stdio.h>
+
 #include "608.h"
 
 #ifndef int64_t_C
@@ -22,14 +25,14 @@ typedef struct _stati64 FSTATSTRUCT;
 // #define LONG long long
 // typedef unsigned long long int64_t;
 #else
-#define FOPEN fopen64
-#define OPEN open64
+#define FOPEN fopen
+#define OPEN open
 #define FSEEK fseek
 #define FTELL ftell
 #define FSTAT fstat
 #define LSEEK lseek
 #define TELL tell
-#endif 
+#endif
 
 typedef signed long LONG;
 
@@ -99,7 +102,7 @@ extern int ts_mode;
 extern unsigned char *fbuffer;
 extern LONG past;
 
-extern unsigned char startbytes[STARTBYTESLENGTH]; 
+extern unsigned char startbytes[STARTBYTESLENGTH];
 extern unsigned int startbytes_pos;
 extern unsigned int startbytes_avail;
 
@@ -108,13 +111,13 @@ extern int pts_set; //0 = No, 1 = Just received but not an I-Frame yes, 2 = Read
 extern unsigned last_sync_tenth; // Last tenth of a second with perfect timing
 extern unsigned c1count, c2count; // Number of CC 2-byte blocks written
                                 // in this continuous chuck
-extern unsigned c1global, c2global; 
-extern unsigned c1count_total, c2count_total; 
+extern unsigned c1global, c2global;
+extern unsigned c1count_total, c2count_total;
 #define MPEG_CLOCK_FREQ 90000 // This is part of the standard
 extern unsigned pts_big_change;
-// This two just for debugging 
-extern unsigned char ptsdata[5]; // Original 5 bytes the MPEG clock came from 
-extern unsigned char lastptsdata[5]; // Original 5 bytes the previous MPEG clock came from 
+// This two just for debugging
+extern unsigned char ptsdata[5]; // Original 5 bytes the MPEG clock came from
+extern unsigned char lastptsdata[5]; // Original 5 bytes the previous MPEG clock came from
 extern unsigned total_frames_count;
 
 extern LONG buffered_read_opt (unsigned char *buffer, unsigned int bytes);
@@ -171,21 +174,21 @@ extern int stat_replay5000headers;
 extern int stat_replay4000headers;
 extern int stat_dishheaders;
 extern int stat_hdtv;
-extern int autopad ; 
+extern int autopad ;
 extern int gop_pad;
-extern int ff_cleanup; 
-extern int ts_mode; 
-extern int debug; 
-extern int fix_padding; 
-extern int rawmode; 
-extern int extract; 
+extern int ff_cleanup;
+extern int ts_mode;
+extern int debug;
+extern int fix_padding;
+extern int rawmode;
+extern int extract;
 extern int cc_stats[4];
 extern LONG inputsize;
 extern int cc_channel;
 extern int encoding ; //encoding_type
 extern int direct_rollup;
-extern LONG subs_delay; 
-extern struct boundary_time extraction_start, extraction_end; 
+extern LONG subs_delay;
+extern struct boundary_time extraction_start, extraction_end;
 extern LONG screens_to_process;
 extern int processed_enough;
 extern int nofontcolor;

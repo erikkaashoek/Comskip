@@ -1,3 +1,4 @@
+#include "../platform.h"
 #include "ccextractor.h"
 #include <string.h>
 #include <stdlib.h>
@@ -17,14 +18,14 @@ unsigned current_bit_rate = 0;
 LONG current_pts = 0;
 int ts_headers_total=0;
 LONG result; // Number of bytes read/skipped in last read operation
-LONG net_fields=20; // 0.333 to sync with video, not sure of this. 
+LONG net_fields=20; // 0.333 to sync with video, not sure of this.
 
 extern int cc608_parity_table[256]; // From myth
 
 const unsigned char DO_NOTHING[] = {0x80, 0x80};
 int full_pes=0;
-LONG inbuf = 0; // Number of bytes loaded in buffer 
-unsigned char tsheader[4]; // Last TS header read - might be the next one 
+LONG inbuf = 0; // Number of bytes loaded in buffer
+unsigned char tsheader[4]; // Last TS header read - might be the next one
 int next_ts_header_read=0; // Did we read the TS header for the next block already?
 int end_of_file=0; // End of file?
 
@@ -46,9 +47,9 @@ void calculate_ccblock_gop_time (struct gop_time_code *g)
 
 int gop_accepted(struct gop_time_code* g )
 {
-	if (! ((g->time_code_hours <= 23) 
-		&& (g->time_code_minutes <= 59) 
-		&& (g->time_code_seconds <= 59) 
+	if (! ((g->time_code_hours <= 23)
+		&& (g->time_code_minutes <= 59)
+		&& (g->time_code_seconds <= 59)
 		&& (g->time_code_pictures <= 59)))
 		return 0;
 
@@ -69,7 +70,7 @@ int gop_accepted(struct gop_time_code* g )
 	return 1;
 }
 
-void set_cc_pts(__int64 pts)
+void set_cc_pts(int64_t pts)
 {
 	current_pts=pts;
 	if (pts_set==0)
@@ -91,10 +92,10 @@ void update_clock (void)
 		if (dif<0) // Only a problem for more than one sec
 		{
 			// TO DO: Deal with this.
-			printf ("\nThe clock is going backwards -  %u seconds)\n",									
+			printf ("\nThe clock is going backwards -  %ld seconds)\n",
 				(last_pts-current_pts)/MPEG_CLOCK_FREQ);
 		}
-		if (dif<0 || dif>=5) 
+		if (dif<0 || dif>=5)
 		{
 			// ATSC specs: More than 3501 ms means missing component
 			printf ("\nWarning: Reference clock has changed abruptly (%d seconds), attempting to synchronize\n", (int) dif);
@@ -146,7 +147,7 @@ void gop_padding ()
 {
 	if (first_gop_time.inited)
 	{
-		// TO-DO: We need to handle clock roll over. 
+		// TO-DO: We need to handle clock roll over.
 		int mis1=(int) ((gop_time.ccblocks+frames_since_last_gop-first_gop_time.ccblocks)-c1count);
 		int mis2=(int) ((gop_time.ccblocks+frames_since_last_gop-first_gop_time.ccblocks)-c2count);
 		do_padding (mis1,mis2);
@@ -156,8 +157,8 @@ void gop_padding ()
 
 void pts_padding ()
 {
-	int exp=(int) ((current_pts-min_pts) * 29.97 / MPEG_CLOCK_FREQ);    
-	int mis1 = exp - c1count; 
+	int exp=(int) ((current_pts-min_pts) * 29.97 / MPEG_CLOCK_FREQ);
+	int mis1 = exp - c1count;
 	int mis2 = exp - c2count;
 	do_padding (mis1, mis2);
 }
@@ -184,7 +185,7 @@ void buffered_seek (int offset)
 			// We got into the start buffer (hopefully)
 			startbytes_pos+=filebuffer_pos;
 			filebuffer_pos=0;
-			if (startbytes_pos<0)
+			if (startbytes_pos<=0)
 			{
 				printf ("PANIC: Attempt to seek before buffer start, this is a bug!");
 				exit (-4);
@@ -201,19 +202,19 @@ LONG buffered_read_opt (unsigned char *buffer, unsigned int bytes)
 	LONG copied=0;
 	int keep,copy,i;
 	if (buffer_input || filebuffer_pos<bytesinbuffer)
-	{            
-		// Needs to return data from filebuffer_start+pos to filebuffer_start+pos+bytes-1;        
+	{
+		// Needs to return data from filebuffer_start+pos to filebuffer_start+pos+bytes-1;
 		int eof=0;
 
 		while (!eof && bytes)
 		{
-			size_t ready = bytesinbuffer-filebuffer_pos;        
+			size_t ready = bytesinbuffer-filebuffer_pos;
 			if (ready==0) // We really need to read more
 			{
 				if (!buffer_input)
 				{
 					// We got in the buffering code because of the initial buffer for
-					// detection stuff. However we don't want more buffering so 
+					// detection stuff. However we don't want more buffering so
 					// we do the rest directly on the final buffer.
 					int i;
 					do
@@ -224,9 +225,9 @@ LONG buffered_read_opt (unsigned char *buffer, unsigned int bytes)
 						fbuffer+=i;
 					}
 					while (i && bytes);
-					return copied;						
+					return copied;
 				}
-				// Keep the last 8 bytes, so we have a guaranteed 
+				// Keep the last 8 bytes, so we have a guaranteed
 				// working seek (-8) - needed by mythtv.
 				keep = bytesinbuffer > 8 ? 8 : bytesinbuffer;
 				memmove (filebuffer,filebuffer+(FILEBUFFERSIZE-keep),keep);
@@ -238,12 +239,12 @@ LONG buffered_read_opt (unsigned char *buffer, unsigned int bytes)
 				ready=i;
 			}
 			copy = (int) (ready>=bytes ? bytes:ready);
-			if (fbuffer!=NULL)        
+			if (fbuffer!=NULL)
 			{
-				memcpy (fbuffer, filebuffer+filebuffer_pos, copy); 
+				memcpy (fbuffer, filebuffer+filebuffer_pos, copy);
 				buffer+=copy;
 			}
-			filebuffer_pos+=copy;        
+			filebuffer_pos+=copy;
 			bytes-=copy;
 			copied+=copy;
 		}
@@ -254,7 +255,7 @@ LONG buffered_read_opt (unsigned char *buffer, unsigned int bytes)
 		if (fbuffer!=NULL)
 			return copied+read(in,fbuffer,bytes);
 		// return fread(buffer,1,bytes,in);
-		//return FSEEK (in,bytes,SEEK_CUR);        
+		//return FSEEK (in,bytes,SEEK_CUR);
 		return copied + LSEEK (in,bytes,SEEK_CUR);
 	}
 }
@@ -276,13 +277,13 @@ long ts_getmoredata(void)
 	int pid;
 	unsigned adapt;
 	int want;
-	full_pes=0;    	
-	do 
+	full_pes=0;
+	do
 	{
 		if (BUFSIZE-inbuf<TS_PACKET_PAYLOAD_LENGTH)
 			enough=1; // Not enough for a complete TS payload
 		else
-		{            
+		{
 			if (next_ts_header_read)
 			{
 				// We read it in the previous pass already
@@ -290,9 +291,9 @@ long ts_getmoredata(void)
 				next_ts_header_read=0;
 			}
 			else
-			{                
+			{
 				buffered_read_4(tsheader);
-				if (result!=4)                
+				if (result!=4)
 				{
 					// Consider this the end of the show.
 					end_of_file=1;
@@ -329,33 +330,33 @@ long ts_getmoredata(void)
 			payload_length=TS_PACKET_PAYLOAD_LENGTH;
 
 			if (payload_start)
-			{   
+			{
 				paystart++;
 				if (got_pes_header) // Starting new PES. Rollback and out
 				{
-					//FSEEK (in,-4,SEEK_CUR); 
+					//FSEEK (in,-4,SEEK_CUR);
 					//past=past-4;
 					next_ts_header_read = 1;
 					full_pes=1; // We have the whole PES in buffer
 					break;
 				}
 				else
-				{                    
+				{
 					unsigned stream_id;
-					// Start of our own PES. First, get rid of the 
+					// Start of our own PES. First, get rid of the
 					// adaptation bytes if needed
 					if (ts_adaptation)
 					{
 						// printf ("Packet with adaptation data.\n");
 						unsigned char adlength;
-						buffered_read (&adlength, 1); 
+						buffered_read (&adlength, 1);
 						past=past + result;
-						payload_length=payload_length - adlength -1;                            
+						payload_length=payload_length - adlength -1;
 						buffered_skip(adlength);
 						past=past+adlength;
 					}
 					pes_start_in_this_pass=1;
-					// Get the f*****g PES header, NOT touching the buffer					
+					// Get the f*****g PES header, NOT touching the buffer
 					buffered_read (pesheaderbuf,6);
 					past=past+result;
 					payload_length=payload_length-6;
@@ -367,28 +368,28 @@ long ts_getmoredata(void)
 						continue;
 					}
 					got_pes_header=1;
-					stream_id = pesheaderbuf[3];					
+					stream_id = pesheaderbuf[3];
 					if (stream_id!=0xBE && stream_id!=0xBF)
 					{
 						unsigned PTS_present;
 						unsigned pes_header_length;
 						int need_to_skip;
-						// Extension present, get it                            
+						// Extension present, get it
 						buffered_read (pesheaderbuf+6,3);
 						past=past+result;
 						payload_length=payload_length-3;
-						// unsigned pes_header10 = (pesheaderbuf[6] & 0xC0) >> 6; // Should always be 10                
+						// unsigned pes_header10 = (pesheaderbuf[6] & 0xC0) >> 6; // Should always be 10
 						//unsigned flags = ((pesheaderbuf[6] & 0x3F)<<8) | buffer[7];
 						// unsigned PESSC = (pesheaderbuf[6] & 0x30) >> 4; // Scrambled? - --XX----
 						//unsigned prio = (pesheaderbuf[6] & 0x8)>>3; // ----X---
 						//unsigned ali = (pesheaderbuf[6] & 0x4)>>2; // -----X--
 						// unsigned cy = (pesheaderbuf[6] & 0x2) >>1 ; // ------X-
-						//unsigned ooc = (pesheaderbuf[6] & 0x1); // -------X                 
-						PTS_present = (pesheaderbuf[7] & 0x80) >> 7; // XX------                
-						// unsigned DTS_present = (pesheaderbuf[7] & 0x40) >> 6; // -X------                
-						// unsigned ESCR = (pesheaderbuf[7] && 0x20) >> 5; 
-						// unsigned rate = (pesheaderbuf[7] && 0x10) >> 4; 
-						// unsigned DSM_trick = (pesheaderbuf[7] && 0x8) >> 3; 
+						//unsigned ooc = (pesheaderbuf[6] & 0x1); // -------X
+						PTS_present = (pesheaderbuf[7] & 0x80) >> 7; // XX------
+						// unsigned DTS_present = (pesheaderbuf[7] & 0x40) >> 6; // -X------
+						// unsigned ESCR = (pesheaderbuf[7] && 0x20) >> 5;
+						// unsigned rate = (pesheaderbuf[7] && 0x10) >> 4;
+						// unsigned DSM_trick = (pesheaderbuf[7] && 0x8) >> 3;
 						// unsigned additional_copy = (pesheaderbuf[7] && 0x4) >> 2;
 						// unsigned pes_crc = (pesheaderbuf[7] && 0x2) >> 1;
 						// unsigned pes_extension = (pesheaderbuf[7] && 0x1) ;
@@ -397,7 +398,7 @@ long ts_getmoredata(void)
 						if (PTS_present)
 						{
 							// There is time info, read it
-							unsigned char pts_raw[5];                                
+							unsigned char pts_raw[5];
 							buffered_read (pts_raw,5);
 							past=past+result;
 							payload_length=payload_length-5;
@@ -415,11 +416,11 @@ long ts_getmoredata(void)
 							}
 							memcpy (ptsdata, pts_raw, 5);
 						}
-						if (need_to_skip<0)                                
+						if (need_to_skip<0)
 							printf ("Something's wrong here.\n");
 
 						buffered_skip(need_to_skip);
-						past=past+need_to_skip;                                
+						past=past+need_to_skip;
 						payload_length=payload_length-need_to_skip;
 						/*
 						int crap_length=0;
@@ -440,7 +441,7 @@ long ts_getmoredata(void)
 						*/
 					}
 				}
-			}                 
+			}
 			want = (int) ((BUFSIZE-inbuf)>payload_length ? payload_length : (BUFSIZE-inbuf));
 
 			buffered_read (fbuffer+inbuf,want);
@@ -457,14 +458,14 @@ long ts_getmoredata(void)
 			inbuf+=result;
 
 		}
-	} 
+	}
 	while (result!=0 && !enough && BUFSIZE!=inbuf);
 
 	if ((pes_start_in_this_pass==0 || full_pes==0) && result) // result>0 means no EOF
 	{
 		printf ("Warning: We don't have the complete PES in buffer.\n");
 		printf ("Things may start to go wrong from this point.\n");
-	} 
+	}
 
 	return payload_read;
 }
@@ -472,12 +473,11 @@ long ts_getmoredata(void)
 
 // Returns number of bytes read, or zero for EOF
 LONG general_getmoredata(void)
-{    
-	int i = 0;
-	do 
-	{		
+{
+	do
+	{
 		int want = (int) (BUFSIZE-inbuf);
-        buffered_read (fbuffer+inbuf,want);		
+        buffered_read (fbuffer+inbuf,want);
         //result=read (in,buffer+inbuf,want);
 		past=past+result;
 		inbuf+=result;
@@ -489,7 +489,7 @@ LONG general_getmoredata(void)
 void raw_loop ()
 {
 	LONG got;
-	unsigned long i;
+	long i;
 	do
 	{
 		inbuf=0;
@@ -498,7 +498,7 @@ void raw_loop ()
 		{
 			if (c1count<2 && *(fbuffer+i)==0xff && *(fbuffer+i+1)==0xff)
 			{
-				// Skip broadcast header 
+				// Skip broadcast header
 			}
 			else
 			{
@@ -523,7 +523,7 @@ LONG __cdecl process_block (unsigned char *data, LONG length)
 		return length;
 
 	for (;;)
-	{			
+	{
 #ifdef undef
 		header = (unsigned char *) memchr (header, 0, endofbuffer-header);
 
@@ -534,7 +534,7 @@ LONG __cdecl process_block (unsigned char *data, LONG length)
 			break;
 		}
 
-		/* Here we are guaranteed to have at least 'onepass' bytes ready to be 
+		/* Here we are guaranteed to have at least 'onepass' bytes ready to be
 		processed, or, if we reached the end of file, at least some zeros */
         /* Picture header? */
 		if (header[1]==0x00 && header[2]==0x01 && header[3]==0x00
@@ -559,7 +559,7 @@ LONG __cdecl process_block (unsigned char *data, LONG length)
 					break;
 				}
 			}
-			if ((temp==I_FRAME || temp==B_FRAME || temp==P_FRAME)  
+			if ((temp==I_FRAME || temp==B_FRAME || temp==P_FRAME)
 				&& extension_present)
 			{
                 net_fields+=extension_present; // So 2 if repeat field first==1
@@ -567,10 +567,10 @@ LONG __cdecl process_block (unsigned char *data, LONG length)
 				// printf ("New picture type: %d, frame type=%s\n", temp, pict_types[temp]);
 				total_frames_count++;
 				frames_since_last_gop++;
-				if (current_picture_coding_type==B_FRAME) 
+				if (current_picture_coding_type==B_FRAME)
 				{
 					update_clock();
-				}                
+				}
 				header=header+5;
 				continue;
 			}
@@ -583,7 +583,7 @@ LONG __cdecl process_block (unsigned char *data, LONG length)
 				continue;
 			}
         }
-		
+
 		/* Is this a user data header? */
 		else
 		if (header[1]==0x00 && header[2]==0x01 && header[3]==0xb2)
@@ -596,9 +596,9 @@ LONG __cdecl process_block (unsigned char *data, LONG length)
 #endif
 		    if (header+4>endofbuffer) // Not enough for a complete CC block. Later
 			    break;
-			
+
 			/* DVD CC header */
-		    if (header[0]==0x43 && header[1]==0x43) 
+		    if (header[0]==0x43 && header[1]==0x43)
 		    {
 				unsigned char pattern;
 				int field1packet;
@@ -614,7 +614,7 @@ LONG __cdecl process_block (unsigned char *data, LONG length)
 			    header+=4; /* Header plus 2 bytes (\x01, \xf8) */
 			    pattern=header[0] & 0x80;
 			    field1packet = 0; /* expect Field 1 first */
-			    if (pattern==0x00) 
+			    if (pattern==0x00)
 				    field1packet=1; /* expect Field 1 second */
 			    capcount=(header[0] & 0x1e) / 2;
 			    header++;
@@ -635,7 +635,7 @@ LONG __cdecl process_block (unsigned char *data, LONG length)
 					    {
 						    data1[0]=data[1];
 						    data1[1]=data[2];
-					    }   
+					    }
 					    else
 					    {
 						    data2[0]=data[1];
@@ -689,12 +689,12 @@ LONG __cdecl process_block (unsigned char *data, LONG length)
 				    }
 				    //c1count++;
 				    //c2count++;
-			    }   
+			    }
 		    }
 		    /* DVB closed caption header for ReplayTV  */
 		    else
 		    if ((header[0]==0xbb && header[1]==0x02) ||
-			    (header[2]==0x99 && header[3]==0x02)) 
+			    (header[2]==0x99 && header[3]==0x02))
 		    {
 			    unsigned char data1[2], data2[2];
 			    if (header[0]==0xbb)
@@ -713,7 +713,7 @@ LONG __cdecl process_block (unsigned char *data, LONG length)
 		    }
 		    /* HDTV */
 		    else
-		    if (header[0]==0x47 && header[1]==0x41 && 
+		    if (header[0]==0x47 && header[1]==0x41 &&
 			    header[2]==0x39 && header[3]==0x34)
 		    {
 			    if (header+5>endofbuffer) // Not enough for CC captions
@@ -722,7 +722,7 @@ LONG __cdecl process_block (unsigned char *data, LONG length)
 				    break;
 			    }
 			    stat_hdtv++;
-			    if (header[4]==0x03) // User data. 
+			    if (header[4]==0x03) // User data.
 			    {
 					unsigned char *cc_data;
 				    unsigned char ud_header;
@@ -739,14 +739,14 @@ LONG __cdecl process_block (unsigned char *data, LONG length)
 						    twoback_picture_coding_type=P_FRAME;
 						    last_picture_coding_type=B_FRAME;
 					    }
-					    if (last_picture_coding_type==B_FRAME && 
+					    if (last_picture_coding_type==B_FRAME &&
 						    twoback_picture_coding_type==B_FRAME)
 					    {
 						    current_picture_coding_type=P_FRAME;
 						    twoback_picture_coding_type=B_FRAME;
 						    last_picture_coding_type=P_FRAME;
 					    }
-					    if (last_picture_coding_type==B_FRAME && 
+					    if (last_picture_coding_type==B_FRAME &&
 						    twoback_picture_coding_type==P_FRAME)
 					    {
 						    current_picture_coding_type=B_FRAME;
@@ -762,11 +762,11 @@ LONG __cdecl process_block (unsigned char *data, LONG length)
 					    // FLUSH_CC_BUFFERS();
 				    }
 				    if (current_picture_coding_type==B_FRAME && autopad)
-				    {	
+				    {
 					    if (gop_pad)
 						    gop_padding();
 					    else
-						    if (pts_set==2)                    
+						    if (pts_set==2)
 							    pts_padding();
 				    }
 				    ud_header=header[5];
@@ -783,26 +783,26 @@ LONG __cdecl process_block (unsigned char *data, LONG length)
 						    break;
 					    }
 					    if (cc_data[cc_count*3]!=0xFF)
-					    {														
-    						proceed=0;							
+					    {
+    						proceed=0;
 					    }
 					    limit = cc_count*3;
 					    printed = 0;
 					    if (!proceed && debug)
 					    {
 						    printf ("\rThe following payload seems to be CC but is not properly terminated.\n");
-						    printf ("(it will be processed anyway).\n");															
+						    printf ("(it will be processed anyway).\n");
 						    dump (header-4, 128);
 						    printed=1;
 						    //header=orig_header+1;
 						    //continue;
 					    }
-					    bail=0; 
-					    // Packet stinks. We give it a change to prove itself 
+					    bail=0;
+					    // Packet stinks. We give it a change to prove itself
 					    // by passing all the parity checks. It it doesn't,
 					    // reject it.
 					    if (!proceed && debug)
-					    {								
+					    {
 						    // proceed=1;
 						    printf ("This packet is not correctly terminated.\n");
 						    printf ("Data start at offset %d of a %d bytes block.\n",
@@ -818,7 +818,7 @@ LONG __cdecl process_block (unsigned char *data, LONG length)
 						    if (!proceed && ff_cleanup)
 						    {
 							    // Packet stinks. Treat it with care
-							    if (cc_data[j]==0xFA && 
+							    if (cc_data[j]==0xFA &&
 								    cc_data[j+1]==0x00 &&
 								    cc_data[j+2]==0x00)
 								    break;
@@ -828,7 +828,7 @@ LONG __cdecl process_block (unsigned char *data, LONG length)
 						    }
 						    cc_valid = (cc_data[j] & 4) >>2;
 						    cc_type = cc_data[j] & 3;
-						    if (cc_valid==0 && cc_data[j+1]==0 && 
+						    if (cc_valid==0 && cc_data[j+1]==0 &&
 							    cc_data[j+2]==0 && fix_padding)
 						    {
 								/* Padding */
@@ -836,13 +836,13 @@ LONG __cdecl process_block (unsigned char *data, LONG length)
 								cc_data[j+1]=0x80;
 								cc_data[j+2]=0x80;
 						    }
-						    if (cc_valid)									
+						    if (cc_valid)
 						    {
 							    cc_stats[cc_type]++;
 							    if (bail && (cc_type==0 || cc_type==1) && debug)
 							    {
 								    if (!printed)
-								    {	
+								    {
 									    printf ("\rThis packet is not supposed to have more CC but it does!\n");
 									    dump (header-4,128);
 								    }
@@ -857,7 +857,7 @@ LONG __cdecl process_block (unsigned char *data, LONG length)
 									    c1count++;
 								    }
 								    else
-								    {	
+								    {
 									    if (used_caption_buffer_1<MAX_CLOSED_CAPTION_DATA_PER_PICTURE)
 									    {
 										    captions_buffer_1[used_caption_buffer_1++]=cc_data[j+1];
@@ -900,11 +900,11 @@ LONG __cdecl process_block (unsigned char *data, LONG length)
 				    }
 				    // JOHN BELL STUFF
 				    twoback_picture_coding_type=last_picture_coding_type;
-				    if (current_picture_coding_type==B_FRAME)			
+				    if (current_picture_coding_type==B_FRAME)
 					    last_picture_coding_type=B_FRAME;
-				    else						
-    					last_picture_coding_type=P_FRAME;					
-				    current_picture_coding_type=RESET_OR_UNKNOWN; 
+				    else
+    					last_picture_coding_type=P_FRAME;
+				    current_picture_coding_type=RESET_OR_UNKNOWN;
 				    // End of JOHN BELL STUFF
 			    }
 				header++;
@@ -912,8 +912,8 @@ LONG __cdecl process_block (unsigned char *data, LONG length)
 		    }
 		    /* DVB closed caption header for Dish Network (Field 1 only) */
 		    else
-		    if (header[0]==0x05 && header[1]==0x02) 
-		    {				
+		    if (header[0]==0x05 && header[1]==0x02)
+		    {
 			    unsigned char type;
 			    unsigned char hi;
 			    unsigned char data1[2];
@@ -989,16 +989,16 @@ LONG __cdecl process_block (unsigned char *data, LONG length)
 					    printdata (p_caption+j, 2, NULL, 0);
 					    c1count++;
 				    }
-				    p_caption_size=0; 
+				    p_caption_size=0;
 				    header+=6; /* skip 6 bytes (\x04, followed by 5 bytes from last 0x05 pattern) */
 				    type=header[0]; /* number of caption bytes (\x02 or \x04) */
-				    header+=2; /* Skip an additional byte, (\x09) */				
+				    header+=2; /* Skip an additional byte, (\x09) */
 				    data1[0]=header[0];
 				    data1[1]=header[1];
 				    header+=2;
 				    if (p_caption_capacity<2)
 				    {
-					    p_caption=(unsigned char *) realloc (p_caption,1024); 
+					    p_caption=(unsigned char *) realloc (p_caption,1024);
 					    p_caption_capacity=1024;
 				    }
 				    p_caption[0]=data1[0];
@@ -1013,7 +1013,7 @@ LONG __cdecl process_block (unsigned char *data, LONG length)
 					    {
 						    if (p_caption_capacity<(p_caption_size+2))
 						    {
-							    p_caption=(unsigned char *) realloc (p_caption,p_caption_capacity+1024); 
+							    p_caption=(unsigned char *) realloc (p_caption,p_caption_capacity+1024);
 							    p_caption_capacity+=1024;
 						    }
 						    p_caption[p_caption_size]=data1[0];
@@ -1029,7 +1029,7 @@ LONG __cdecl process_block (unsigned char *data, LONG length)
 					    header+=2;
 					    if (p_caption_capacity<(p_caption_size+2))
 					    {
-    						p_caption=(unsigned char *) realloc (p_caption,p_caption_capacity+1024); 
+    						p_caption=(unsigned char *) realloc (p_caption,p_caption_capacity+1024);
 						    p_caption_capacity+=1024;
 					    }
 					    p_caption[p_caption_size]=data1[0];
@@ -1066,8 +1066,8 @@ LONG __cdecl process_block (unsigned char *data, LONG length)
 
 			if (gop_accepted(&gtc))
 			{
-				if (gtc.ccblocks>gop_time.ccblocks+300 						
-					&& first_gop_time.inited) 
+				if (gtc.ccblocks>gop_time.ccblocks+300
+					&& first_gop_time.inited)
 				{
 					if (debug)
 						printf ("\rWarning: Large GAP in GOP timing, ignoring new timing.\n");
@@ -1076,23 +1076,23 @@ LONG __cdecl process_block (unsigned char *data, LONG length)
 				{
 					if (first_gop_time.inited == 0)
 					{
-						first_gop_time = gtc; 
+						first_gop_time = gtc;
 						//first_gop_time.ccblocks-=net_fields; // Compensate for those written before
 						first_gop_time.ccblocks-=c1count;
 					}
-					gop_time = gtc;                    
+					gop_time = gtc;
 					/* printf ("\n%02u:%02u:%02u:%02u",gtc.time_code_hours,gtc.time_code_minutes,
 					gtc.time_code_seconds,gtc.time_code_pictures); */
 					frames_since_last_gop=0;
 				}
 			}
 			header++;
-			continue;				                
+			continue;
 		}
         else
 		/* Sequence? We could use the frame rate. We only trust sequence
 		candidates early in the PES though: The rest are usually false positives */
-		if (ts_mode && header[1]==0x00 && header[2]==0x01 && 
+		if (ts_mode && header[1]==0x00 && header[2]==0x01 &&
 			header[3]==0xB3 && ((header-data)<0x80))
 		{
 			unsigned hor_size;
@@ -1130,7 +1130,7 @@ LONG __cdecl process_block (unsigned char *data, LONG length)
 							/ MPEG_CLOCK_FREQ);
 						printf ("at %02u:%02u\n",cur_sec/60, cur_sec % 60);
 					}
-					printf ("\n");						
+					printf ("\n");
 					printf ("[%u * %u] [AR: %s] [FR: %s] [Bitrate: %u bytes/sec]\n",
 						hor_size,vert_size,	aspect_ratio_types[aspect_ratio],
 						framerates_types[frame_rate], bit_rate);
@@ -1158,20 +1158,20 @@ LONG __cdecl process_block (unsigned char *data, LONG length)
 
 void general_loop(void)
 {
-	LONG overlap=0;    
-	LONG pos = 0; /* Current position in buffer */    
-	// int ts_blocks=0;	
+	LONG overlap=0;
+	LONG pos = 0; /* Current position in buffer */
+	// int ts_blocks=0;
 	end_of_file = 0;
 	current_picture_coding_type = 0;
 	p_caption_size = 0, p_caption_capacity = 0;
 	p_caption = NULL;
 
-	while (!end_of_file && !processed_enough) 
+	while (!end_of_file && !processed_enough)
 	{
 		LONG i,got;
-		/* Get rid of the bytes we already processed */        
-		overlap=inbuf-pos; 
-		memmove (fbuffer,fbuffer+pos,(size_t) (inbuf-pos)); 
+		/* Get rid of the bytes we already processed */
+		overlap=inbuf-pos;
+		memmove (fbuffer,fbuffer+pos,(size_t) (inbuf-pos));
 		inbuf-=pos;
 
 		pos = 0;
@@ -1188,7 +1188,7 @@ void general_loop(void)
 		if (i==0)
 		{
 			end_of_file = 1;
-			memset (fbuffer+inbuf, 0, (size_t) (BUFSIZE-inbuf)); /* Clear buffer at the end */			
+			memset (fbuffer+inbuf, 0, (size_t) (BUFSIZE-inbuf)); /* Clear buffer at the end */
 		}
 
 		if (inbuf == 0)
@@ -1201,7 +1201,7 @@ void general_loop(void)
 		got = process_block (fbuffer, inbuf);
 		if (got>inbuf)
 		{
-			printf ("BUG BUG\n");			
+			printf ("BUG BUG\n");
 		}
 		pos+=got;
 
