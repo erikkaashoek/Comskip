@@ -1346,7 +1346,7 @@ static int    prev_strange_framenum = 0;
                 for (i=0; i<sd->size; i++) {
                   ccData[i+7] = sd->data[i];
                 }
-                dump_data(ccData, (int)ccDataLen);
+                dump_data((char *)ccData, (int)ccDataLen);
                 if (processCC) ProcessCCData();
                 if (output_srt) process_block(ccData, (int)ccDataLen);
             }
