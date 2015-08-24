@@ -1840,14 +1840,13 @@ void file_close()
 #ifdef HARDWARE_DECODE
     ist->hwaccel_ctx = NULL;
 #endif
-   //avcodec_close(is->pFormatCtx->streams[is->videoStream]->codec);
-//    avcodec_free_context(&is->pFormatCtx->streams[is->videoStream]->codec);
+//    if (is->videoStream != -1) avcodec_close(is->pFormatCtx->streams[is->videoStream]->codec);
     is->videoStream = -1;
+//    avcodec_free_context(&is->pFormatCtx->streams[is->videoStream]->codec);
 //    if (is->audioStream != -1) avcodec_close(is->pFormatCtx->streams[is->audioStream]->codec);
     is->audioStream = -1;
-//    avcodec_close(is->pFormatCtx->streams[is->subtitleStream]->codec);
+//    if (is->subtitleStream != -1)  avcodec_close(is->pFormatCtx->streams[is->subtitleStream]->codec);
     is->subtitleStream = -1;
-
 //    is->pFormatCtx = NULL;
 
     avformat_network_deinit();

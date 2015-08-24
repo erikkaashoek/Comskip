@@ -9389,19 +9389,9 @@ incer(void *arg)
 
 int main(void)
 {
-    int        ar[1000000];
     pthread_t  th1, th2;
-    subarray   sb1, sb2;
-
-
-    sb1.ar = &ar[0];
-    sb1.n  = 500000;
-    (void) pthread_create(&th1, NULL, incer, &sb1);
-
-
-    sb2.ar = &ar[500000];
-    sb2.n  = 500000;
-    (void) pthread_create(&th2, NULL, incer, &sb2);
+    (void) pthread_create(&th1, NULL, ScanTop, NULL);
+    (void) pthread_create(&th2, NULL, ScanBottom, NULL);
 
 
     (void) pthread_join(th1, NULL);
@@ -9411,9 +9401,161 @@ int main(void)
 
 
 */
+#include "pthread.h"
 
 static DECLARE_ALIGNED(32, int, own_histogram[4][256]);
+int scan_step;
 
+void ScanBottom()
+{
+    register int		i, i_max, i_step;
+    int		x;
+    int		y;
+    int     delta;
+    int     max_delta;
+    register int		hereBright;
+    int		brightCount;
+
+    brightCount = 0;
+    max_delta =  min(videowidth,height)/2 - border;
+    delta = 0;
+    while (delta < max_delta)
+    {
+        y = border + delta;
+        x = border + delta;
+        i = y * width + x;
+        i_max = y * width + videowidth - border - delta;
+        i_step = scan_step;
+        for (; i < i_max; i += i_step)
+        {
+            if (haslogo[i])
+                continue;
+            hereBright = frame_ptr[i];
+            own_histogram[0][hereBright]++;
+            if (hereBright > test_brightness)
+                brightCount++;
+        }
+        if (brightCount < 5)
+        {
+            //brightCountminY = 0;
+            minY = y;
+        }
+        delta += scan_step;
+    }
+}
+
+void ScanTop()
+{
+    int		i, i_max, i_step;
+    int		x;
+    int		y;
+    int     delta;
+    int     max_delta;
+    int		hereBright;
+    int		brightCount;
+
+    max_delta =  min(videowidth,height)/2 - border;
+    brightCount = 0;
+    delta = 0;
+    while (delta < max_delta)
+    {
+        x = border + delta;
+        y = height - border - delta;
+        i = y * width + x;
+        i_max = y * width + videowidth - border - delta;
+        i_step = scan_step;
+        for (; i < i_max; i += i_step)
+        {
+            if (haslogo[i])
+                continue;
+            hereBright = frame_ptr[i];
+            own_histogram[1][hereBright]++;
+            if (hereBright > test_brightness)
+                brightCount++;
+        }
+        if (brightCount < 5)
+        {
+            //brightCountmaxY = 0;
+            maxY = y;
+        }
+        delta += scan_step;
+    }
+}
+
+void ScanLeft()
+{
+    int		i, i_max, i_step;
+    int		x;
+    int		y;
+    int     delta;
+    int     max_delta;
+    int		hereBright;
+    int		brightCount;
+
+    max_delta =  min(videowidth,height)/2 - border;
+    brightCount = 0;
+    delta = 0;
+    while (delta < max_delta)
+    {
+        x = border + delta;
+        y = border + delta;
+        i = y * width + x;
+        i_step = scan_step * width;
+        i_max = (height - border - delta) * width + x;
+        for (; i< i_max; i += i_step)
+        {
+            if (haslogo[i])
+                continue;
+            hereBright = frame_ptr[i];
+            own_histogram[2][hereBright]++;
+            if (hereBright > test_brightness)
+                brightCount++;
+        }
+        if (brightCount < 5)
+        {
+            //brightCountminX = 0;
+            minX = x;
+        }
+        delta += scan_step;
+    }
+}
+
+void ScanRight()
+{
+    int		i, i_max, i_step;
+    int		x;
+    int		y;
+    int     delta;
+    int     max_delta;
+    int		hereBright;
+    int		brightCount;
+
+    max_delta =  min(videowidth,height)/2 - border;
+    brightCount = 0;
+    delta = 0;
+    while (delta < max_delta)
+    {
+        x = videowidth - border - delta;
+        y = border + delta;
+        i = y * width + x;
+        i_step = scan_step * width;
+        i_max = (height - border - delta) * width + x;
+        for (; i < i_max; i += i_step)
+        {
+            if (haslogo[i])
+                continue;
+            hereBright = frame_ptr[i];
+            own_histogram[3][hereBright]++;
+            if (hereBright > test_brightness)
+                brightCount++;
+        }
+        if (brightCount < 5)
+        {
+            maxX = x;
+        }
+        delta += scan_step;
+    }
+}
 
 bool CheckSceneHasChanged(void)
 {
@@ -9430,10 +9572,10 @@ bool CheckSceneHasChanged(void)
     bool	isDim = false;
     int pixels = 0;
     register int		hereBright;
-    int		brightCountminX;
-    int		brightCountminY;
-    int		brightCountmaxX;
-    int		brightCountmaxY;
+//    int		brightCountminX;
+//    int		brightCountminY;
+//    int		brightCountmaxX;
+//    int		brightCountmaxY;
     long	cause;
     int  uniform = 0;
     double scale = 1.0;
@@ -9447,6 +9589,7 @@ bool CheckSceneHasChanged(void)
     if (videowidth > 1200) step = 3;
     if (videowidth > 1800) step = 4;
     if (videowidth < 600) step = 1;
+    scan_step = step;
 
     if (edge_step == 0)
         edge_step = step; // Automatic adjust edge step for video size
@@ -9456,106 +9599,32 @@ bool CheckSceneHasChanged(void)
     brightness = 0;
 
     // compare current frame with last frame here
-    memset(histogram, 0, sizeof(histogram));
+//    memset(histogram, 0, sizeof(histogram));
     memset(own_histogram, 0, sizeof(own_histogram));
 
-    max_delta =  min(videowidth,height)/2 - border;
+//    max_delta =  min(videowidth,height)/2 - border;
 
-    brightCountminY = 0;
-    delta = 0;
-    while (delta < max_delta)
+//#define SCAN_MULTI
+#ifdef SCAN_MULTI
     {
-        y = border + delta;
-        x = border + delta;
-        i = y * width + x;
-        i_max = y * width + videowidth - border - delta;
-        i_step = step;
-        for (; i < i_max; i += i_step)
-        {
-            if (haslogo[i])
-                continue;
-            hereBright = frame_ptr[i];
-            own_histogram[0][hereBright]++;
-            if (hereBright > test_brightness)
-                brightCountminY++;
-        }
-        if (brightCountminY < 5)
-        {
-            //brightCountminY = 0;
-            minY = y;
-        }
-        delta += step;
+    pthread_t  th1, th2, th3, th4;
+    (void) pthread_create(&th1, NULL, ScanTop, NULL);
+    (void) pthread_create(&th2, NULL, ScanBottom, NULL);
+    (void) pthread_create(&th3, NULL, ScanLeft, NULL);
+    (void) pthread_create(&th4, NULL, ScanRight, NULL);
+#else
+    ScanBottom();
+    ScanTop();
+    ScanLeft();
+    ScanRight();
+#endif
+#ifdef SCAN_MULTI
+    (void) pthread_join(th1, NULL);
+    (void) pthread_join(th2, NULL);
+    (void) pthread_join(th3, NULL);
+    (void) pthread_join(th4, NULL);
     }
-    brightCountmaxY = 0;
-    delta = 0;
-    while (delta < max_delta)
-    {
-
-        x = border + delta;
-        y = height - border - delta;
-        i = y * width + x;
-        i_max = y * width + videowidth - border - delta;
-        i_step = step;
-        for (; i < i_max; i += i_step)
-        {
-            if (haslogo[i])
-                continue;
-            hereBright = frame_ptr[i];
-            own_histogram[1][hereBright]++;
-            if (hereBright > test_brightness)
-                brightCountmaxY++;
-        }
-        if (brightCountmaxY < 5)
-        {
-            //brightCountmaxY = 0;
-            maxY = y;
-        }
-        delta += step;
-    }
-    brightCountminX = 0;
-    delta = 0;
-    while (delta < max_delta)
-    {
-        x = border + delta;
-        for (y = border + delta; y < height - border - delta; y += step)
-        {
-            if (haslogo[y * width + x])
-                continue;
-            hereBright = frame_ptr[y * width + x];
-            own_histogram[2][hereBright]++;
-            if (hereBright > test_brightness)
-                brightCountminX++;
-        }
-        if (brightCountminX < 5)
-        {
-            //brightCountminX = 0;
-            minX = x;
-        }
-        delta += step;
-    }
-    brightCountmaxX = 0;
-    delta = 0;
-    while (delta < max_delta)
-    {
-        x = videowidth - border - delta;
-//        if (brightCountmaxX < 5)
-//        {
-            for (y = border + delta; y < height - border - delta; y += step)
-            {
-                if (haslogo[y * width + x])
-                    continue;
-                hereBright = frame_ptr[y * width + x];
-                own_histogram[3][hereBright]++;
-                if (hereBright > test_brightness)
-                    brightCountmaxX++;
-            }
-            if (brightCountmaxX < 5)
-            {
-                //brightCountmaxX = 0;
-                maxX = x;
-            }
-        delta += step;
-    }
+#endif
 
     for (i = 0; i < 256; i++) {
         histogram[i] = own_histogram[0][i] + own_histogram[1][i] + own_histogram[2][i] + own_histogram[3][i];
