@@ -485,7 +485,7 @@ int						subsample_video = 0x3f;
 #define MAXWIDTH	2000
 #define MAXHEIGHT	1200
 
-int haslogo[MAXWIDTH*MAXHEIGHT];
+char haslogo[MAXWIDTH*MAXHEIGHT];
 
 // unsigned char		oldframe[MAXWIDTH*MAXHEIGHT];
 
