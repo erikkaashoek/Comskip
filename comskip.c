@@ -670,7 +670,10 @@ bool				sceneHasChanged;
 int					sceneChangePercent;
 bool				lastFrameWasBlack = false;
 bool				lastFrameWasSceneChange = false;
-int					histogram[256];
+
+#include <libavutil/avutil.h>  // only for DECLARE_ALIGNED
+static DECLARE_ALIGNED(32, long, histogram[256]);
+//int					histogram[256];
 int					lastHistogram[256];
 
 #define				MAXCSLENGTH		400*300
@@ -1907,7 +1910,7 @@ void InitHasLogo()
 {
 
     int x,y;
-    memset(haslogo,MAXWIDTH*MAXHEIGHT,sizeof(int));
+    memset(haslogo,MAXWIDTH*MAXHEIGHT,sizeof(char));
     for (y = clogoMinY - LOGO_BORDER; y < clogoMaxY + LOGO_BORDER; y++)
     {
         for (x = clogoMinX-LOGO_BORDER; x < clogoMaxX + LOGO_BORDER ; x++)
@@ -9409,14 +9412,16 @@ int main(void)
 
 */
 
+static DECLARE_ALIGNED(32, int, own_histogram[4][256]);
 
 
 bool CheckSceneHasChanged(void)
 {
-    int		i;
+    register int		i, i_max, i_step;
     int		x;
     int		y;
     int     delta;
+    int     max_delta;
     int		step;
     long	similar = 0;
 //    static long prevsimilar = 0;
@@ -9424,7 +9429,7 @@ bool CheckSceneHasChanged(void)
     int		dimCount = 0;
     bool	isDim = false;
     int pixels = 0;
-    int		hereBright;
+    register int		hereBright;
     int		brightCountminX;
     int		brightCountminY;
     int		brightCountmaxX;
@@ -9452,21 +9457,25 @@ bool CheckSceneHasChanged(void)
 
     // compare current frame with last frame here
     memset(histogram, 0, sizeof(histogram));
+    memset(own_histogram, 0, sizeof(own_histogram));
 
-    delta = 0;
-    brightCountminX = 0;
+    max_delta =  min(videowidth,height)/2 - border;
+
     brightCountminY = 0;
-    brightCountmaxX = 0;
-    brightCountmaxY = 0;
-    while (1)
+    delta = 0;
+    while (delta < max_delta)
     {
         y = border + delta;
-        for (x = border + delta; x <= videowidth - border - delta; x += step)
+        x = border + delta;
+        i = y * width + x;
+        i_max = y * width + videowidth - border - delta;
+        i_step = step;
+        for (; i < i_max; i += i_step)
         {
-            if (haslogo[y * width + x])
+            if (haslogo[i])
                 continue;
-            hereBright = frame_ptr[y * width + x];
-            histogram[hereBright]++;
+            hereBright = frame_ptr[i];
+            own_histogram[0][hereBright]++;
             if (hereBright > test_brightness)
                 brightCountminY++;
         }
@@ -9475,13 +9484,24 @@ bool CheckSceneHasChanged(void)
             //brightCountminY = 0;
             minY = y;
         }
+        delta += step;
+    }
+    brightCountmaxY = 0;
+    delta = 0;
+    while (delta < max_delta)
+    {
+
+        x = border + delta;
         y = height - border - delta;
-        for (x = border + delta; x <= videowidth - border - delta; x += step)
+        i = y * width + x;
+        i_max = y * width + videowidth - border - delta;
+        i_step = step;
+        for (; i < i_max; i += i_step)
         {
-            if (haslogo[y * width + x])
+            if (haslogo[i])
                 continue;
-            hereBright = frame_ptr[y * width + x];
-            histogram[hereBright]++;
+            hereBright = frame_ptr[i];
+            own_histogram[1][hereBright]++;
             if (hereBright > test_brightness)
                 brightCountmaxY++;
         }
@@ -9490,13 +9510,19 @@ bool CheckSceneHasChanged(void)
             //brightCountmaxY = 0;
             maxY = y;
         }
+        delta += step;
+    }
+    brightCountminX = 0;
+    delta = 0;
+    while (delta < max_delta)
+    {
         x = border + delta;
-        for (y = border + delta; y <= height - border - delta; y += step)
+        for (y = border + delta; y < height - border - delta; y += step)
         {
             if (haslogo[y * width + x])
                 continue;
             hereBright = frame_ptr[y * width + x];
-            histogram[hereBright]++;
+            own_histogram[2][hereBright]++;
             if (hereBright > test_brightness)
                 brightCountminX++;
         }
@@ -9505,15 +9531,21 @@ bool CheckSceneHasChanged(void)
             //brightCountminX = 0;
             minX = x;
         }
+        delta += step;
+    }
+    brightCountmaxX = 0;
+    delta = 0;
+    while (delta < max_delta)
+    {
         x = videowidth - border - delta;
 //        if (brightCountmaxX < 5)
 //        {
-            for (y = border + delta; y <= height - border - delta; y += step)
+            for (y = border + delta; y < height - border - delta; y += step)
             {
                 if (haslogo[y * width + x])
                     continue;
                 hereBright = frame_ptr[y * width + x];
-                histogram[hereBright]++;
+                own_histogram[3][hereBright]++;
                 if (hereBright > test_brightness)
                     brightCountmaxX++;
             }
@@ -9522,11 +9554,11 @@ bool CheckSceneHasChanged(void)
                 //brightCountmaxX = 0;
                 maxX = x;
             }
-//        }
-
         delta += step;
-        if (delta > videowidth / 2 || delta > height / 2)
-            break;
+    }
+
+    for (i = 0; i < 256; i++) {
+        histogram[i] = own_histogram[0][i] + own_histogram[1][i] + own_histogram[2][i] + own_histogram[3][i];
     }
 
 #ifdef FRAME_WITH_HISTOGRAM
