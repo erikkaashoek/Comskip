@@ -5663,7 +5663,47 @@ void WeighBlocks(void)
 	}
 */
 
+char TempXmlFilename[300];
 
+char *EscapeXmlFilename(char *f)
+{
+    char *o = TempXmlFilename;
+    while (*f) {
+        if (*f == '&') {
+            *o++ = '&';
+            *o++ = 'a';
+            *o++ = 'm';
+            *o++ = 'p';
+            *o++ = ';';
+            f++;
+        } else
+        if (*f == '<') {
+            *o++ = '&';
+            *o++ = 'l';
+            *o++ = 't';
+            *o++ = ';';
+            f++;
+        } else
+        if (*f == '>') {
+            *o++ = '&';
+            *o++ = 'g';
+            *o++ = 't';
+            *o++ = ';';
+            f++;
+        } else
+        if (*f == '%') {
+            *o++ = '&';
+            *o++ = '#';
+            *o++ = '3';
+            *o++ = '7';
+            *o++ = ';';
+            f++;
+        } else
+            *o++ = *f++;
+    }
+    *o++ = 0;
+    return (TempXmlFilename);
+}
 
 void OpenOutputFiles()
 {
@@ -5959,12 +5999,12 @@ void OpenOutputFiles()
         {
             if (mpegfilename[1] == ':' || mpegfilename[0] == PATH_SEPARATOR)
             {
-                fprintf(videoredo3_file, "<VideoReDoProject Version=\"3\">\n<Filename>%s</Filename><CutList>\n", mpegfilename);
+                fprintf(videoredo3_file, "<VideoReDoProject Version=\"3\">\n<Filename>%s</Filename><CutList>\n", EscapeXmlFilename(mpegfilename));
             }
             else
             {
                 _getcwd(cwd, 256);
-                fprintf(videoredo3_file, "<VideoReDoProject Version=\"3\">\n<Filename>%s%c%s</Filename><CutList>\n", cwd, PATH_SEPARATOR, mpegfilename);
+                fprintf(videoredo3_file, "<VideoReDoProject Version=\"3\">\n<Filename>%s%c%s</Filename><CutList>\n", cwd, PATH_SEPARATOR, EscapeXmlFilename(mpegfilename));
             }
 //              if (is_h264) {
             //                 fprintf(videoredo3_file, "<MPEG Stream Type>4\n");

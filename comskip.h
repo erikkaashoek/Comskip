@@ -1,7 +1,7 @@
 #ifndef COMSKIP
 #define COMSKIP
 #define COMSKIPVERSION "0.81"
-#define SUBVERSION "084"
+#define SUBVERSION "085"
 #endif
 
 #define _UNICODE
