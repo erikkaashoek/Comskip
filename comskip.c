@@ -9446,7 +9446,15 @@ int main(void)
 static DECLARE_ALIGNED(32, int, own_histogram[4][256]);
 int scan_step;
 
-void ScanBottom()
+#define THREAD_WORKERS 4
+pthread_mutex_t lock[THREAD_WORKERS];
+pthread_mutex_t done[THREAD_WORKERS];
+pthread_mutex_t wait[THREAD_WORKERS];
+
+#define SCAN_MULTI
+
+
+void ScanBottom(void *arg)
 {
     register int		i, i_max, i_step;
     int		x;
@@ -9455,7 +9463,13 @@ void ScanBottom()
     int     max_delta;
     register int		hereBright;
     int		brightCount;
-
+    int     w = (int) arg;
+#ifdef SCAN_MULTI
+    pthread_mutex_lock(&done[w]);
+    while (1)
+    {
+    pthread_mutex_lock(&lock[w]);
+#endif
     brightCount = 0;
     max_delta =  min(videowidth,height)/2 - border;
     delta = 0;
@@ -9482,9 +9496,17 @@ void ScanBottom()
         }
         delta += scan_step;
     }
+#ifdef SCAN_MULTI
+    pthread_mutex_unlock(&lock[w]);
+    pthread_mutex_unlock(&done[w]);
+    pthread_mutex_lock(&wait[w]);
+    pthread_mutex_lock(&done[w]);
+    pthread_mutex_unlock(&wait[w]);
+    }
+#endif
 }
 
-void ScanTop()
+void ScanTop(void *arg)
 {
     int		i, i_max, i_step;
     int		x;
@@ -9493,7 +9515,14 @@ void ScanTop()
     int     max_delta;
     int		hereBright;
     int		brightCount;
+    int     w = (int) arg;
 
+#ifdef SCAN_MULTI
+    pthread_mutex_lock(&done[w]);
+    while (1)
+    {
+    pthread_mutex_lock(&lock[w]);
+#endif
     max_delta =  min(videowidth,height)/2 - border;
     brightCount = 0;
     delta = 0;
@@ -9520,9 +9549,17 @@ void ScanTop()
         }
         delta += scan_step;
     }
+#ifdef SCAN_MULTI
+    pthread_mutex_unlock(&lock[w]);
+    pthread_mutex_unlock(&done[w]);
+    pthread_mutex_lock(&wait[w]);
+    pthread_mutex_lock(&done[w]);
+    pthread_mutex_unlock(&wait[w]);
+    }
+#endif
 }
 
-void ScanLeft()
+void ScanLeft(void *arg)
 {
     int		i, i_max, i_step;
     int		x;
@@ -9531,7 +9568,14 @@ void ScanLeft()
     int     max_delta;
     int		hereBright;
     int		brightCount;
+    int     w = (int) arg;
 
+#ifdef SCAN_MULTI
+    pthread_mutex_lock(&done[w]);
+    while (1)
+    {
+    pthread_mutex_lock(&lock[w]);
+#endif
     max_delta =  min(videowidth,height)/2 - border;
     brightCount = 0;
     delta = 0;
@@ -9558,9 +9602,17 @@ void ScanLeft()
         }
         delta += scan_step;
     }
+#ifdef SCAN_MULTI
+    pthread_mutex_unlock(&lock[w]);
+    pthread_mutex_unlock(&done[w]);
+    pthread_mutex_lock(&wait[w]);
+    pthread_mutex_lock(&done[w]);
+    pthread_mutex_unlock(&wait[w]);
+    }
+#endif
 }
 
-void ScanRight()
+void ScanRight(void *arg)
 {
     int		i, i_max, i_step;
     int		x;
@@ -9569,7 +9621,14 @@ void ScanRight()
     int     max_delta;
     int		hereBright;
     int		brightCount;
+    int     w = (int) arg;
 
+#ifdef SCAN_MULTI
+    pthread_mutex_lock(&done[w]);
+    while (1)
+    {
+    pthread_mutex_lock(&lock[w]);
+#endif
     max_delta =  min(videowidth,height)/2 - border;
     brightCount = 0;
     delta = 0;
@@ -9595,6 +9654,14 @@ void ScanRight()
         }
         delta += scan_step;
     }
+#ifdef SCAN_MULTI
+    pthread_mutex_unlock(&lock[w]);
+    pthread_mutex_unlock(&done[w]);
+    pthread_mutex_lock(&wait[w]);
+    pthread_mutex_lock(&done[w]);
+    pthread_mutex_unlock(&wait[w]);
+    }
+#endif
 }
 
 bool CheckSceneHasChanged(void)
@@ -9644,25 +9711,53 @@ bool CheckSceneHasChanged(void)
 
 //    max_delta =  min(videowidth,height)/2 - border;
 
-//#define SCAN_MULTI
 #ifdef SCAN_MULTI
     {
-    pthread_t  th1, th2, th3, th4;
-    (void) pthread_create(&th1, NULL, ScanTop, NULL);
-    (void) pthread_create(&th2, NULL, ScanBottom, NULL);
-    (void) pthread_create(&th3, NULL, ScanLeft, NULL);
-    (void) pthread_create(&th4, NULL, ScanRight, NULL);
+static int thread_init_done = 0;
+        pthread_t  th1, th2, th3, th4;
+        if (!thread_init_done) {
+            for (i=0; i < THREAD_WORKERS; i++) {
+                (void) pthread_mutex_init(&lock[i],NULL);
+                (void) pthread_mutex_lock(&lock[i]);
+                (void) pthread_mutex_init(&done[i],NULL);
+ //               (void) pthread_mutex_lock(&done[i]);
+                (void) pthread_mutex_init(&wait[i],NULL);
+//                (void) pthread_mutex_lock(&wait[i]);
+
+            }
+            (void) pthread_create(&th2, NULL, ScanBottom, (void *)0);
+            (void) pthread_create(&th1, NULL, ScanTop, (void *)1);
+            (void) pthread_create(&th3, NULL, ScanLeft, (void *)2);
+            (void) pthread_create(&th4, NULL, ScanRight, (void *)3);
+            Sleep(100L);
+        }
+        thread_init_done = 1;
+        for (i=0; i < THREAD_WORKERS; i++) {
+//            (void) pthread_mutex_lock(&done[i]);
+            (void) pthread_mutex_unlock(&lock[i]);
+        }
+    }
 #else
-    ScanBottom();
-    ScanTop();
-    ScanLeft();
-    ScanRight();
+    ScanBottom((void *)0);
+    ScanTop((void *)0);
+    ScanLeft((void *)0);
+    ScanRight((void *)0);
 #endif
 #ifdef SCAN_MULTI
-    (void) pthread_join(th1, NULL);
-    (void) pthread_join(th2, NULL);
-    (void) pthread_join(th3, NULL);
-    (void) pthread_join(th4, NULL);
+     for (i=0; i < THREAD_WORKERS; i++) {
+         (void) pthread_mutex_lock(&wait[i]);
+     }
+     for (i=0; i < THREAD_WORKERS; i++) {
+         (void) pthread_mutex_lock(&done[i]);
+    }
+     for (i=0; i < THREAD_WORKERS; i++) {
+         (void) pthread_mutex_lock(&lock[i]);
+    }
+     for (i=0; i < THREAD_WORKERS; i++) {
+         (void) pthread_mutex_unlock(&done[i]);
+    }
+     for (i=0; i < THREAD_WORKERS; i++) {
+         (void) pthread_mutex_unlock(&wait[i]);
     }
 #endif
 
@@ -15636,4 +15731,9 @@ void dump_data(char *start, int length)
     fwrite(temp, length+12, 1, dump_data_file);
 
 //	fclose(dump_data_file);
+}
+
+void close_data()
+{
+	fclose(dump_data_file);
 }

@@ -1,4 +1,5 @@
 /*
+/*
  * mpeg2dec.c
  * Copyright (C) 2000-2003 Michel Lespinasse <walken@zoy.org>
  * Copyright (C) 1999-2000 Aaron Holtzman <aholtzma@ess.engr.uvic.ca>
@@ -319,7 +320,7 @@ int BuildMasterCommList(void);
 FILE* LoadSettings(int argc, char ** argv);
 void ProcessCCData(void);
 void dump_data(char *start, int length);
-
+void close_data();
 
 static void signal_handler (int sig)
 {
@@ -862,6 +863,7 @@ static void ResetInputFile()
 #ifndef _DEBUG
 //     DUMP_CLOSE
 //     DUMP_OPEN
+    close_data();
 #endif
 }
 
@@ -2131,6 +2133,14 @@ again:
                     apts = 0.0;
                     audio_buffer_ptr = audio_buffer;
                     audio_samples = 0;
+                    DUMP_CLOSE
+                    DUMP_OPEN
+                    DUMP_HEADER
+                    close_data();
+#ifdef PROCESS_CC
+                    if (output_srt || output_smi) CEW_reinit();
+#endif
+
                 }
                 //                   best_effort_timestamp = AV_NOPTS_VALUE;
 //                   is->pFrame->pkt_pts = AV_NOPTS_VALUE;
