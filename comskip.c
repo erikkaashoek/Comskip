@@ -9693,7 +9693,7 @@ bool CheckSceneHasChanged(void)
 #ifdef SCAN_MULTI
     {
 static int thread_init_done = 0;
-        pthread_t  th1, th2, th3, th4;
+static pthread_t  th1, th2, th3, th4;
         if (!thread_init_done) {
             for (i=0; i < THREAD_WORKERS; i++) {
                 wait[i] = CreateSemaphore(NULL, 0, LONG_MAX, NULL);
@@ -9707,6 +9707,10 @@ static int thread_init_done = 0;
         }
         thread_init_done = 1;
     }
+    for (i=0; i < THREAD_WORKERS; i++) {
+        ReleaseSemaphore(wait[i], 1, NULL);
+    }
+
 #else
     ScanBottom((void *)0);
     ScanTop((void *)0);
@@ -9714,9 +9718,6 @@ static int thread_init_done = 0;
     ScanRight((void *)0);
 #endif
 #ifdef SCAN_MULTI
-    for (i=0; i < THREAD_WORKERS; i++) {
-        ReleaseSemaphore(wait[i], 1, NULL);
-    }
     for (i=0; i < THREAD_WORKERS; i++) {
         WaitForSingleObject(done[i], INFINITE);
     }
