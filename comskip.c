@@ -9691,6 +9691,7 @@ bool CheckSceneHasChanged(void)
 //    max_delta =  min(videowidth,height)/2 - border;
 
 #ifdef SCAN_MULTI
+    if (thread_count > 1)
     {
 static int thread_init_done = 0;
 static pthread_t  th1, th2, th3, th4;
@@ -9706,23 +9707,22 @@ static pthread_t  th1, th2, th3, th4;
             Sleep(100L);
         }
         thread_init_done = 1;
-    }
-    for (i=0; i < THREAD_WORKERS; i++) {
-        ReleaseSemaphore(wait[i], 1, NULL);
-    }
-
+        for (i=0; i < THREAD_WORKERS; i++) {
+            ReleaseSemaphore(wait[i], 1, NULL);
+        }
+        for (i=0; i < THREAD_WORKERS; i++) {
+            WaitForSingleObject(done[i], INFINITE);
+        }
+    } else {
 #else
-    ScanBottom((void *)0);
-    ScanTop((void *)0);
-    ScanLeft((void *)0);
-    ScanRight((void *)0);
-#endif
-#ifdef SCAN_MULTI
-    for (i=0; i < THREAD_WORKERS; i++) {
-        WaitForSingleObject(done[i], INFINITE);
-    }
-#endif
+    {
 
+#endif
+        ScanBottom((void *)0);
+        ScanTop((void *)0);
+        ScanLeft((void *)0);
+        ScanRight((void *)0);
+    }
     for (i = 0; i < 256; i++) {
         histogram[i] = own_histogram[0][i] + own_histogram[1][i] + own_histogram[2][i] + own_histogram[3][i];
     }
