@@ -1981,6 +1981,9 @@ void OutputDebugWindow(bool showVideo, int frm, int grf)
                 videowidth = width = 800; // MAXWIDTH;
             if (height == 0 /*||  (loadingCSV && !showVideo) */)
                 height = 600-barh; // MAXHEIGHT-30;
+            if (edge_step == 0) {
+                edge_step = 1;
+            }
             if (height > 600 || width > 800)
             {
                 oheight = height / 2;
