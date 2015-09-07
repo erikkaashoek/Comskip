@@ -959,7 +959,7 @@ void Set_seek(VideoState *is, double pts, double length)
     AVFormatContext *ic = is->pFormatCtx;
 
     is->seek_flags = AVSEEK_FLAG_ANY;
-//    is->seek_flags = AVSEEK_FLAG_BACKWARD;
+    is->seek_flags = AVSEEK_FLAG_BACKWARD;
     is->seek_req = true;
     is->seek_pts = pts;
     pts = fmax(0,pts+initial_pts);
@@ -980,7 +980,7 @@ void Set_seek(VideoState *is, double pts, double length)
         is->seek_pos = pts / av_q2d(is->video_st->time_base);
         if (is->video_st->start_time != AV_NOPTS_VALUE)
         {
-            is->seek_pos += is->video_st->start_time;
+//            is->seek_pos += is->video_st->start_time;
         }
     }
 }
@@ -988,27 +988,37 @@ void Set_seek(VideoState *is, double pts, double length)
 void DoSeekRequest(VideoState *is)
 {
     int ret;
-            ret = avformat_seek_file(is->pFormatCtx, is->videoStream, INT64_MIN, is->seek_pos, INT64_MAX, is->seek_flags);
+ //           ret = avformat_seek_file(is->pFormatCtx, is->videoStream, INT64_MIN, is->seek_pos, INT64_MAX, is->seek_flags);
+            ret = av_seek_frame(is->pFormatCtx, is->videoStream,  is->seek_pos,  is->seek_flags);
             pev_best_effort_timestamp = 0;
             best_effort_timestamp = 0;
             is->video_clock = 0.0;
             is->audio_clock = 0.0;
             if(ret < 0)
             {
+                char *error_text;
                 if (is->pFormatCtx->iformat->read_seek)
                 {
-                    printf("format specific\n");
+                    error_text = "Format specific";
                 }
                 else if(is->pFormatCtx->iformat->read_timestamp)
                 {
-                    printf("frame_binary\n");
+                    error_text = "Frame binary";
                 }
                 else
                 {
-                    printf("generic\n");
+                    error_text = "Generic";
                 }
 
-                fprintf(stderr, "%s: error while seeking. target: %6.3f, stream_index: %d\n", is->pFormatCtx->filename,is->seek_pts, stream_index);
+                fprintf(stderr, "%s error while seeking. target=%6.3f, \"%s\"\n", error_text,is->seek_pts, is->pFormatCtx->filename);
+/*
+                if (selftest) {
+                    sample_file = fopen("seektest.log", "a+");
+                    fprintf(sample_file, "%s error while seeking, target=%6.3f, \"%s\"\n", error_text,is->seek_pts, is->pFormatCtx->filename);
+                    fclose(sample_file);
+                }
+*/
+
             }
             if (!is->seek_no_flush) {
             if(is->audioStream >= 0)
@@ -1021,7 +1031,6 @@ void DoSeekRequest(VideoState *is)
             }
             }
             is->seek_no_flush = 0;
-            is->seek_req = 0;
 }
 
 void DecodeOnePicture(FILE * f, double pts, double length)
@@ -1055,7 +1064,8 @@ void DecodeOnePicture(FILE * f, double pts, double length)
         // seek stuff goes here
         if(is->seek_req)
         {
-            DoSeekRequest(is);
+again:
+                DoSeekRequest(is);
 /*
             ret = avformat_seek_file(is->pFormatCtx, is->videoStream, INT64_MIN, is->seek_pos, INT64_MAX, is->seek_flags);
             pev_best_effort_timestamp = 0;
@@ -1091,10 +1101,26 @@ void DecodeOnePicture(FILE * f, double pts, double length)
 */
         }
 
+nextpacket:
         if(av_read_frame(is->pFormatCtx, packet) < 0)
         {
             break;
         }
+        if (is->seek_req) {
+                double packet_time = (packet->pts - (is->video_st->start_time != AV_NOPTS_VALUE ? is->video_st->start_time : 0)) * av_q2d(is->video_st->time_base);
+            if (packet->pts==AV_NOPTS_VALUE) {
+                av_free_packet(packet);
+                goto nextpacket;
+            }
+            if (is->seek_req < 6 && (is->seek_flags & AVSEEK_FLAG_BYTE) &&  fabs(packet_time - (is->seek_pts - 2.5) ) < is->duration / (10 * is->seek_req)) {
+                is->seek_pos += ((is->seek_pts - 2.5 - packet_time) / is->duration ) * avio_size(is->pFormatCtx->pb) * 1.1;
+                is->seek_req++;
+                goto again;
+            }
+            is->seek_req = 0;
+        }
+        is->seek_req = 0;
+
         if(packet->stream_index == is->videoStream)
         {
 /*
@@ -1451,7 +1477,7 @@ static int    prev_strange_framenum = 0;
                     goto quit;
                 }
             } else {
-                if (is->seek_pts - is->video_clock > 8) {
+                if (fabs(is->seek_pts - is->video_clock) > 8 ) {
                     Debug(1,"Positioning file failing with pts=%6.2f\n", is->video_clock );
                     if (selftest)
                     {
@@ -1466,6 +1492,7 @@ static int    prev_strange_framenum = 0;
                         fclose(sample_file);
                         exit(1);
                     }
+                    retries = 0;
                 }
             }
 //            if (selftest == 4) exit(1);
@@ -2247,7 +2274,25 @@ again:
 
 
             }
+    nextpacket:
             ret=av_read_frame(is->pFormatCtx, packet);
+
+        if (ret>=0 && is->seek_req) {
+                double packet_time = (packet->pts - (is->video_st->start_time != AV_NOPTS_VALUE ? is->video_st->start_time : 0)) * av_q2d(is->video_st->time_base);
+            if (packet->pts==AV_NOPTS_VALUE) {
+                av_free_packet(packet);
+                goto nextpacket;
+            }
+            if (is->seek_req < 6 && (is->seek_flags & AVSEEK_FLAG_BYTE) &&  fabs(packet_time - (is->seek_pts - 2.5) ) < is->duration / (10 * is->seek_req)) {
+                is->seek_pos += ((is->seek_pts - 2.5 - packet_time) / is->duration ) * avio_size(is->pFormatCtx->pb) * 1.1;
+                is->seek_req++;
+                goto again;
+            }
+            is->seek_req = 0;
+        }
+        is->seek_req = 0;
+
+
 
 #define REOPEN_TIME 500.0
 
@@ -2366,14 +2411,15 @@ again:
 
                 if (selftest == 1 && pass == 1 /*&& framenum > 501 && is->video_clock > 0 */)
                 {
-                   if (is->video_clock < selftest_target - 0.05 || is->video_clock > selftest_target + 0.05)
+                   if (is->video_clock < selftest_target - 0.08 || is->video_clock > selftest_target + 0.08)
                    {
                     sample_file = fopen("seektest.log", "a+");
-                    fprintf(sample_file, "Seek error: target=%8.1f, result=%8.1f, error=%6.3f, size=%8.1f, \"%s\"\n",
+                    fprintf(sample_file, "Seek error: target=%8.1f, result=%8.1f, error=%6.3f, size=%8.1f, mode=%s\"%s\"\n",
                             is->seek_pts,
                             is->video_clock,
                             is->video_clock - is->seek_pts,
                             is->duration,
+                            (is->seek_by_bytes ? "byteseek": "timeseek" ),
                             is->filename);
                     fclose(sample_file);
                    }
