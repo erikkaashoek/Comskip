@@ -811,7 +811,7 @@ int CEW_init(int argc, char *argv[])
 	int i;
     time_t start;
 
-    header();
+//    header();
 
     // Prepare write structures
     init_write(&wbout1);
@@ -1010,7 +1010,7 @@ int CEW_init(int argc, char *argv[])
             printf ("write_format doesn't have any legal value, this is a bug.\n");
             exit(500);
     }
-
+#ifdef DONT_DISPLAY
     // Display parsed parameters
     printf ("Input: ");
     for (i=0;i<num_input_files;i++)
@@ -1093,6 +1093,7 @@ int CEW_init(int argc, char *argv[])
 		printf ("%02d:%02d:%02d", extraction_end.hh,extraction_end.mm,
 		extraction_end.ss);
 	printf ("]\n");
+#endif
 	if (input_bin && write_format==OF_RAW)
 	{
 		printf ("-bin can only be used if the output is a subtitle file.\n");

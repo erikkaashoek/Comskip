@@ -485,7 +485,7 @@ int						subsample_video = 0x3f;
 #define MAXWIDTH	2000
 #define MAXHEIGHT	1200
 
-int haslogo[MAXWIDTH*MAXHEIGHT];
+char haslogo[MAXWIDTH*MAXHEIGHT];
 
 // unsigned char		oldframe[MAXWIDTH*MAXHEIGHT];
 
@@ -670,7 +670,10 @@ bool				sceneHasChanged;
 int					sceneChangePercent;
 bool				lastFrameWasBlack = false;
 bool				lastFrameWasSceneChange = false;
-int					histogram[256];
+
+#include <libavutil/avutil.h>  // only for DECLARE_ALIGNED
+static DECLARE_ALIGNED(32, long, histogram[256]);
+//int					histogram[256];
 int					lastHistogram[256];
 
 #define				MAXCSLENGTH		400*300
@@ -749,6 +752,7 @@ int					tlogoMinX;
 int					tlogoMaxX;
 int					tlogoMinY;
 int					tlogoMaxY;
+int                 edgemask_filled=0;
 unsigned char thoriz_edgemask[MAXHEIGHT*MAXWIDTH];
 unsigned char tvert_edgemask[MAXHEIGHT*MAXWIDTH];
 
@@ -1906,7 +1910,7 @@ void InitHasLogo()
 {
 
     int x,y;
-    memset(haslogo,MAXWIDTH*MAXHEIGHT,sizeof(int));
+    memset(haslogo,MAXWIDTH*MAXHEIGHT,sizeof(char));
     for (y = clogoMinY - LOGO_BORDER; y < clogoMaxY + LOGO_BORDER; y++)
     {
         for (x = clogoMinX-LOGO_BORDER; x < clogoMaxX + LOGO_BORDER ; x++)
@@ -1924,6 +1928,17 @@ void InitHasLogo()
 #define SETPIXEL(X,Y,R,G,B) { graph[(((oheight+30) -(Y))*owidth+(X))*3+0] = (B); graph[(((oheight+30) -(Y))*owidth+(X))*3+1] = (G); graph[(((oheight+30) -(Y))*owidth+(X))*3+2] = (R); }
 
 #define PLOT(S, I, X, Y, MAX, L, R,G,B) { int y, o; o = oheight - (oheight/(S))* (I); y = (Y)*(oheight/(S)-5)/(MAX); if (y < 0) y = 0; if (y > (oheight/(S)-1)) y = (oheight/(S)-1); SETPIXEL((X),(o - y),((Y) < (L) ? 255: R ) , ((Y) < (L) ? 255: G ) ,((Y) < (L) ? 255: B));}
+
+
+#define LOGOBORDER	4*edge_step
+#define LOGO_Y_LOOP	int y_max_test = (subtitles? height/2 : (height - edge_radius - border - LOGOBORDER)); \
+                    int y_step_test = height/3; \
+                    for (y = (logo_at_bottom ? height/2 : edge_radius + border + LOGOBORDER); y < y_max_test; y = (y==y_step_test ? 2*height/3 : y+edge_step))
+// #define LOGO_X_LOOP for (x = max(edge_radius + (int)(width * borderIgnore), minX+AR_DIST); x < min((width - edge_radius - (int)(width * borderIgnore)),maxX-AR_DIST); x += edge_step)
+#define LOGO_X_LOOP for (x = edge_radius + border + LOGOBORDER; x < (videowidth - edge_radius - border- LOGOBORDER); x = (x==videowidth/3 ? 2*videowidth/3 : x+edge_step))
+
+
+
 
 int oheight = 0;
 int owidth = 0;
@@ -1966,6 +1981,9 @@ void OutputDebugWindow(bool showVideo, int frm, int grf)
                 videowidth = width = 800; // MAXWIDTH;
             if (height == 0 /*||  (loadingCSV && !showVideo) */)
                 height = 600-barh; // MAXHEIGHT-30;
+            if (edge_step == 0) {
+                edge_step = 1;
+            }
             if (height > 600 || width > 800)
             {
                 oheight = height / 2;
@@ -2064,15 +2082,15 @@ void OutputDebugWindow(bool showVideo, int frm, int grf)
                     if (frame[frm].currentGoodEdge > logo_threshold)
                     {
                         e = (int)(frame[frm].currentGoodEdge * 250);
-                        for (y = clogoMinY/divider; y < (clogoMaxY+1)/divider; y++)
+                        for (y = clogoMinY; y <= clogoMaxY ; y += edge_step)
                         {
-                            for (x = clogoMinX/divider; x < (clogoMaxX+1)/divider; x++)
+                            for (x = clogoMinX; x <= clogoMaxX ; x += edge_step)
                             {
-                                if (choriz_edgemask[(y*divider) * width + (x*divider)]) r = 255;
+                                if (choriz_edgemask[y * width + x]) r = 255;
                                 else r = 0;
-                                if (cvert_edgemask[(y*divider) * width + (x*divider)]) g = 255;
+                                if (cvert_edgemask[y * width + x]) g = 255;
                                 else g = 0;
-                                if (r || g) SETPIXEL(x-s,y-s+barh,r,g,0);
+                                if (r || g) SETPIXEL((x-s)/divider,(y-s)/divider+barh,r,g,0);
                             }
                         }
                     }
@@ -2081,6 +2099,23 @@ void OutputDebugWindow(bool showVideo, int frm, int grf)
                 {
                     if (frm+1 == frame_count)
                     {
+
+                        LOGO_X_LOOP
+                        {
+                            LOGO_Y_LOOP
+                            {
+                                if (edgemask_filled) {
+                                    r = 255 * thoriz_edgemask[(y) * width + (x)];
+                                    g = 255 * tvert_edgemask[(y) * width + (x)];
+                                } else {
+                                    r = 255 * hor_edgecount[(y) * width + (x)] / num_logo_buffers;
+                                    g = 255 * ver_edgecount[(y) * width + (x)] / num_logo_buffers;
+                                }
+                                if (r > 255) r = 255;
+                                if (g > 255) g = 255;
+                                if (r > 128 || g >  128) SETPIXEL(x/divider,y/divider+barh,r,g,0);
+
+#ifdef nodef
                         for (y = s; y < oheight; y++)
                         {
                             for (x = s ; x < owidth; x++)
@@ -2091,12 +2126,18 @@ void OutputDebugWindow(bool showVideo, int frm, int grf)
                                 if (ver_edgecount[(y*divider) * width + (x*divider)] >= num_logo_buffers*2/3) g = 255;
                                 else g = 0;
  */
-                                r = 255 * hor_edgecount[(y*divider) * width + (x*divider)] / num_logo_buffers;
+                                if (edgemask_filled) {
+                                    r = 255 * thoriz_edgemask[(y*divider) * width + (x*divider)] / num_logo_buffers;
+                                    g = 255 * tvert_edgemask[(y*divider) * width + (x*divider)] / num_logo_buffers;
+                                } else {
+                                    r = 255 * hor_edgecount[(y*divider) * width + (x*divider)] / num_logo_buffers;
+                                    g = 255 * ver_edgecount[(y*divider) * width + (x*divider)] / num_logo_buffers;
+                                }
                                 if (r > 255) r = 255;
-                                g = 255 * ver_edgecount[(y*divider) * width + (x*divider)] / num_logo_buffers;
                                 if (g > 255) g = 255;
                                 if (r > 128 || g >  128) SETPIXEL(x-s,y-s+barh,r,g,0);
-                            }
+#endif
+                           }
                         }
 
                     }
@@ -2210,7 +2251,7 @@ void OutputDebugWindow(bool showVideo, int frm, int grf)
         }
         if (framearray /* && commDetectMethod & LOGO */ )
         {
-// #define SHOWLOGOBOXWHILESCANNING
+#define SHOWLOGOBOXWHILESCANNING
 #ifdef SHOWLOGOBOXWHILESCANNING
             for (x = tlogoMinX/divider; x < tlogoMaxX/divider; x++)  		// Logo box X
             {
@@ -3042,8 +3083,8 @@ int DetectCommercials(int f, double pts)
         frame[0].pts = pts;
 //    curvolume = retreive_frame_volume(get_frame_pts(frame_count-1), get_frame_pts(frame_count));
     frame[frame_count].volume = -1;
-     backfill_frame_volumes();
-        curvolume = frame[frame_count].volume;
+    backfill_frame_volumes();
+    curvolume = frame[frame_count].volume;
 
 //	if (frame_count != framenum_real)
 //		Debug(0, "Inconsistent frame numbers\n");
@@ -5625,7 +5666,47 @@ void WeighBlocks(void)
 	}
 */
 
+char TempXmlFilename[300];
 
+char *EscapeXmlFilename(char *f)
+{
+    char *o = TempXmlFilename;
+    while (*f) {
+        if (*f == '&') {
+            *o++ = '&';
+            *o++ = 'a';
+            *o++ = 'm';
+            *o++ = 'p';
+            *o++ = ';';
+            f++;
+        } else
+        if (*f == '<') {
+            *o++ = '&';
+            *o++ = 'l';
+            *o++ = 't';
+            *o++ = ';';
+            f++;
+        } else
+        if (*f == '>') {
+            *o++ = '&';
+            *o++ = 'g';
+            *o++ = 't';
+            *o++ = ';';
+            f++;
+        } else
+        if (*f == '%') {
+            *o++ = '&';
+            *o++ = '#';
+            *o++ = '3';
+            *o++ = '7';
+            *o++ = ';';
+            f++;
+        } else
+            *o++ = *f++;
+    }
+    *o++ = 0;
+    return (TempXmlFilename);
+}
 
 void OpenOutputFiles()
 {
@@ -5921,12 +6002,12 @@ void OpenOutputFiles()
         {
             if (mpegfilename[1] == ':' || mpegfilename[0] == PATH_SEPARATOR)
             {
-                fprintf(videoredo3_file, "<VideoReDoProject Version=\"3\">\n<Filename>%s</Filename><CutList>\n", mpegfilename);
+                fprintf(videoredo3_file, "<VideoReDoProject Version=\"3\">\n<Filename>%s</Filename><CutList>\n", EscapeXmlFilename(mpegfilename));
             }
             else
             {
                 _getcwd(cwd, 256);
-                fprintf(videoredo3_file, "<VideoReDoProject Version=\"3\">\n<Filename>%s%c%s</Filename><CutList>\n", cwd, PATH_SEPARATOR, mpegfilename);
+                fprintf(videoredo3_file, "<VideoReDoProject Version=\"3\">\n<Filename>%s%c%s</Filename><CutList>\n", cwd, PATH_SEPARATOR, EscapeXmlFilename(mpegfilename));
             }
 //              if (is_h264) {
             //                 fprintf(videoredo3_file, "<MPEG Stream Type>4\n");
@@ -7909,7 +7990,7 @@ void LoadIniFile()
         if ((tmp = FindNumber(data, "edge_radius=", (double) edge_radius)) > -1) edge_radius = (int)tmp;
         if ((tmp = FindNumber(data, "edge_weight=", (double) edge_weight)) > -1) edge_weight = (int)tmp;
         if ((tmp = FindNumber(data, "edge_step=", (double) edge_step)) > -1) edge_step = (int)tmp;
-        if (edge_step<1) edge_step=1;
+        //if (edge_step<1) edge_step=1;
         if ((tmp = FindNumber(data, "num_logo_buffers=", (double) num_logo_buffers)) > -1) num_logo_buffers = (int)tmp;
         if ((tmp = FindNumber(data, "use_existing_logo_file=", (double) useExistingLogoFile)) > -1) useExistingLogoFile = (int)tmp;
         if ((tmp = FindNumber(data, "two_pass_logo=", (double) startOverAfterLogoInfoAvail)) > -1) startOverAfterLogoInfoAvail = (bool) tmp;
@@ -9330,14 +9411,248 @@ void LoadCutScene(const char *filename)
         fclose(cutscene_file);
     }
 }
+/*
+
+typedef struct {
+    int *ar;
+    long n;
+} subarray;
 
 
-bool CheckSceneHasChanged(void)
+void *
+incer(void *arg)
 {
-    int		i;
+    long i;
+
+
+    for (i = 0; i < ((subarray *)arg)->n; i++)
+        ((subarray *)arg)->ar[i]++;
+}
+
+
+int main(void)
+{
+    pthread_t  th1, th2;
+    (void) pthread_create(&th1, NULL, ScanTop, NULL);
+    (void) pthread_create(&th2, NULL, ScanBottom, NULL);
+
+
+    (void) pthread_join(th1, NULL);
+    (void) pthread_join(th2, NULL);
+    return 0;
+}
+
+
+*/
+#include "pthread.h"
+
+static DECLARE_ALIGNED(32, int, own_histogram[4][256]);
+int scan_step;
+
+#define THREAD_WORKERS 4
+HANDLE done[THREAD_WORKERS];
+HANDLE wait[THREAD_WORKERS];
+
+#define SCAN_MULTI
+
+
+void ScanBottom(void *arg)
+{
+    register int		i, i_max, i_step;
     int		x;
     int		y;
     int     delta;
+    int     max_delta;
+    register int		hereBright;
+    int		brightCount;
+    int     w = (int) arg;
+#ifdef SCAN_MULTI
+    while (1)
+    {
+	WaitForSingleObject(wait[w], INFINITE);
+#endif
+    brightCount = 0;
+    max_delta =  min(videowidth,height)/2 - border;
+    delta = 0;
+    while (delta < max_delta)
+    {
+        y = border + delta;
+        x = border + delta;
+        i = y * width + x;
+        i_max = y * width + videowidth - border - delta;
+        i_step = scan_step;
+        for (; i < i_max; i += i_step)
+        {
+            if (haslogo[i])
+                continue;
+            hereBright = frame_ptr[i];
+            own_histogram[0][hereBright]++;
+            if (hereBright > test_brightness)
+                brightCount++;
+        }
+        if (brightCount < 5)
+        {
+            //brightCountminY = 0;
+            minY = y;
+        }
+        delta += scan_step;
+    }
+#ifdef SCAN_MULTI
+    ReleaseSemaphore(done[w], 1, NULL);
+    }
+#endif
+}
+
+void ScanTop(void *arg)
+{
+    int		i, i_max, i_step;
+    int		x;
+    int		y;
+    int     delta;
+    int     max_delta;
+    int		hereBright;
+    int		brightCount;
+    int     w = (int) arg;
+
+#ifdef SCAN_MULTI
+    while (1)
+    {
+	WaitForSingleObject(wait[w], INFINITE);
+#endif
+    max_delta =  min(videowidth,height)/2 - border;
+    brightCount = 0;
+    delta = 0;
+    while (delta < max_delta)
+    {
+        x = border + delta;
+        y = height - border - delta;
+        i = y * width + x;
+        i_max = y * width + videowidth - border - delta;
+        i_step = scan_step;
+        for (; i < i_max; i += i_step)
+        {
+            if (haslogo[i])
+                continue;
+            hereBright = frame_ptr[i];
+            own_histogram[1][hereBright]++;
+            if (hereBright > test_brightness)
+                brightCount++;
+        }
+        if (brightCount < 5)
+        {
+            //brightCountmaxY = 0;
+            maxY = y;
+        }
+        delta += scan_step;
+    }
+#ifdef SCAN_MULTI
+    ReleaseSemaphore(done[w], 1, NULL);
+    }
+#endif
+}
+
+void ScanLeft(void *arg)
+{
+    int		i, i_max, i_step;
+    int		x;
+    int		y;
+    int     delta;
+    int     max_delta;
+    int		hereBright;
+    int		brightCount;
+    int     w = (int) arg;
+
+#ifdef SCAN_MULTI
+    while (1)
+    {
+	WaitForSingleObject(wait[w], INFINITE);
+#endif
+    max_delta =  min(videowidth,height)/2 - border;
+    brightCount = 0;
+    delta = 0;
+    while (delta < max_delta)
+    {
+        x = border + delta;
+        y = border + delta;
+        i = y * width + x;
+        i_step = scan_step * width;
+        i_max = (height - border - delta) * width + x;
+        for (; i< i_max; i += i_step)
+        {
+            if (haslogo[i])
+                continue;
+            hereBright = frame_ptr[i];
+            own_histogram[2][hereBright]++;
+            if (hereBright > test_brightness)
+                brightCount++;
+        }
+        if (brightCount < 5)
+        {
+            //brightCountminX = 0;
+            minX = x;
+        }
+        delta += scan_step;
+    }
+#ifdef SCAN_MULTI
+    ReleaseSemaphore(done[w], 1, NULL);
+    }
+#endif
+}
+
+void ScanRight(void *arg)
+{
+    int		i, i_max, i_step;
+    int		x;
+    int		y;
+    int     delta;
+    int     max_delta;
+    int		hereBright;
+    int		brightCount;
+    int     w = (int) arg;
+
+#ifdef SCAN_MULTI
+    while (1)
+    {
+	WaitForSingleObject(wait[w], INFINITE);
+#endif
+    max_delta =  min(videowidth,height)/2 - border;
+    brightCount = 0;
+    delta = 0;
+    while (delta < max_delta)
+    {
+        x = videowidth - border - delta;
+        y = border + delta;
+        i = y * width + x;
+        i_step = scan_step * width;
+        i_max = (height - border - delta) * width + x;
+        for (; i < i_max; i += i_step)
+        {
+            if (haslogo[i])
+                continue;
+            hereBright = frame_ptr[i];
+            own_histogram[3][hereBright]++;
+            if (hereBright > test_brightness)
+                brightCount++;
+        }
+        if (brightCount < 5)
+        {
+            maxX = x;
+        }
+        delta += scan_step;
+    }
+#ifdef SCAN_MULTI
+    ReleaseSemaphore(done[w], 1, NULL);
+    }
+#endif
+}
+
+bool CheckSceneHasChanged(void)
+{
+    register int		i, i_max, i_step;
+    int		x;
+    int		y;
+    int     delta;
+    int     max_delta;
     int		step;
     long	similar = 0;
 //    static long prevsimilar = 0;
@@ -9345,11 +9660,11 @@ bool CheckSceneHasChanged(void)
     int		dimCount = 0;
     bool	isDim = false;
     int pixels = 0;
-    int		hereBright;
-    int		brightCountminX;
-    int		brightCountminY;
-    int		brightCountmaxX;
-    int		brightCountmaxY;
+    register int		hereBright;
+//    int		brightCountminX;
+//    int		brightCountminY;
+//    int		brightCountmaxX;
+//    int		brightCountmaxY;
     long	cause;
     int  uniform = 0;
     double scale = 1.0;
@@ -9363,88 +9678,56 @@ bool CheckSceneHasChanged(void)
     if (videowidth > 1200) step = 3;
     if (videowidth > 1800) step = 4;
     if (videowidth < 600) step = 1;
+    scan_step = step;
+
+    if (edge_step == 0)
+        edge_step = step; // Automatic adjust edge step for video size
 
     memcpy(lastHistogram, histogram, sizeof(histogram));
     last_brightness = brightness;
     brightness = 0;
 
     // compare current frame with last frame here
-    memset(histogram, 0, sizeof(histogram));
+//    memset(histogram, 0, sizeof(histogram));
+    memset(own_histogram, 0, sizeof(own_histogram));
 
-    delta = 0;
-    brightCountminX = 0;
-    brightCountminY = 0;
-    brightCountmaxX = 0;
-    brightCountmaxY = 0;
-    while (1)
+//    max_delta =  min(videowidth,height)/2 - border;
+
+#ifdef SCAN_MULTI
+    if (thread_count > 1)
     {
-        y = border + delta;
-        for (x = border + delta; x <= videowidth - border - delta; x += step)
-        {
-            if (haslogo[y * width + x])
-                continue;
-            hereBright = frame_ptr[y * width + x];
-            histogram[hereBright]++;
-            if (hereBright > test_brightness)
-                brightCountminY++;
-        }
-        if (brightCountminY < 5)
-        {
-            //brightCountminY = 0;
-            minY = y;
-        }
-        y = height - border - delta;
-        for (x = border + delta; x <= videowidth - border - delta; x += step)
-        {
-            if (haslogo[y * width + x])
-                continue;
-            hereBright = frame_ptr[y * width + x];
-            histogram[hereBright]++;
-            if (hereBright > test_brightness)
-                brightCountmaxY++;
-        }
-        if (brightCountmaxY < 5)
-        {
-            //brightCountmaxY = 0;
-            maxY = y;
-        }
-        x = border + delta;
-        for (y = border + delta; y <= height - border - delta; y += step)
-        {
-            if (haslogo[y * width + x])
-                continue;
-            hereBright = frame_ptr[y * width + x];
-            histogram[hereBright]++;
-            if (hereBright > test_brightness)
-                brightCountminX++;
-        }
-        if (brightCountminX < 5)
-        {
-            //brightCountminX = 0;
-            minX = x;
-        }
-        x = videowidth - border - delta;
-//        if (brightCountmaxX < 5)
-//        {
-            for (y = border + delta; y <= height - border - delta; y += step)
-            {
-                if (haslogo[y * width + x])
-                    continue;
-                hereBright = frame_ptr[y * width + x];
-                histogram[hereBright]++;
-                if (hereBright > test_brightness)
-                    brightCountmaxX++;
+static int thread_init_done = 0;
+static pthread_t  th1, th2, th3, th4;
+        if (!thread_init_done) {
+            for (i=0; i < THREAD_WORKERS; i++) {
+                wait[i] = CreateSemaphore(NULL, 0, LONG_MAX, NULL);
+                done[i] = CreateSemaphore(NULL, 0, LONG_MAX, NULL);
             }
-            if (brightCountmaxX < 5)
-            {
-                //brightCountmaxX = 0;
-                maxX = x;
-            }
-//        }
+            (void) pthread_create(&th2, NULL, ScanBottom, (void *)0);
+            (void) pthread_create(&th1, NULL, ScanTop, (void *)1);
+            (void) pthread_create(&th3, NULL, ScanLeft, (void *)2);
+            (void) pthread_create(&th4, NULL, ScanRight, (void *)3);
+            Sleep(100L);
+        }
+        thread_init_done = 1;
+        for (i=0; i < THREAD_WORKERS; i++) {
+            ReleaseSemaphore(wait[i], 1, NULL);
+        }
+        for (i=0; i < THREAD_WORKERS; i++) {
+            WaitForSingleObject(done[i], INFINITE);
+        }
+    } else {
+#else
+    {
 
-        delta += step;
-        if (delta > videowidth / 2 || delta > height / 2)
-            break;
+#endif
+        ScanBottom((void *)0);
+        ScanTop((void *)0);
+        ScanLeft((void *)0);
+        ScanRight((void *)0);
+    }
+    for (i = 0; i < 256; i++) {
+        histogram[i] = own_histogram[0][i] + own_histogram[1][i] + own_histogram[2][i] + own_histogram[3][i];
     }
 
 #ifdef FRAME_WITH_HISTOGRAM
@@ -10040,9 +10323,6 @@ FRAME[((Y)-edge_radius)*width+(X)+edge_radius]-FRAME[((Y)+edge_radius)*width+(X)
 
 #define AR_DIST	20
 
-#define LOGO_Y_LOOP	for (y = (logo_at_bottom ? height/2 : edge_radius + border); y < (subtitles? height/2 : (height - edge_radius - border)); y = (y==height/3 ? 2*height/3 : y+edge_step))
-// #define LOGO_X_LOOP for (x = max(edge_radius + (int)(width * borderIgnore), minX+AR_DIST); x < min((width - edge_radius - (int)(width * borderIgnore)),maxX-AR_DIST); x += edge_step)
-#define LOGO_X_LOOP for (x = edge_radius + border; x < (videowidth - edge_radius - border); x = (x==videowidth/3 ? 2*videowidth/3 : x+edge_step))
 
 void EdgeDetect(unsigned char* frame_ptr, int maskNumber)
 {
@@ -10823,11 +11103,11 @@ bool SearchForLogoEdges(void)
         LOGO_Y_LOOP {
 //	for (y = minY; y < maxY; y++) {
 //		for (x = edge_radius + (int)(width * borderIgnore); x < videowidth - edge_radius + (int)(width * borderIgnore); x++) {
-            if (hor_edgecount[y * width + x]>= num_logo_buffers)
+            if (hor_edgecount[y * width + x] >= num_logo_buffers * 0.95 )
             {
                 thoriz_edgemask[y * width + x] = 1;
             }
-            if (ver_edgecount[y * width + x]>= num_logo_buffers)
+            if (ver_edgecount[y * width + x] >= num_logo_buffers * 0.95 )
             {
                 tvert_edgemask[y * width + x] = 1;
             }
@@ -10844,15 +11124,16 @@ bool SearchForLogoEdges(void)
     tempMaxX = tlogoMaxX;
     tempMinY = tlogoMinY;
     tempMaxY = tlogoMaxY;
-    tlogoMinX = 2 + border;
-    tlogoMaxX = videowidth - 2- border;
-    tlogoMinY = 2 + border;
-    tlogoMaxY = height - 2 - border;
+    tlogoMinX = edge_radius + border;
+    tlogoMaxX = videowidth - edge_radius - border;
+    tlogoMinY = edge_radius + border;
+    tlogoMaxY = height - edge_radius - border;
     SetEdgeMaskArea(tvert_edgemask);
     if (tempMinX < tlogoMinX) tlogoMinX = tempMinX;
     if (tempMaxX > tlogoMaxX) tlogoMaxX = tempMaxX;
     if (tempMinY < tlogoMinY) tlogoMinY = tempMinY;
     if (tempMaxY > tlogoMaxY) tlogoMaxY = tempMaxY;
+    edgemask_filled = 1;
     logoPercentageOfScreen = (double)((tlogoMaxY - tlogoMinY) * (tlogoMaxX - tlogoMinX)) / (double)(height * width);
     if (logoPercentageOfScreen > logo_max_percentage_of_screen)
     {
@@ -10871,7 +11152,7 @@ bool SearchForLogoEdges(void)
     i = CountEdgePixels();
 //printf("Edges=%d\n",i);
 //	if (i > 350/(lowres+1)/(edge_step)) {
-    if ( i > 350 * scale /edge_step)
+    if ( i > 150 * scale /edge_step)
     {
         logoPercentageOfScreen = (double)((tlogoMaxY - tlogoMinY) * (tlogoMaxX - tlogoMinX)) / (double)(height * width);
         if (i > 40000 || logoPercentageOfScreen > logo_max_percentage_of_screen)
@@ -11032,9 +11313,9 @@ int ClearEdgeMaskArea(unsigned char* temp, unsigned char* test)
     int offset;
     int ix,iy;
 
-    LOGO_Y_LOOP
+    LOGO_X_LOOP
     {
-        LOGO_X_LOOP
+        LOGO_Y_LOOP
         {
             count = 0;
             if (temp[y * width + x] == 1)
@@ -11081,8 +11362,6 @@ found:
     return(valid);
 }
 
-#define LOGOBORDER	4
-
 void SetEdgeMaskArea(unsigned char* temp)
 {
     int x;
@@ -11091,9 +11370,11 @@ void SetEdgeMaskArea(unsigned char* temp)
     tlogoMaxX = 0;
     tlogoMinY = height - 1;
     tlogoMaxY = 0;
-    for (y = (logo_at_bottom ? height/2 : border); y < (subtitles? height/2 : height - border); y++)
+    LOGO_X_LOOP
+//    for (y = (logo_at_bottom ? height/2 : border + edge_radius); y < (subtitles? height/2 : height - border - edge_radius); y++)
     {
-        for (x = border; x < videowidth - border; x++)
+        LOGO_Y_LOOP
+//        for (x = border+edge_radius; x < videowidth - border - edge_radius; x++)
         {
             if (temp[y * width + x] == 1)
             {
@@ -11129,7 +11410,7 @@ int CountEdgePixels(void)
     }
     count = hcount + vcount;
 //	printf("%6d %6d\n",hcount, vcount);
-    if ((hcount < 50 * scale / edge_step) || (vcount < 50 * scale /edge_step )) count = 0;
+    //if ((hcount < 50 * scale / edge_step) || (vcount < 50 * scale /edge_step )) count = 0;
     return (count);
 }
 
@@ -15415,4 +15696,9 @@ void dump_data(char *start, int length)
     fwrite(temp, length+12, 1, dump_data_file);
 
 //	fclose(dump_data_file);
+}
+
+void close_data()
+{
+	fclose(dump_data_file);
 }
