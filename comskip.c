@@ -673,8 +673,7 @@ bool				lastFrameWasSceneChange = false;
 
 #include <libavutil/avutil.h>  // only for DECLARE_ALIGNED
 static DECLARE_ALIGNED(32, long, histogram[256]);
-//int					histogram[256];
-int					lastHistogram[256];
+static DECLARE_ALIGNED(32, long, lastHistogram[256]);
 
 #define				MAXCSLENGTH		400*300
 #define				MAXCUTSCENES	8
@@ -9648,11 +9647,8 @@ void ScanRight(void *arg)
 
 bool CheckSceneHasChanged(void)
 {
-    register int		i, i_max, i_step;
+    register int		i;
     int		x;
-    int		y;
-    int     delta;
-    int     max_delta;
     int		step;
     long	similar = 0;
 //    static long prevsimilar = 0;
@@ -9660,7 +9656,6 @@ bool CheckSceneHasChanged(void)
     int		dimCount = 0;
     bool	isDim = false;
     int pixels = 0;
-    register int		hereBright;
 //    int		brightCountminX;
 //    int		brightCountminY;
 //    int		brightCountmaxX;
@@ -11396,7 +11391,6 @@ int CountEdgePixels(void)
 {
     int x;
     int y;
-    double scale = ((double)height / 572) * ( (double) videowidth / 720 );
     int count = 0;
     int hcount = 0;
     int vcount = 0;
