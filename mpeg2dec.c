@@ -838,6 +838,7 @@ void CEW_reinit();
 long process_block (unsigned char *data, long length);
 #endif
 
+/*
 static void ResetInputFile()
 {
     global_video_state->seek_req = true;
@@ -871,6 +872,7 @@ static void ResetInputFile()
     close_data();
 #endif
 }
+*/
 
 
 int SubmitFrame(AVStream        *video_st, AVFrame         *pFrame , double pts)
@@ -2224,7 +2226,7 @@ again:
                             } else {
                                 selftest_target = REOPEN_TIME;
                             }
-                            selftest_target = max(selftest_target,0.5);
+                            selftest_target = fmax(selftest_target,0.5);
                             live_tv = 1;
                         }
                     }
