@@ -550,7 +550,7 @@ double				logo_fraction = 0.40;
 int					commDetectMethod = BLACK_FRAME + LOGO + RESOLUTION_CHANGE +  AR + SILENCE + (PROCESS_CC ? CC : 0);
 int					giveUpOnLogoSearch = 2000;			// If no logo is identified after x seconds into the show - give up.
 int					delay_logo_search = 0;			// If no logo is identified after x seconds into the show - give up.
-bool				cut_on_ar_change = 1;
+int				cut_on_ar_change = 1;
 int					added_recording = 14;
 int					after_start = 0;
 int					before_end = 0;
@@ -613,7 +613,7 @@ bool				output_console = true;
 int					disable_heuristics = 0;
 char                windowtitle[1024] = "Comskip - %s";
 bool				output_tuning = false;
-bool				output_training = false;
+int				output_training = 0;
 bool				output_false = false;
 bool				output_aspect = false;
 bool				output_ffmeta = false;
@@ -657,7 +657,7 @@ long				avg_silence = 0;
 long				avg_uniform = 0;
 double				avg_schange = 0.0;
 double				dictionary_modifier = 1.05;
-bool				aggressive_logo_rejection = false;
+int				aggressive_logo_rejection = false;
 unsigned int		min_black_frames_for_break = 1;
 bool				detectBlackFrames;
 bool				detectSceneChanges;
