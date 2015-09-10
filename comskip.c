@@ -9450,7 +9450,7 @@ int scan_step;
 #define THREAD_WORKERS 4
 sema_t thwait[THREAD_WORKERS], thdone[THREAD_WORKERS];
 
-#define SCAN_MULTI
+//#define SCAN_MULTI
 
 
 void ScanBottom(void *arg)
