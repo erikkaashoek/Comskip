@@ -70,19 +70,19 @@ typedef unsigned __int64 uint64_t;
 #endif
 
 #ifdef _WIN32
-#define sema_t HANDLE
+typedef HANDLE sema_t;
 #define sema_init(s,v) (s = CreateSemaphore(NULL, v, LONG_MAX, NULL))
 #define sema_wait(s) WaitForSingleObject(s, INFINITE)
 #define sema_post(s) ReleaseSemaphore(s, 1, NULL)
 #elif defined(__APPLE__)
 #include <dispatch/dispatch.h>
-#define sema_t dispatch_semaphore_t
+typedef dispatch_semaphore_t sema_t;
 #define sema_init(s,v) (s = dispatch_semaphore_create(v))
 #define sema_wait(s) dispatch_semaphore_wait(s, DISPATCH_TIME_FOREVER)
 #define sema_post(s) dispatch_semaphore_signal(s)
 #else
 #include <semaphore.h>
-#define sema_t sem_t*
+typedef sem_t* sema_t;
 #define sema_init(s,v) sem_init(s,0,v)
 #define sema_wait sem_wait
 #define sema_post sem_post
