@@ -31,11 +31,6 @@ MOVE     = mv -f
 CHK_DIR_EXISTS= test -d
 MKDIR    = mkdir -p
 
-ifneq (,$(findstring Windows,$(OS)))
-	PLATFORMLIBS = -L./vendor -lgdi32 -lcomdlg32
-	PLATFORMINCS = -I./vendor
-endif
-
 ####### Output directory
 
 OBJECTS_DIR = ./
@@ -61,8 +56,22 @@ DIST	   = comskip.pro
 QMAKE_TARGET = comskip
 TARGET   = comskip
 
-first: all
+####### Platform specific
+
+ifneq (,$(findstring Windows,$(OS)))
+	PLATFORMLIBS = -L./vendor -lgdi32 -lcomdlg32
+	PLATFORMINCS = -I./vendor
+	SOURCES += win32_pthread.c
+	OBJECTS += win32_pthread.o
+endif
+
+ifneq (,$(DEBUG))
+	CFLAGS += -ggdb -O0
+endif
+
 ####### Implicit rules
+
+first: all
 
 .SUFFIXES: .c .o .cpp .cc .cxx .C
 
