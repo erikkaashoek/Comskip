@@ -8,8 +8,7 @@
  */
 
 #include "git-compat-util.h"
-#include "git-compat-util.h"
-#include "pthread.h"
+#include "win32_pthread.h"
 
 #include <errno.h>
 #include <limits.h>

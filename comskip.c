@@ -9443,14 +9443,12 @@ int main(void)
 
 
 */
-#include "pthread.h"
 
 static DECLARE_ALIGNED(32, int, own_histogram[4][256]);
 int scan_step;
 
 #define THREAD_WORKERS 4
-HANDLE done[THREAD_WORKERS];
-HANDLE wait[THREAD_WORKERS];
+pthread_mutex_t thlock[THREAD_WORKERS];
 
 #define SCAN_MULTI
 
@@ -9468,7 +9466,7 @@ void ScanBottom(void *arg)
 #ifdef SCAN_MULTI
     while (1)
     {
-	WaitForSingleObject(wait[w], INFINITE);
+      pthread_mutex_lock(&thlock[w]);
 #endif
     brightCount = 0;
     max_delta =  min(videowidth,height)/2 - border;
@@ -9497,7 +9495,7 @@ void ScanBottom(void *arg)
         delta += scan_step;
     }
 #ifdef SCAN_MULTI
-    ReleaseSemaphore(done[w], 1, NULL);
+      pthread_mutex_unlock(&thlock[w]);
     }
 #endif
 }
@@ -9516,7 +9514,7 @@ void ScanTop(void *arg)
 #ifdef SCAN_MULTI
     while (1)
     {
-	WaitForSingleObject(wait[w], INFINITE);
+      pthread_mutex_lock(&thlock[w]);
 #endif
     max_delta =  min(videowidth,height)/2 - border;
     brightCount = 0;
@@ -9545,7 +9543,7 @@ void ScanTop(void *arg)
         delta += scan_step;
     }
 #ifdef SCAN_MULTI
-    ReleaseSemaphore(done[w], 1, NULL);
+      pthread_mutex_unlock(&thlock[w]);
     }
 #endif
 }
@@ -9564,7 +9562,7 @@ void ScanLeft(void *arg)
 #ifdef SCAN_MULTI
     while (1)
     {
-	WaitForSingleObject(wait[w], INFINITE);
+      pthread_mutex_lock(&thlock[w]);
 #endif
     max_delta =  min(videowidth,height)/2 - border;
     brightCount = 0;
@@ -9593,7 +9591,7 @@ void ScanLeft(void *arg)
         delta += scan_step;
     }
 #ifdef SCAN_MULTI
-    ReleaseSemaphore(done[w], 1, NULL);
+      pthread_mutex_unlock(&thlock[w]);
     }
 #endif
 }
@@ -9612,7 +9610,7 @@ void ScanRight(void *arg)
 #ifdef SCAN_MULTI
     while (1)
     {
-	WaitForSingleObject(wait[w], INFINITE);
+      pthread_mutex_lock(&thlock[w]);
 #endif
     max_delta =  min(videowidth,height)/2 - border;
     brightCount = 0;
@@ -9640,7 +9638,7 @@ void ScanRight(void *arg)
         delta += scan_step;
     }
 #ifdef SCAN_MULTI
-    ReleaseSemaphore(done[w], 1, NULL);
+      pthread_mutex_unlock(&thlock[w]);
     }
 #endif
 }
@@ -9695,21 +9693,21 @@ static int thread_init_done = 0;
 static pthread_t  th1, th2, th3, th4;
         if (!thread_init_done) {
             for (i=0; i < THREAD_WORKERS; i++) {
-                wait[i] = CreateSemaphore(NULL, 0, LONG_MAX, NULL);
-                done[i] = CreateSemaphore(NULL, 0, LONG_MAX, NULL);
+                pthread_mutex_init(&thlock[i], NULL);
+                pthread_mutex_lock(&thlock[i]);
             }
-            (void) pthread_create(&th2, NULL, ScanBottom, (void *)0);
-            (void) pthread_create(&th1, NULL, ScanTop, (void *)1);
-            (void) pthread_create(&th3, NULL, ScanLeft, (void *)2);
-            (void) pthread_create(&th4, NULL, ScanRight, (void *)3);
+            pthread_create(&th2, NULL, (void*)(void *)ScanBottom, (void *)0);
+            pthread_create(&th1, NULL, (void*)(void *)ScanTop, (void *)1);
+            pthread_create(&th3, NULL, (void*)(void *)ScanLeft, (void *)2);
+            pthread_create(&th4, NULL, (void*)(void *)ScanRight, (void *)3);
             Sleep(100L);
         }
         thread_init_done = 1;
         for (i=0; i < THREAD_WORKERS; i++) {
-            ReleaseSemaphore(wait[i], 1, NULL);
+            pthread_mutex_unlock(&thlock[i]);
         }
         for (i=0; i < THREAD_WORKERS; i++) {
-            WaitForSingleObject(done[i], INFINITE);
+            pthread_mutex_lock(&thlock[i]);
         }
     } else {
 #else
