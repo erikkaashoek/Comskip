@@ -9448,7 +9448,7 @@ static DECLARE_ALIGNED(32, int, own_histogram[4][256]);
 int scan_step;
 
 #define THREAD_WORKERS 4
-pthread_mutex_t thlock[THREAD_WORKERS];
+sema_t thwait[THREAD_WORKERS], thdone[THREAD_WORKERS];
 
 #define SCAN_MULTI
 
@@ -9466,7 +9466,7 @@ void ScanBottom(void *arg)
 #ifdef SCAN_MULTI
     while (1)
     {
-      pthread_mutex_lock(&thlock[w]);
+      sema_wait(thwait[w]);
 #endif
     brightCount = 0;
     max_delta =  min(videowidth,height)/2 - border;
@@ -9495,7 +9495,7 @@ void ScanBottom(void *arg)
         delta += scan_step;
     }
 #ifdef SCAN_MULTI
-      pthread_mutex_unlock(&thlock[w]);
+      sema_post(thdone[w]);
     }
 #endif
 }
@@ -9514,7 +9514,7 @@ void ScanTop(void *arg)
 #ifdef SCAN_MULTI
     while (1)
     {
-      pthread_mutex_lock(&thlock[w]);
+      sema_wait(thwait[w]);
 #endif
     max_delta =  min(videowidth,height)/2 - border;
     brightCount = 0;
@@ -9543,7 +9543,7 @@ void ScanTop(void *arg)
         delta += scan_step;
     }
 #ifdef SCAN_MULTI
-      pthread_mutex_unlock(&thlock[w]);
+      sema_post(thdone[w]);
     }
 #endif
 }
@@ -9562,7 +9562,7 @@ void ScanLeft(void *arg)
 #ifdef SCAN_MULTI
     while (1)
     {
-      pthread_mutex_lock(&thlock[w]);
+      sema_wait(thwait[w]);
 #endif
     max_delta =  min(videowidth,height)/2 - border;
     brightCount = 0;
@@ -9591,7 +9591,7 @@ void ScanLeft(void *arg)
         delta += scan_step;
     }
 #ifdef SCAN_MULTI
-      pthread_mutex_unlock(&thlock[w]);
+      sema_post(thdone[w]);
     }
 #endif
 }
@@ -9610,7 +9610,7 @@ void ScanRight(void *arg)
 #ifdef SCAN_MULTI
     while (1)
     {
-      pthread_mutex_lock(&thlock[w]);
+      sema_wait(thwait[w]);
 #endif
     max_delta =  min(videowidth,height)/2 - border;
     brightCount = 0;
@@ -9638,7 +9638,7 @@ void ScanRight(void *arg)
         delta += scan_step;
     }
 #ifdef SCAN_MULTI
-      pthread_mutex_unlock(&thlock[w]);
+      sema_post(thdone[w]);
     }
 #endif
 }
@@ -9693,8 +9693,8 @@ static int thread_init_done = 0;
 static pthread_t  th1, th2, th3, th4;
         if (!thread_init_done) {
             for (i=0; i < THREAD_WORKERS; i++) {
-                pthread_mutex_init(&thlock[i], NULL);
-                pthread_mutex_lock(&thlock[i]);
+                sema_init(thwait[i], 0);
+                sema_init(thdone[i], 0);
             }
             pthread_create(&th2, NULL, (void*)(void *)ScanBottom, (void *)0);
             pthread_create(&th1, NULL, (void*)(void *)ScanTop, (void *)1);
@@ -9704,10 +9704,10 @@ static pthread_t  th1, th2, th3, th4;
         }
         thread_init_done = 1;
         for (i=0; i < THREAD_WORKERS; i++) {
-            pthread_mutex_unlock(&thlock[i]);
+            sema_post(thwait[i]);
         }
         for (i=0; i < THREAD_WORKERS; i++) {
-            pthread_mutex_lock(&thlock[i]);
+            sema_wait(thdone[i]);
         }
     } else {
 #else
