@@ -63,8 +63,10 @@ typedef unsigned char uint8_t;
 typedef unsigned short uint16_t;
 typedef unsigned int uint32_t;
 typedef unsigned __int64 uint64_t;
+#include "win32_pthread.h"
 #else
 #include <stdint.h>
+#include <pthread.h>
 #endif
 
 #if defined(__MINGW32__) || defined(__MINGW64__)

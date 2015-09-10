@@ -1,5 +1,5 @@
 #ifndef __608_H__
-
+struct s_write;
 
 void process608 (const unsigned char *data, int length, struct s_write *wb);
 void get_char_in_latin_1 (unsigned char *buffer, unsigned char c);
