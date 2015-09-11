@@ -2234,11 +2234,13 @@ again:
                 if ((live_tv && retries < live_tv_retries) /* || (selftest == 3 && retries == 0) */)  {
 //                    uint64_t retry_target;
                     double retry_target;
-                    if (selftest == 3)
-                        retry_target = selftest_target;
+                    if (retries == 0) {
+                        if (selftest == 3)
+                            retry_target = selftest_target;
 //                        retry_target = avio_tell(is->pFormatCtx->pb);
-                    else
-                        retry_target = is->video_clock;
+                        else
+                            retry_target = is->video_clock;
+                    }
 //                        retry_target = avio_size(is->pFormatCtx->pb);
                     // Skip back extra 3 seconds to compensate for byteseek errors
 //                    retry_target *= (framenum/get_fps() - 3.0) / (framenum/get_fps());
