@@ -9687,10 +9687,10 @@ bool CheckSceneHasChanged(void)
 //    max_delta =  min(videowidth,height)/2 - border;
 
 #ifdef SCAN_MULTI
-    if (thread_count > 1)
+    if (1) /*thread_count > 1)*/
     {
-static int thread_init_done = 0;
-static pthread_t  th1, th2, th3, th4;
+        static int thread_init_done = 0;
+        static pthread_t  th1, th2, th3, th4;
         if (!thread_init_done) {
             for (i=0; i < THREAD_WORKERS; i++) {
                 sema_init(thwait[i], 0);
