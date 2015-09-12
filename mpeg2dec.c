@@ -391,7 +391,7 @@ int retreive_frame_volume(double from_pts, double to_pts)
             buffer++;
         }
         volume = volume/s_per_frame;
-//        DUMP_TIMING("a  read", is->audio_clock, to_pts, from_pts, (double)volume, s_per_frame);
+        DUMP_TIMING("a  read", is->audio_clock, to_pts, from_pts, (double)volume, s_per_frame);
 
         audio_samples -= (int)((from_pts - base_apts) * (is->audio_st->codec->sample_rate+0.5)); // incomplete frame before complete frame
         audio_samples -= s_per_frame;
@@ -543,7 +543,7 @@ void sound_to_frames(VideoState *is, short **b, int s, int c, int format)
     top_apts = base_apts + audio_samples / (double)(is->audio_st->codec->sample_rate);
 
     calculated_delay = is->audio_clock - old_audio_clock;
-//    DUMP_TIMING("a frame", is->audio_clock, top_apts, base_apts, avg_volume,s);
+    DUMP_TIMING("a frame", is->audio_clock, top_apts, base_apts, avg_volume,s);
     old_audio_clock = is->audio_clock;
 
     backfill_frame_volumes();
@@ -838,42 +838,6 @@ void CEW_reinit();
 long process_block (unsigned char *data, long length);
 #endif
 
-/*
-static void ResetInputFile()
-{
-    global_video_state->seek_req = true;
-    global_video_state->seek_by_bytes = 0;
-    global_video_state->seek_no_flush = 0;
-    global_video_state->seek_pos = 0;
-    global_video_state->seek_pts = 0.0;
-    global_video_state->video_clock = 0.0;
-    global_video_state->audio_clock = 0.0;
-    pev_best_effort_timestamp = 0;
-
-#ifdef PROCESS_CC
-    if (output_srt || output_smi) CEW_reinit();
-#endif
-    framenum = 0;
-//	frame_count = 0;
-    sound_frame_counter = 0;
-    initial_pts = 0.0;
-    initial_pts_set = 0;
-    initial_apts_set = 0;
-    apts_offset = 0.0;
-    audio_samples = 0;
-    base_apts = 0.0;
-    top_apts = 0.0;
-    apts = 0.0;
-    audio_buffer_ptr = audio_buffer;
-    best_effort_timestamp = 0;
-#ifndef _DEBUG
-//     DUMP_CLOSE
-//     DUMP_OPEN
-    close_data();
-#endif
-}
-*/
-
 
 int SubmitFrame(AVStream        *video_st, AVFrame         *pFrame , double pts)
 {
@@ -929,8 +893,6 @@ int SubmitFrame(AVStream        *video_st, AVFrame         *pFrame , double pts)
         }
         exit(1);
     }
-//    if (selftest == 2 && framenum == 0)
-//        pass++;
 
     if (!reviewing)
     {
@@ -942,8 +904,6 @@ int SubmitFrame(AVStream        *video_st, AVFrame         *pFrame , double pts)
     if (selftest == 2 && pass == 0 && framenum > 20)
     {
         res = true;
-//        Set_seek(is, 0.0, is->duration);
-//        ResetInputFile();
         pass++;
     }
 #endif
@@ -993,58 +953,57 @@ void DoSeekRequest(VideoState *is)
 {
     int ret;
 again:
- //           ret = avformat_seek_file(is->pFormatCtx, is->videoStream, INT64_MIN, is->seek_pos, INT64_MAX, is->seek_flags);
-            ret = av_seek_frame(is->pFormatCtx, is->videoStream,  is->seek_pos,  is->seek_flags);
+//           ret = avformat_seek_file(is->pFormatCtx, is->videoStream, INT64_MIN, is->seek_pos, INT64_MAX, is->seek_flags);
+    ret = av_seek_frame(is->pFormatCtx, is->videoStream,  is->seek_pos,  is->seek_flags);
 //            ret = av_seek_frame(is->pFormatCtx, -1,  is->seek_pos,  is->seek_flags);
-            pev_best_effort_timestamp = 0;
-            best_effort_timestamp = 0;
-            is->video_clock = 0.0;
-            is->audio_clock = 0.0;
-            if(ret < 0)
-            {
-                char *error_text;
-                if (is->pFormatCtx->iformat->read_seek)
-                {
-                    error_text = "Format specific";
-                }
-                else if(is->pFormatCtx->iformat->read_timestamp)
-                {
-                    error_text = "Frame binary";
-                }
-                else
-                {
-                    error_text = "Generic";
-                }
+    pev_best_effort_timestamp = 0;
+    best_effort_timestamp = 0;
+    is->video_clock = 0.0;
+    is->audio_clock = 0.0;
+    if(ret < 0)
+    {
+        char *error_text;
+        if (is->pFormatCtx->iformat->read_seek)
+        {
+            error_text = "Format specific";
+        }
+        else if(is->pFormatCtx->iformat->read_timestamp)
+        {
+            error_text = "Frame binary";
+        }
+        else
+        {
+            error_text = "Generic";
+        }
 
-                fprintf(stderr, "%s error while seeking. target=%6.3f, \"%s\"\n", error_text,is->seek_pts, is->pFormatCtx->filename);
+        fprintf(stderr, "%s error while seeking. target=%6.3f, \"%s\"\n", error_text,is->seek_pts, is->pFormatCtx->filename);
 
-        if (!is->seek_by_bytes) {
+        if (!is->seek_by_bytes)
+        {
             is->seek_by_bytes = 1; // Fall back to byte seek
             Set_seek(is, is->seek_pts, is->duration);
             goto again;
         }
 
-
-/*
-                if (selftest) {
-                    sample_file = fopen("seektest.log", "a+");
-                    fprintf(sample_file, "%s error while seeking, target=%6.3f, \"%s\"\n", error_text,is->seek_pts, is->pFormatCtx->filename);
-                    fclose(sample_file);
-                }
-*/
-
-            }
-            if (!is->seek_no_flush) {
-            if(is->audioStream >= 0)
-            {
-                avcodec_flush_buffers(is->audio_st->codec);
-            }
-            if(is->videoStream >= 0)
-            {
-                avcodec_flush_buffers(is->video_st->codec);
-            }
-            }
-            is->seek_no_flush = 0;
+        if (selftest)
+        {
+            sample_file = fopen("seektest.log", "a+");
+            fprintf(sample_file, "%s error while seeking, target=%6.3f, \"%s\"\n", error_text,is->seek_pts, is->pFormatCtx->filename);
+            fclose(sample_file);
+        }
+    }
+    if (!is->seek_no_flush)
+    {
+        if(is->audioStream >= 0)
+        {
+            avcodec_flush_buffers(is->audio_st->codec);
+        }
+        if(is->videoStream >= 0)
+        {
+            avcodec_flush_buffers(is->video_st->codec);
+        }
+    }
+    is->seek_no_flush = 0;
 }
 
 void DecodeOnePicture(FILE * f, double pts, double length)
@@ -1999,6 +1958,10 @@ int main (int argc, char ** argv)
     double old_clock = 0.0;
                     int empty_packet_count = 0;
 
+    int64_t last_packet_pos = 0;
+    int64_t last_packet_pts = 0;
+    double retry_target = 0.0;
+
 #ifdef SELFTEST
     //int tries = 0;
 #endif
@@ -2183,6 +2146,7 @@ again:
                 is->seek_req++;
                 goto again;
             }
+            if (retries) Debug( 9,"Retry t_pos=%" PRId64 ", l_pos=%" PRId64 ", t_pts=%" PRId64 ", l_pts=%" PRId64 "\n", last_packet_pos, packet->pos, last_packet_pts, packet->pts);
             is->seek_req = 0;
         }
 /*
@@ -2233,7 +2197,6 @@ again:
 
                 if ((live_tv && retries < live_tv_retries) /* || (selftest == 3 && retries == 0) */)  {
 //                    uint64_t retry_target;
-                    double retry_target;
                     if (retries == 0) {
                         if (selftest == 3)
                             retry_target = selftest_target;
@@ -2247,6 +2210,8 @@ again:
 //                    retry_target = (retry_target>0?retry_target:0);
                     file_close();
                     Debug( 1,"\nRetry=%d at frame=%d, time=%8.2f seconds\n", retries, framenum, retry_target);
+                    Debug( 9,"Retry target pos=%" PRId64 ", pts=%" PRId64 "\n", last_packet_pos, last_packet_pts);
+
                     if (selftest == 0) Sleep(4000L);
                     file_open();
                     Set_seek(is, retry_target, is->duration);
@@ -2274,6 +2239,13 @@ again:
                 }
 
 
+            }
+
+            if (packet->pts != AV_NOPTS_VALUE && packet->pts != 0 ) {
+                last_packet_pts = packet->pts;
+            }
+            if (packet->pos != 0 && packet->pos != -1) {
+                last_packet_pos = packet->pos;
             }
 
             if(packet->stream_index == is->videoStream)

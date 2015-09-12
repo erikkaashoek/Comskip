@@ -520,7 +520,7 @@ int					min_uniform = 0;
 int					volume_slip = 40;
 extern int ms_audio_delay;
 int					max_repair_size = 40;
-int					variable_bitrate = 1;
+//int					variable_bitrate = 1;
 
 extern int is_h264;
 ///brightness (scale 0 to 255)
@@ -7919,7 +7919,7 @@ void LoadIniFile()
         if ((tmp = FindNumber(data, "max_repair_size=", (double) max_repair_size)) > -1) max_repair_size = (int)tmp;
         if ((tmp = FindNumber(data, "ms_audio_delay=", (double) ms_audio_delay)) > -1) ms_audio_delay = -(int)tmp;
         if ((tmp = FindNumber(data, "volume_slip=", (double) volume_slip)) > -1) volume_slip = (int)tmp;
-        if ((tmp = FindNumber(data, "variable_bitrate=", (double) variable_bitrate)) > -1) variable_bitrate = (int)tmp;
+ //       if ((tmp = FindNumber(data, "variable_bitrate=", (double) variable_bitrate)) > -1) variable_bitrate = (int)tmp;
         if ((tmp = FindNumber(data, "lowres=", (double) lowres)) > -1) lowres = (int)tmp;
 #ifdef DONATOR
         if ((tmp = FindNumber(data, "skip_b_frames=", (double) skip_B_frames)) > -1) skip_B_frames = (int)tmp;
