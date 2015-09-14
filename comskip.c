@@ -9464,9 +9464,9 @@ void ScanBottom(void *arg)
     int		brightCount;
     int     w = (int) arg;
 #ifdef SCAN_MULTI
-    while (1)
-    {
-      sema_wait(thwait[w]);
+again:
+    if (thread_count>1)
+        sema_wait(thwait[w]);
 #endif
     brightCount = 0;
     max_delta =  min(videowidth,height)/2 - border;
@@ -9495,7 +9495,9 @@ void ScanBottom(void *arg)
         delta += scan_step;
     }
 #ifdef SCAN_MULTI
+    if (thread_count > 1) {
       sema_post(thdone[w]);
+      goto again;
     }
 #endif
 }
@@ -9512,9 +9514,9 @@ void ScanTop(void *arg)
     int     w = (int) arg;
 
 #ifdef SCAN_MULTI
-    while (1)
-    {
-      sema_wait(thwait[w]);
+again:
+    if (thread_count>1)
+        sema_wait(thwait[w]);
 #endif
     max_delta =  min(videowidth,height)/2 - border;
     brightCount = 0;
@@ -9543,7 +9545,9 @@ void ScanTop(void *arg)
         delta += scan_step;
     }
 #ifdef SCAN_MULTI
+    if (thread_count > 1) {
       sema_post(thdone[w]);
+      goto again;
     }
 #endif
 }
@@ -9560,9 +9564,9 @@ void ScanLeft(void *arg)
     int     w = (int) arg;
 
 #ifdef SCAN_MULTI
-    while (1)
-    {
-      sema_wait(thwait[w]);
+again:
+    if (thread_count>1)
+        sema_wait(thwait[w]);
 #endif
     max_delta =  min(videowidth,height)/2 - border;
     brightCount = 0;
@@ -9591,7 +9595,9 @@ void ScanLeft(void *arg)
         delta += scan_step;
     }
 #ifdef SCAN_MULTI
+    if (thread_count > 1) {
       sema_post(thdone[w]);
+      goto again;
     }
 #endif
 }
@@ -9608,9 +9614,9 @@ void ScanRight(void *arg)
     int     w = (int) arg;
 
 #ifdef SCAN_MULTI
-    while (1)
-    {
-      sema_wait(thwait[w]);
+again:
+    if (thread_count>1)
+        sema_wait(thwait[w]);
 #endif
     max_delta =  min(videowidth,height)/2 - border;
     brightCount = 0;
@@ -9638,7 +9644,9 @@ void ScanRight(void *arg)
         delta += scan_step;
     }
 #ifdef SCAN_MULTI
+    if (thread_count > 1) {
       sema_post(thdone[w]);
+      goto again;
     }
 #endif
 }
@@ -9687,7 +9695,7 @@ bool CheckSceneHasChanged(void)
 //    max_delta =  min(videowidth,height)/2 - border;
 
 #ifdef SCAN_MULTI
-    if (1) /*thread_count > 1)*/
+    if (thread_count > 1)
     {
         static int thread_init_done = 0;
         static pthread_t  th1, th2, th3, th4;
