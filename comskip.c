@@ -9447,10 +9447,11 @@ int main(void)
 static DECLARE_ALIGNED(32, int, own_histogram)[4][256];
 int scan_step;
 
-#define THREAD_WORKERS 4
-sema_t thwait[THREAD_WORKERS], thdone[THREAD_WORKERS];
-
 #define SCAN_MULTI
+#define THREAD_WORKERS 4
+static sema_t thwait[THREAD_WORKERS], thdone[THREAD_WORKERS];
+static int thread_init_done = 0;
+static pthread_t th1, th2, th3, th4;
 
 
 void ScanBottom(void *arg)
@@ -9697,9 +9698,8 @@ bool CheckSceneHasChanged(void)
 #ifdef SCAN_MULTI
     if (thread_count > 1)
     {
-        static int thread_init_done = 0;
-        static pthread_t  th1, th2, th3, th4;
         if (!thread_init_done) {
+            thread_init_done = 1;
             for (i=0; i < THREAD_WORKERS; i++) {
                 sema_init(thwait[i], 0);
                 sema_init(thdone[i], 0);
@@ -9710,7 +9710,6 @@ bool CheckSceneHasChanged(void)
             pthread_create(&th4, NULL, (void*)(void *)ScanRight, (void *)3);
             Sleep(100L);
         }
-        thread_init_done = 1;
         for (i=0; i < THREAD_WORKERS; i++) {
             sema_post(thwait[i]);
         }
