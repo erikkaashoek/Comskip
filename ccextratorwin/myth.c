@@ -13,7 +13,7 @@ For now, integration with ccextractor is a quick hack. It could get better with 
 #include <stdio.h>
 #include <fcntl.h>
 
-LONG __cdecl process_block (unsigned char *data, LONG length);
+LONG process_block (unsigned char *data, LONG length);
 extern LONG result;
 
 unsigned int header_state;

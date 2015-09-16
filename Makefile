@@ -63,6 +63,11 @@ ifneq (,$(findstring Windows,$(OS)))
 	PLATFORMINCS = -I./vendor
 	SOURCES += win32_pthread.c
 	OBJECTS += win32_pthread.o
+else
+	UNAME_S := $(shell uname -s)
+	ifeq ($(UNAME_S),Linux)
+		SHLIBS += -pthread -lm
+	endif
 endif
 
 ifneq (,$(DEBUG))

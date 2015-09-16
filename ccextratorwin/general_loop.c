@@ -510,7 +510,7 @@ void raw_loop ()
 	while (inbuf);
 }
 
-LONG __cdecl process_block (unsigned char *data, LONG length)
+LONG process_block (unsigned char *data, LONG length)
 {
 	int limit;
     int printed;
