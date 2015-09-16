@@ -671,9 +671,9 @@ int					sceneChangePercent;
 bool				lastFrameWasBlack = false;
 bool				lastFrameWasSceneChange = false;
 
-#include <libavutil/avutil.h>  // only for DECLARE_ALIGNED
-static DECLARE_ALIGNED(32, long, histogram[256]);
-static DECLARE_ALIGNED(32, long, lastHistogram[256]);
+#include <libavutil/mem.h>  // only for DECLARE_ALIGNED
+static DECLARE_ALIGNED(32, long, histogram)[256];
+static DECLARE_ALIGNED(32, long, lastHistogram)[256];
 
 #define				MAXCSLENGTH		400*300
 #define				MAXCUTSCENES	8
@@ -9444,7 +9444,7 @@ int main(void)
 
 */
 
-static DECLARE_ALIGNED(32, int, own_histogram[4][256]);
+static DECLARE_ALIGNED(32, int, own_histogram)[4][256];
 int scan_step;
 
 #define THREAD_WORKERS 4
