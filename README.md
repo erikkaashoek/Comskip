@@ -23,7 +23,7 @@ $ ./comskip
 #### linux
 
 ```
-$ apt-get install libargtable2-dev libavformat-dev
+$ apt-get install -y build-essential libargtable2-dev libavformat-ffmpeg-dev
 $ make
 $ ./comskip
 ```
