@@ -32,7 +32,7 @@ $ ./comskip
 ##### ubuntu 15.04
 
 ```
-$ apt-get install git
+$ apt-get install -y git
 $ git clone git://github.com/erikkaashoek/Comskip
 $ cd Comskip
 
@@ -45,18 +45,16 @@ $ ./comskip
 ##### ubuntu 14.04
 
 ```
-$ apt-get install git
+$ add-apt-repository -y ppa:mc3man/trusty-media
+$ apt-get update
+$ apt-get install -y git
+$ apt-get install -y build-essential libargtable2-dev
+$ apt-get install -y ffmpeg libva-dev libsoxr-dev libvorbis-dev libbz2-dev zlib1g-dev libxvidcore-dev libvpx-dev libx264-dev libx265-dev libspeex-dev libfdk-aac-dev libvorbisenc2 libopus-dev libmp3lame-dev libdca-dev libfaac-dev libopencore-amrnb-dev libvo-aacenc-dev libopencore-amrwb-dev
 
 $ git clone https://github.com/foo86/dcadec
 $ cd dcadec
 $ make install
 $ cd ..
-
-$ add-apt-repository ppa:mc3man/trusty-media
-$ apt-get update
-
-$ apt-get install -y build-essential libargtable2-dev
-$ apt-get install -y ffmpeg libva-dev libsoxr-dev libvorbis-dev libbz2-dev zlib1g-dev libxvidcore-dev libvpx-dev libx264-dev libx265-dev libspeex-dev libfdk-aac-dev libvorbisenc2 libopus-dev libmp3lame-dev libdca-dev libfaac-dev libopencore-amrnb-dev libvo-aacenc-dev libopencore-amrwb-dev
 
 $ git clone git://github.com/erikkaashoek/Comskip
 $ cd Comskip
