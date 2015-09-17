@@ -29,7 +29,7 @@ $ ./comskip
 
 #### linux
 
-##### ubuntu 15.04
+##### ubuntu vivid (15.04)
 
 ```
 $ apt-get install -y git
@@ -42,7 +42,7 @@ $ make
 $ ./comskip
 ```
 
-##### ubuntu 14.04
+##### ubuntu trusty (14.04)
 
 ```
 $ add-apt-repository -y ppa:mc3man/trusty-media
@@ -59,6 +59,31 @@ $ cd ..
 $ git clone git://github.com/erikkaashoek/Comskip
 $ cd Comskip
 $ make INCLUDES=-I/opt/ffmpeg/include LIBS="-L/opt/ffmpeg/lib -lavutil -lavformat -lavcodec -ldl -lva -lswscale -lswresample -lsoxr -lvorbis -lbz2 -lz -lxvidcore -lvpx -lx264 -lx265 -lspeex -lfdk-aac -lvorbisenc -lopus -lmp3lame -ldca -lfaac -lopencore-amrnb -lvo-aacenc -lopencore-amrwb -ldcadec"
+
+$ ./comskip
+```
+
+##### ubuntu precise (12.04)
+
+```
+$ add-apt-repository -y ppa:pavlyshko/precise
+$ add-apt-repository -y ppa:chris-lea/zeromq
+$ apt-get update
+
+$ wget https://launchpad.net/ubuntu/+archive/primary/+files/libfdk-aac0_0.1.1%2B20130514-2_amd64.deb
+$ wget https://launchpad.net/ubuntu/+archive/primary/+files/libopus0_1.0.1-0ubuntu2_amd64.deb
+$ wget https://launchpadlibrarian.net/205263953/libwebp5_0.4.1-1.2pmo1%7Eprecise_amd64.deb
+$ dpkg -i libfdk-aac0_0.1.1+20130514-2_amd64.deb
+$ dpkg -i libopus0_1.0.1-0ubuntu2_amd64.deb
+$ dpkg -i libwebp5_0.4.1-1.2pmo1~precise_amd64.deb
+
+$ apt-get install -y git
+$ apt-get install -y build-essential libargtable2-dev
+$ apt-get install -y ffmpeg-opti libavformat-ffmpeg-opti-dev
+
+$ git clone git://github.com/erikkaashoek/Comskip
+$ cd Comskip
+$ make LIBS="-L/opt/ffmpeg/lib" SHLIBS="-lavutil.ffmpeg -lavformat.ffmpeg -lavcodec.ffmpeg -largtable2"
 
 $ ./comskip
 ```
