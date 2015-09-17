@@ -1,5 +1,5 @@
-os:
-  - linux
-before_install:
-  - sudo apt-get install -y libargtable2-dev libavformat-ffmpeg-dev
+language: c
+os: osx
+before_script:
+  - brew install argtable ffmpeg
 script: make
