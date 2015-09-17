@@ -32,11 +32,10 @@ $ ./comskip
 ##### ubuntu vivid (15.04)
 
 ```
-$ apt-get install -y git
+$ apt-get install -y git build-essential libargtable2-dev libavformat-ffmpeg-dev
+
 $ git clone git://github.com/erikkaashoek/Comskip
 $ cd Comskip
-
-$ apt-get install -y build-essential libargtable2-dev libavformat-ffmpeg-dev
 $ make
 
 $ ./comskip
@@ -47,8 +46,8 @@ $ ./comskip
 ```
 $ add-apt-repository -y ppa:mc3man/trusty-media
 $ apt-get update
-$ apt-get install -y git
-$ apt-get install -y build-essential libargtable2-dev
+
+$ apt-get install -y git build-essential libargtable2-dev
 $ apt-get install -y ffmpeg libva-dev libsoxr-dev libvorbis-dev libbz2-dev zlib1g-dev libxvidcore-dev libvpx-dev libx264-dev libx265-dev libspeex-dev libfdk-aac-dev libvorbisenc2 libopus-dev libmp3lame-dev libdca-dev libfaac-dev libopencore-amrnb-dev libvo-aacenc-dev libopencore-amrwb-dev
 
 $ git clone https://github.com/foo86/dcadec
@@ -77,8 +76,7 @@ $ dpkg -i libfdk-aac0_0.1.1+20130514-2_amd64.deb
 $ dpkg -i libopus0_1.0.1-0ubuntu2_amd64.deb
 $ dpkg -i libwebp5_0.4.1-1.2pmo1~precise_amd64.deb
 
-$ apt-get install -y git
-$ apt-get install -y build-essential libargtable2-dev
+$ apt-get install -y git build-essential libargtable2-dev
 $ apt-get install -y ffmpeg-opti libavformat-ffmpeg-opti-dev
 
 $ git clone git://github.com/erikkaashoek/Comskip
