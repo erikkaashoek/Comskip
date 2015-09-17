@@ -13,3 +13,8 @@ before_script:
   - sudo apt-get install -y libargtable2-dev ffmpeg-opti libavformat-ffmpeg-opti-dev
 script:
   - make LIBS="-L/opt/ffmpeg/lib" SHLIBS="-lavutil.ffmpeg -lavformat.ffmpeg -lavcodec.ffmpeg -largtable2"
+after_script:
+  - wget https://s3.amazonaws.com/tmm1/ten-copy.mkv
+  - ./comskip ten-copy.mkv
+  - cat ten-copy.txt
+  - grep "9359	17920" ten-copy.txt
