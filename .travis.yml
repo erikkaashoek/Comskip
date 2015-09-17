@@ -1,9 +1,5 @@
 os:
   - linux
-sudo: false
-addons:
-  apt:
-    packages:
-      - libargtable2-dev
-      - libavformat-ffmpeg-dev
+before_install:
+  - sudo apt-get install -y libargtable2-dev libavformat-ffmpeg-dev
 script: make
