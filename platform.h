@@ -82,10 +82,10 @@ typedef dispatch_semaphore_t sema_t;
 #define sema_post(s) dispatch_semaphore_signal(s)
 #else
 #include <semaphore.h>
-typedef sem_t* sema_t;
-#define sema_init(s,v) sem_init(s,0,v)
-#define sema_wait sem_wait
-#define sema_post sem_post
+typedef sem_t sema_t;
+#define sema_init(s,v) sem_init(&s,0,v)
+#define sema_wait(s) sem_wait(&s)
+#define sema_post(s) sem_post(&s)
 #endif
 
 #if defined(__MINGW32__) || defined(__MINGW64__)
