@@ -18,3 +18,4 @@ after_script:
   - ./comskip ten-copy.mkv
   - cat ten-copy.txt
   - grep "9359	17920" ten-copy.txt
+  - test -x comskip-gui
