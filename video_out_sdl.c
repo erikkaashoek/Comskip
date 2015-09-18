@@ -57,6 +57,7 @@ typedef struct {
     Uint8 bpp;
 } sdl_instance_t;
 
+#if 0
 static void sdl_setup_fbuf (vo_instance_t * _instance,
           uint8_t ** buf, void ** id)
 {
@@ -105,7 +106,6 @@ static void sdl_discard (vo_instance_t * _instance,
     SDL_UnlockYUVOverlay ((SDL_Overlay *) id);
 }
 
-#if 0
 static void sdl_close (vo_instance_t * _instance)
 {
     sdl_instance_t * instance;
