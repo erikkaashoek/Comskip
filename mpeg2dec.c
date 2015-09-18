@@ -239,14 +239,14 @@ extern int  _fseeki64(FILE *, int64_t, int);
 extern int64_t _ftelli64(FILE *);
 
 int soft_seeking=0;
-extern char	basename[];
+extern char	inbasename[];
 
 char pict_type;
 
 char tempstring[512];
 //test
 
-#define DUMP_OPEN if (output_timing) { sprintf(tempstring, "%s.timing.csv", basename); timing_file = myfopen(tempstring, "w"); DUMP_HEADER }
+#define DUMP_OPEN if (output_timing) { sprintf(tempstring, "%s.timing.csv", inbasename); timing_file = myfopen(tempstring, "w"); DUMP_HEADER }
 #define DUMP_HEADER if (timing_file) fprintf(timing_file, "sep=,\ntype   ,real_pts, step        ,pts         ,clock       ,delta       ,offset, repeat\n");
 #define DUMP_TIMING(T, D, P, C, O, S) if (timing_file && !csStepping && !csJumping && !csStartJump) fprintf(timing_file, "%7s, %12.3f, %12.3f, %12.3f, %12.3f, %12.3f, %12.3f, %d\n", \
 	T, (double) (D), (double) calculated_delay, (double) (P), (double) (C), ((double) (P) - (double) (C)), (O), (S));
@@ -2091,7 +2091,7 @@ int main (int argc, char ** argv)
 
         if (output_timing)
         {
-            sprintf(tempstring, "%s.timing.csv", basename);
+            sprintf(tempstring, "%s.timing.csv", inbasename);
             timing_file = myfopen(tempstring, "w");
             DUMP_HEADER
         }
