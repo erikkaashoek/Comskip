@@ -9395,39 +9395,6 @@ void LoadCutScene(const char *filename)
         fclose(cutscene_file);
     }
 }
-/*
-
-typedef struct {
-    int *ar;
-    long n;
-} subarray;
-
-
-void *
-incer(void *arg)
-{
-    long i;
-
-
-    for (i = 0; i < ((subarray *)arg)->n; i++)
-        ((subarray *)arg)->ar[i]++;
-}
-
-
-int main(void)
-{
-    pthread_t  th1, th2;
-    (void) pthread_create(&th1, NULL, ScanTop, NULL);
-    (void) pthread_create(&th2, NULL, ScanBottom, NULL);
-
-
-    (void) pthread_join(th1, NULL);
-    (void) pthread_join(th2, NULL);
-    return 0;
-}
-
-
-*/
 
 static DECLARE_ALIGNED(32, int, own_histogram)[4][256];
 int scan_step;
@@ -9438,8 +9405,7 @@ static sema_t thwait[THREAD_WORKERS], thdone[THREAD_WORKERS];
 static int thread_init_done = 0;
 static pthread_t th1, th2, th3, th4;
 
-
-void ScanBottom(void *arg)
+void ScanBottom(intptr_t arg)
 {
     register int		i, i_max, i_step;
     int		x;
@@ -9488,7 +9454,7 @@ again:
 #endif
 }
 
-void ScanTop(void *arg)
+void ScanTop(intptr_t arg)
 {
     int		i, i_max, i_step;
     int		x;
@@ -9538,7 +9504,7 @@ again:
 #endif
 }
 
-void ScanLeft(void *arg)
+void ScanLeft(intptr_t arg)
 {
     int		i, i_max, i_step;
     int		x;
@@ -9588,7 +9554,7 @@ again:
 #endif
 }
 
-void ScanRight(void *arg)
+void ScanRight(intptr_t arg)
 {
     int		i, i_max, i_step;
     int		x;
@@ -9706,10 +9672,10 @@ bool CheckSceneHasChanged(void)
     {
 
 #endif
-        ScanBottom((void *)0);
-        ScanTop((void *)0);
-        ScanLeft((void *)0);
-        ScanRight((void *)0);
+        ScanBottom((intptr_t)0);
+        ScanTop((intptr_t)0);
+        ScanLeft((intptr_t)0);
+        ScanRight((intptr_t)0);
     }
     for (i = 0; i < 256; i++) {
         histogram[i] = own_histogram[0][i] + own_histogram[1][i] + own_histogram[2][i] + own_histogram[3][i];
