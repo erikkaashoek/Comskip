@@ -488,12 +488,11 @@ LONG general_getmoredata(void)
 // Raw file process
 void raw_loop ()
 {
-	LONG got;
 	long i;
 	do
 	{
 		inbuf=0;
-		got=general_getmoredata();
+		general_getmoredata();
 		for (i=0; i<inbuf; i=i+2)
 		{
 			if (c1count<2 && *(fbuffer+i)==0xff && *(fbuffer+i+1)==0xff)

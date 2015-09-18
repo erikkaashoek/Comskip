@@ -395,9 +395,7 @@ static int mpegps_read_pes_header(int *pstart_code,
                                   LONG *ppts, LONG *pdts)
 {
     int len, size, startcode, c, flags, header_len;
-    LONG pts, dts, last_pos;
-
-    last_pos = -1;
+    LONG pts, dts;
 redo:
     /* next start code (should be immediately after) */
     header_state = 0xff;
