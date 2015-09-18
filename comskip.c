@@ -431,7 +431,7 @@ char					logofilename[MAX_PATH];
 char					logfilename[MAX_PATH];
 char					mpegfilename[MAX_PATH];
 char					exefilename[MAX_PATH];
-char					basename[MAX_PATH];
+char					inbasename[MAX_PATH];
 char					workbasename[MAX_PATH];
 char					outbasename[MAX_PATH];
 char					shortbasename[MAX_PATH];
@@ -6032,17 +6032,17 @@ void OpenOutputFiles()
         {
             if (mpegfilename[1] == ':' || mpegfilename[0] == PATH_SEPARATOR)
             {
-                strcpy(tempstr, basename);
+                strcpy(tempstr, inbasename);
             }
             else
             {
                 _getcwd(cwd, 256);
-                sprintf(tempstr, "%s%c%s", cwd, PATH_SEPARATOR, basename);
+                sprintf(tempstr, "%s%c%s", cwd, PATH_SEPARATOR, inbasename);
             }
             fprintf(cuttermaran_file, "<?xml version=\"1.0\" standalone=\"yes\"?>\n");
             fprintf(cuttermaran_file, "<StateData xmlns=\"http://cuttermaran.kickme.to/StateData.xsd\">\n");
-            fprintf(cuttermaran_file, "<usedVideoFiles FileID=\"0\" FileName=\"%s.M2V\" />\n",basename);
-            fprintf(cuttermaran_file, "<usedAudioFiles FileID=\"1\" FileName=\"%s.mp2\" StartDelay=\"0\" />\n",basename);
+            fprintf(cuttermaran_file, "<usedVideoFiles FileID=\"0\" FileName=\"%s.M2V\" />\n",inbasename);
+            fprintf(cuttermaran_file, "<usedAudioFiles FileID=\"1\" FileName=\"%s.mp2\" StartDelay=\"0\" />\n",inbasename);
 //			fclose(cuttermaran_file);
         }
         else
@@ -6060,12 +6060,12 @@ void OpenOutputFiles()
         {
             if (mpegfilename[1] == ':' || mpegfilename[0] == PATH_SEPARATOR)
             {
-                strcpy(tempstr, basename);
+                strcpy(tempstr, inbasename);
             }
             else
             {
                 _getcwd(cwd, 256);
-                sprintf(tempstr, "%s%c%s", cwd, PATH_SEPARATOR, basename);
+                sprintf(tempstr, "%s%c%s", cwd, PATH_SEPARATOR, inbasename);
             }
             fprintf(vcf_file, "VirtualDub.video.SetMode(0);\nVirtualDub.subset.Clear();\n");
 //			fclose(vcf_file);
@@ -6085,12 +6085,12 @@ void OpenOutputFiles()
         {
             if (mpegfilename[1] == ':' || mpegfilename[0] == PATH_SEPARATOR)
             {
-                strcpy(tempstr, basename);
+                strcpy(tempstr, inbasename);
             }
             else
             {
                 _getcwd(cwd, 256);
-                sprintf(tempstr, "%s%c%s", cwd, PATH_SEPARATOR, basename);
+                sprintf(tempstr, "%s%c%s", cwd, PATH_SEPARATOR, inbasename);
             }
 //			fprintf(vdr_file, "VirtualDub.video.SetMode(0);\nVirtualDub.subset.Clear();\n");
 //			fclose(vdr_file);
@@ -6201,7 +6201,7 @@ void OpenOutputFiles()
             if (dvrcut_options[0] == 0)
                 fprintf(dvrcut_file, "dvrcut \"%%1\" \"%%2\" ");
             else
-                fprintf(dvrcut_file, dvrcut_options, basename, basename, basename  );
+                fprintf(dvrcut_file, dvrcut_options, inbasename, inbasename, inbasename  );
         }
         else
         {
@@ -6228,7 +6228,7 @@ void OpenOutputFiles()
 
     if (output_mpeg2schnitt)
     {
-        sprintf(filename, "%s_mpeg2schnitt.bat", basename);
+        sprintf(filename, "%s_mpeg2schnitt.bat", inbasename);
         mpeg2schnitt_file = myfopen(filename, "w");
         if (mpeg2schnitt_file)
         {
@@ -6624,9 +6624,9 @@ void OutputCommercialBlock(int i, long prev, long start, long end, bool last)
         if (last)
         {
             if (cuttermaran_options[0] == 0)
-                fprintf(cuttermaran_file, "<CmdArgs OutFile=\"%s_clean.m2v\" cut=\"true\" unattended=\"true\" snapToCutPoints=\"true\" closeApp=\"true\" />\n</StateData>\n",basename);
+                fprintf(cuttermaran_file, "<CmdArgs OutFile=\"%s_clean.m2v\" cut=\"true\" unattended=\"true\" snapToCutPoints=\"true\" closeApp=\"true\" />\n</StateData>\n",inbasename);
             else
-                fprintf(cuttermaran_file, "<CmdArgs OutFile=\"%s_clean.m2v\" %s />\n</StateData>\n",basename, cuttermaran_options);
+                fprintf(cuttermaran_file, "<CmdArgs OutFile=\"%s_clean.m2v\" %s />\n</StateData>\n",inbasename, cuttermaran_options);
         }
     }
     CLOSEOUTFILE(cuttermaran_file);
@@ -7197,7 +7197,7 @@ bool OutputBlocks(void)
 
     if (output_tuning)
     {
-        sprintf(filename, "%s.tun", basename);
+        sprintf(filename, "%s.tun", inbasename);
         tuning_file = myfopen(filename, "w");
         fprintf(tuning_file,"max_volume=%6i\n", min_volume+200);
         fprintf(tuning_file,"max_avg_brightness=%6i\n", min_brightness_found+5);
@@ -7336,7 +7336,7 @@ void OutputStrict(double len, double delta, double tol)
 //		fprintf(training_file, "// score, length, fraction, position,combined, ar error, logo, strict \n");
     }
     if (training_file)
-        fprintf(training_file, "%+f,%+f,%+f, %s\n", len,delta, tol, basename);
+        fprintf(training_file, "%+f,%+f,%+f, %s\n", len,delta, tol, inbasename);
 }
 
 
@@ -7356,7 +7356,7 @@ void OutputTraining()
         s = reffer[0].end_frame;
     else
         s = 0;
-    fprintf(training_file, "\"%s\",%f,%d,", basename,  (reffer[reffer_count].start_frame - s)/fps, r);
+    fprintf(training_file, "\"%s\",%f,%d,", inbasename,  (reffer[reffer_count].start_frame - s)/fps, r);
     for (i = 0; i < 40; i++)
     {
         if (i <= reffer_count)
@@ -7384,7 +7384,7 @@ void OutputTraining()
             fprintf(training_file, "%f,%f,", 0.0, 0.0);
         }
     }
-    fprintf(training_file, "0\n", basename);
+    fprintf(training_file, "0\n", inbasename);
 
 
     r = (commercial[0].start_frame/fps < 30.0 ? commercial_count: commercial_count+1);
@@ -7392,7 +7392,7 @@ void OutputTraining()
         s = commercial[0].end_frame;
     else
         s = 0;
-    fprintf(training_file, "\"%s\",%f,%d,", basename,  (commercial[commercial_count].start_frame - s)/fps, r);
+    fprintf(training_file, "\"%s\",%f,%d,", inbasename,  (commercial[commercial_count].start_frame - s)/fps, r);
     for (i = 0; i < 40; i++)
     {
         if (i <= commercial_count)
@@ -7420,7 +7420,7 @@ void OutputTraining()
             fprintf(training_file, "%f,%f,", 0.0, 0.0);
         }
     }
-    fprintf(training_file, "0\n", basename);
+    fprintf(training_file, "0\n", inbasename);
 
 #else
 
@@ -7446,7 +7446,7 @@ void OutputTraining()
                     CauseString(cblock[i].cause),
                     CauseString(cblock[i].less),
                     CauseString(cblock[i].more),
-                    basename);
+                    inbasename);
 
         }
     }
@@ -8308,15 +8308,15 @@ FILE* LoadSettings(int argc, char ** argv)
 
                }
 */
-        sprintf(basename, "%.*s", (int)strlen(in->filename[0]) - (int)strlen(in->extension[0]), in->filename[0]);
-        i = strlen(basename);
-        while (i>0 && basename[i-1] != PATH_SEPARATOR)
+        sprintf(inbasename, "%.*s", (int)strlen(in->filename[0]) - (int)strlen(in->extension[0]), in->filename[0]);
+        i = strlen(inbasename);
+        while (i>0 && inbasename[i-1] != PATH_SEPARATOR)
         {
             i--;
         }
-        strcpy(shortbasename, &basename[i]);
+        strcpy(shortbasename, &inbasename[i]);
 
- //       sprintf(mpegfilename, "%.*s.txt", (int)strlen(basename), basename);
+ //       sprintf(mpegfilename, "%.*s.txt", (int)strlen(inbasename), inbasename);
 /*
         test_file = mymyfopen(mpegfilename, "w");
         if (!test_file)
@@ -8325,7 +8325,7 @@ FILE* LoadSettings(int argc, char ** argv)
             exit(3);
         }
 */
-        sprintf(inifilename, "%.*scomskip.ini", i, basename);
+        sprintf(inifilename, "%.*scomskip.ini", i, inbasename);
     }
     else if (strcmp(in->extension[0], ".csv") == 0)
     {
@@ -8338,37 +8338,37 @@ FILE* LoadSettings(int argc, char ** argv)
             exit(4);
         }
 
-        sprintf(basename,     "%.*s", (int)strlen(in->filename[0]) - (int)strlen(in->extension[0]), in->filename[0]);
-        sprintf(mpegfilename, "%.*s.mpg", (int)strlen(basename), basename);
+        sprintf(inbasename,     "%.*s", (int)strlen(in->filename[0]) - (int)strlen(in->extension[0]), in->filename[0]);
+        sprintf(mpegfilename, "%.*s.mpg", (int)strlen(inbasename), inbasename);
         test_file = myfopen(mpegfilename, "rb");
         if (!test_file)
         {
-            sprintf(mpegfilename, "%.*s.ts", (int)strlen(basename), basename);
+            sprintf(mpegfilename, "%.*s.ts", (int)strlen(inbasename), inbasename);
             test_file = myfopen(mpegfilename, "rb");
         }
         if (!test_file)
         {
-            sprintf(mpegfilename, "%.*s.tp", (int)strlen(basename), basename);
+            sprintf(mpegfilename, "%.*s.tp", (int)strlen(inbasename), inbasename);
             test_file = myfopen(mpegfilename, "rb");
         }
         if (!test_file)
         {
-            sprintf(mpegfilename, "%.*s.dvr-ms", (int)strlen(basename), basename);
+            sprintf(mpegfilename, "%.*s.dvr-ms", (int)strlen(inbasename), inbasename);
             test_file = myfopen(mpegfilename, "rb");
         }
         if (!test_file)
         {
-            sprintf(mpegfilename, "%.*s.wtv", (int)strlen(basename), basename);
+            sprintf(mpegfilename, "%.*s.wtv", (int)strlen(inbasename), inbasename);
             test_file = myfopen(mpegfilename, "rb");
         }
         if (!test_file)
         {
-            sprintf(mpegfilename, "%.*s.mp4", (int)strlen(basename), basename);
+            sprintf(mpegfilename, "%.*s.mp4", (int)strlen(inbasename), inbasename);
             test_file = myfopen(mpegfilename, "rb");
         }
         if (!test_file)
         {
-            sprintf(mpegfilename, "%.*s.mkv", (int)strlen(basename), basename);
+            sprintf(mpegfilename, "%.*s.mkv", (int)strlen(inbasename), inbasename);
             test_file = myfopen(mpegfilename, "rb");
         }
         if (!test_file)
@@ -8381,14 +8381,14 @@ FILE* LoadSettings(int argc, char ** argv)
         }
 
 
-        i = strlen(basename);
-        while (i>0 && basename[i-1] != PATH_SEPARATOR)
+        i = strlen(inbasename);
+        while (i>0 && inbasename[i-1] != PATH_SEPARATOR)
         {
             i--;
         }
-        strcpy(shortbasename, &basename[i]);
-        sprintf(inifilename, "%.*scomskip.ini", i, basename);
-        if (mpegfilename[0] == 0) sprintf(mpegfilename, "%s.mpg", basename);
+        strcpy(shortbasename, &inbasename[i]);
+        sprintf(inifilename, "%.*scomskip.ini", i, inbasename);
+        if (mpegfilename[0] == 0) sprintf(mpegfilename, "%s.mpg", inbasename);
     }
     else if (strcmp(in->extension[0], ".txt") == 0)
     {
@@ -8404,37 +8404,37 @@ FILE* LoadSettings(int argc, char ** argv)
         fclose(in_file);
         in_file = 0;
 
-        sprintf(basename,     "%.*s", (int)strlen(in->filename[0]) - (int)strlen(in->extension[0]), in->filename[0]);
-        sprintf(mpegfilename, "%.*s.mpg", (int)strlen(basename), basename);
+        sprintf(inbasename,     "%.*s", (int)strlen(in->filename[0]) - (int)strlen(in->extension[0]), in->filename[0]);
+        sprintf(mpegfilename, "%.*s.mpg", (int)strlen(inbasename), inbasename);
         test_file = myfopen(mpegfilename, "rb");
         if (!test_file)
         {
-            sprintf(mpegfilename, "%.*s.ts", (int)strlen(basename), basename);
+            sprintf(mpegfilename, "%.*s.ts", (int)strlen(inbasename), inbasename);
             test_file = myfopen(mpegfilename, "rb");
         }
         if (!test_file)
         {
-            sprintf(mpegfilename, "%.*s.tp", (int)strlen(basename), basename);
+            sprintf(mpegfilename, "%.*s.tp", (int)strlen(inbasename), inbasename);
             test_file = myfopen(mpegfilename, "rb");
         }
         if (!test_file)
         {
-            sprintf(mpegfilename, "%.*s.dvr-ms", (int)strlen(basename), basename);
+            sprintf(mpegfilename, "%.*s.dvr-ms", (int)strlen(inbasename), inbasename);
             test_file = myfopen(mpegfilename, "rb");
         }
         if (!test_file)
         {
-            sprintf(mpegfilename, "%.*s.wtv", (int)strlen(basename), basename);
+            sprintf(mpegfilename, "%.*s.wtv", (int)strlen(inbasename), inbasename);
             test_file = myfopen(mpegfilename, "rb");
         }
         if (!test_file)
         {
-            sprintf(mpegfilename, "%.*s.mp4", (int)strlen(basename), basename);
+            sprintf(mpegfilename, "%.*s.mp4", (int)strlen(inbasename), inbasename);
             test_file = myfopen(mpegfilename, "rb");
         }
         if (!test_file)
         {
-            sprintf(mpegfilename, "%.*s.mkv", (int)strlen(basename), basename);
+            sprintf(mpegfilename, "%.*s.mkv", (int)strlen(inbasename), inbasename);
             test_file = myfopen(mpegfilename, "rb");
         }
         if (!test_file)
@@ -8446,14 +8446,14 @@ FILE* LoadSettings(int argc, char ** argv)
             fclose(test_file);
         }
 
-        i = strlen(basename);
-        while (i>0 && basename[i-1] != PATH_SEPARATOR)
+        i = strlen(inbasename);
+        while (i>0 && inbasename[i-1] != PATH_SEPARATOR)
         {
             i--;
         }
-        strcpy(shortbasename, &basename[i]);
-        sprintf(inifilename, "%.*scomskip.ini", i, basename);
-//		sprintf(mpegfilename, "%s.mpg", basename);
+        strcpy(shortbasename, &inbasename[i]);
+        sprintf(inifilename, "%.*scomskip.ini", i, inbasename);
+//		sprintf(mpegfilename, "%s.mpg", inbasename);
     }
     else
     {
@@ -8479,7 +8479,7 @@ FILE* LoadSettings(int argc, char ** argv)
     else
     {
         outputdirname[0] = 0;
-        strcpy(workbasename, basename);
+        strcpy(workbasename, inbasename);
     }
 
 
@@ -8494,7 +8494,7 @@ FILE* LoadSettings(int argc, char ** argv)
     else
     {
         outputdirname[0] = 0;
-        strcpy(outbasename, basename);
+        strcpy(outbasename, inbasename);
     }
 
     if (cl_work->count && !out->count)   // --output also sets the output file location if not specified as 2nd argument.
@@ -12551,7 +12551,7 @@ int FindBlackThreshold(double percentile)
     FILE *raw = NULL;
     if (output_training) raw = myfopen("black.csv", "a+");
 
-    if (raw) fprintf(raw, "\"%s\"", basename);
+    if (raw) fprintf(raw, "\"%s\"", inbasename);
     for (i = 0; i < 256; i++)
     {
         totalframes += brightHistogram[i];
@@ -12587,7 +12587,7 @@ int FindUniformThreshold(double percentile)
     FILE *raw = NULL;
 
     if (output_training) raw = myfopen("uniform.csv", "a+");
-    if (raw) fprintf(raw, "\"%s\"", basename);
+    if (raw) fprintf(raw, "\"%s\"", inbasename);
 
     for (i = 0; i < 256; i++)
     {
@@ -12805,7 +12805,7 @@ noreffer:
     if (reffer[i].end_frame - reffer[i].start_frame > 2)
     {
         if (output_training>1) raw2 = myfopen("quality.csv", "a+");
-        if (raw2) fprintf(raw2, "\"%s\", %6ld, %6.1f, %6.1f, %6.1f\n", basename, reffer[i].start_frame, 0.0, 0.0, F2L(reffer[i].end_frame, reffer[i].start_frame));
+        if (raw2) fprintf(raw2, "\"%s\", %6ld, %6.1f, %6.1f, %6.1f\n", inbasename, reffer[i].start_frame, 0.0, 0.0, F2L(reffer[i].end_frame, reffer[i].start_frame));
         total += F2L(reffer[i].end_frame, reffer[i].start_frame);
         if (raw2) fclose(raw2);
     }
@@ -12844,7 +12844,7 @@ noreffer:
                     if (reffer[i].end_frame - reffer[i].start_frame > 2)
                     {
                         if (output_training > 1) raw2 = myfopen("quality.csv", "a+");
-                        if (raw2) fprintf(raw2, "\"%s\", %6ld, %6.1f, %6.1f, %6.1f\n", basename, reffer[i].start_frame, 0.0, 0.0, F2L(reffer[i].end_frame, reffer[i].start_frame));
+                        if (raw2) fprintf(raw2, "\"%s\", %6ld, %6.1f, %6.1f, %6.1f\n", inbasename, reffer[i].start_frame, 0.0, 0.0, F2L(reffer[i].end_frame, reffer[i].start_frame));
                         total += F2L(reffer[i].end_frame, reffer[i].start_frame);
                         if (raw2) fclose(raw2);
                     }
@@ -12867,7 +12867,7 @@ noreffer:
                     if (reffer[i].end_frame - reffer[i].start_frame > 2)
                     {
                         if (output_training > 1) raw2 = myfopen("quality.csv", "a+");
-                        if (raw2) fprintf(raw2, "\"%s\", %6ld, %6.1f, %6.1f, %6.1f\n", basename, reffer[i].start_frame, 0.0, 0.0, F2L(reffer[i].end_frame, reffer[i].start_frame));
+                        if (raw2) fprintf(raw2, "\"%s\", %6ld, %6.1f, %6.1f, %6.1f\n", inbasename, reffer[i].start_frame, 0.0, 0.0, F2L(reffer[i].end_frame, reffer[i].start_frame));
                         total += F2L(reffer[i].end_frame, reffer[i].start_frame);
                         if (raw2) fclose(raw2);
                     }
@@ -12888,7 +12888,7 @@ noreffer:
                     if (reffer[i].end_frame - reffer[i].start_frame > 2)
                     {
                         if (output_training > 1) raw2 = myfopen("quality.csv", "a+");
-                        if (raw2) fprintf(raw2, "\"%s\", %6ld, %6.1f, %6.1f, %6.1f\n", basename, reffer[i].start_frame, 0.0, 0.0, F2L(reffer[i].end_frame, reffer[i].start_frame));
+                        if (raw2) fprintf(raw2, "\"%s\", %6ld, %6.1f, %6.1f, %6.1f\n", inbasename, reffer[i].start_frame, 0.0, 0.0, F2L(reffer[i].end_frame, reffer[i].start_frame));
                         total += F2L(reffer[i].end_frame, reffer[i].start_frame);
                         if (raw2) fclose(raw2);
                     }
@@ -12901,7 +12901,7 @@ noreffer:
             }
 //			fprintf(raw, "False negative at frame %6ld of %6.1f seconds\n", pk , (k - pk)/fps );
             if (output_training > 1) raw2 = myfopen("quality.csv", "a+");
-            if (raw2) fprintf(raw2, "\"%s\", %6d, %6.1f, %6.1f, %6.1f\n", basename, pk, F2L(k, pk), 0.0, 0.0);
+            if (raw2) fprintf(raw2, "\"%s\", %6d, %6.1f, %6.1f, %6.1f\n", inbasename, pk, F2L(k, pk), 0.0, 0.0);
             fneg += F2L(k,pk);
             if (raw2) fclose(raw2);
             raw2 = NULL;
@@ -12920,7 +12920,7 @@ noreffer:
             }
 //			fprintf(raw, "False positive at frame %6ld of %6.1f seconds\n", pk , (k - pk)/fps );
             if (output_training > 1) raw2 = myfopen("quality.csv", "a+");
-            if (raw2) fprintf(raw2, "\"%s\", %6d, %6.1f, %6.1f, %6.1f\n", basename, pk, 0.0, F2L(k, pk), 0.0);
+            if (raw2) fprintf(raw2, "\"%s\", %6d, %6.1f, %6.1f, %6.1f\n", inbasename, pk, 0.0, F2L(k, pk), 0.0);
             fpos += F2L(k, pk);
             if (raw2) fclose(raw2);
             raw2 = NULL;
@@ -12928,7 +12928,7 @@ noreffer:
         }
     }
     if (output_training) raw2 = myfopen("quality.csv", "a+");
-    if (raw2) fprintf(raw2, "\"%s\", %6d, %6.1f, %6.1f, %6.1f\n", basename, -1, fneg, fpos, total);
+    if (raw2) fprintf(raw2, "\"%s\", %6d, %6.1f, %6.1f, %6.1f\n", inbasename, -1, fneg, fpos, total);
     if (raw2) fclose(raw2);
 
 //#else
