@@ -2038,7 +2038,7 @@ int main (int argc, char ** argv)
             HomeDir[len] = '\0';
         }
 
-        fprintf (stderr, "Comskip %s.%s, made using avcodec\n", COMSKIPVERSION,SUBVERSION);
+        fprintf (stderr, "Comskip %s.%s, made using ffmpeg\n", COMSKIPVERSION,SUBVERSION);
 
 #ifndef DONATOR
         fprintf (stderr, "Public build\n");
