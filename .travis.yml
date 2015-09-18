@@ -1,0 +1,20 @@
+language: c
+os: linux
+before_script:
+  - sudo add-apt-repository -y ppa:pavlyshko/precise
+  - sudo add-apt-repository -y ppa:chris-lea/zeromq
+  - sudo apt-get update -q
+  - wget https://launchpad.net/ubuntu/+archive/primary/+files/libfdk-aac0_0.1.1%2B20130514-2_amd64.deb
+  - wget https://launchpad.net/ubuntu/+archive/primary/+files/libopus0_1.0.1-0ubuntu2_amd64.deb
+  - wget https://launchpadlibrarian.net/205263953/libwebp5_0.4.1-1.2pmo1%7Eprecise_amd64.deb
+  - sudo dpkg -i libfdk-aac0_0.1.1+20130514-2_amd64.deb
+  - sudo dpkg -i libopus0_1.0.1-0ubuntu2_amd64.deb
+  - sudo dpkg -i libwebp5_0.4.1-1.2pmo1~precise_amd64.deb
+  - sudo apt-get install -y libargtable2-dev ffmpeg-opti libavformat-ffmpeg-opti-dev
+script:
+  - make LIBS="-L/opt/ffmpeg/lib" SHLIBS="-lavutil.ffmpeg -lavformat.ffmpeg -lavcodec.ffmpeg -largtable2"
+after_script:
+  - wget https://s3.amazonaws.com/tmm1/ten-copy.mkv
+  - ./comskip ten-copy.mkv
+  - cat ten-copy.txt
+  - grep "9359	17920" ten-copy.txt

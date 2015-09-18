@@ -520,7 +520,7 @@ int					min_uniform = 0;
 int					volume_slip = 40;
 extern int ms_audio_delay;
 int					max_repair_size = 40;
-int					variable_bitrate = 1;
+//int					variable_bitrate = 1;
 
 extern int is_h264;
 ///brightness (scale 0 to 255)
@@ -550,7 +550,7 @@ double				logo_fraction = 0.40;
 int					commDetectMethod = BLACK_FRAME + LOGO + RESOLUTION_CHANGE +  AR + SILENCE + (PROCESS_CC ? CC : 0);
 int					giveUpOnLogoSearch = 2000;			// If no logo is identified after x seconds into the show - give up.
 int					delay_logo_search = 0;			// If no logo is identified after x seconds into the show - give up.
-bool				cut_on_ar_change = 1;
+int				cut_on_ar_change = 1;
 int					added_recording = 14;
 int					after_start = 0;
 int					before_end = 0;
@@ -613,7 +613,7 @@ bool				output_console = true;
 int					disable_heuristics = 0;
 char                windowtitle[1024] = "Comskip - %s";
 bool				output_tuning = false;
-bool				output_training = false;
+int				output_training = 0;
 bool				output_false = false;
 bool				output_aspect = false;
 bool				output_ffmeta = false;
@@ -657,7 +657,7 @@ long				avg_silence = 0;
 long				avg_uniform = 0;
 double				avg_schange = 0.0;
 double				dictionary_modifier = 1.05;
-bool				aggressive_logo_rejection = false;
+int				aggressive_logo_rejection = false;
 unsigned int		min_black_frames_for_break = 1;
 bool				detectBlackFrames;
 bool				detectSceneChanges;
@@ -672,8 +672,8 @@ bool				lastFrameWasBlack = false;
 bool				lastFrameWasSceneChange = false;
 
 #include <libavutil/avutil.h>  // only for DECLARE_ALIGNED
-static DECLARE_ALIGNED(32, long, histogram[256]);
-static DECLARE_ALIGNED(32, long, lastHistogram[256]);
+static DECLARE_ALIGNED(32, long, histogram)[256];
+static DECLARE_ALIGNED(32, long, lastHistogram)[256];
 
 #define				MAXCSLENGTH		400*300
 #define				MAXCUTSCENES	8
@@ -7906,7 +7906,7 @@ void LoadIniFile()
         if ((tmp = FindNumber(data, "max_repair_size=", (double) max_repair_size)) > -1) max_repair_size = (int)tmp;
         if ((tmp = FindNumber(data, "ms_audio_delay=", (double) ms_audio_delay)) > -1) ms_audio_delay = -(int)tmp;
         if ((tmp = FindNumber(data, "volume_slip=", (double) volume_slip)) > -1) volume_slip = (int)tmp;
-        if ((tmp = FindNumber(data, "variable_bitrate=", (double) variable_bitrate)) > -1) variable_bitrate = (int)tmp;
+ //       if ((tmp = FindNumber(data, "variable_bitrate=", (double) variable_bitrate)) > -1) variable_bitrate = (int)tmp;
         if ((tmp = FindNumber(data, "lowres=", (double) lowres)) > -1) lowres = (int)tmp;
 #ifdef DONATOR
         if ((tmp = FindNumber(data, "skip_b_frames=", (double) skip_B_frames)) > -1) skip_B_frames = (int)tmp;
@@ -9431,13 +9431,14 @@ int main(void)
 
 */
 
-static DECLARE_ALIGNED(32, int, own_histogram[4][256]);
+static DECLARE_ALIGNED(32, int, own_histogram)[4][256];
 int scan_step;
 
-#define THREAD_WORKERS 4
-pthread_mutex_t thlock[THREAD_WORKERS];
-
 #define SCAN_MULTI
+#define THREAD_WORKERS 4
+static sema_t thwait[THREAD_WORKERS], thdone[THREAD_WORKERS];
+static int thread_init_done = 0;
+static pthread_t th1, th2, th3, th4;
 
 
 void ScanBottom(void *arg)
@@ -9451,9 +9452,9 @@ void ScanBottom(void *arg)
     int		brightCount;
     int     w = (int) arg;
 #ifdef SCAN_MULTI
-    while (1)
-    {
-      pthread_mutex_lock(&thlock[w]);
+again:
+    if (thread_count>1)
+        sema_wait(thwait[w]);
 #endif
     brightCount = 0;
     max_delta =  min(videowidth,height)/2 - border;
@@ -9482,7 +9483,9 @@ void ScanBottom(void *arg)
         delta += scan_step;
     }
 #ifdef SCAN_MULTI
-      pthread_mutex_unlock(&thlock[w]);
+    if (thread_count > 1) {
+      sema_post(thdone[w]);
+      goto again;
     }
 #endif
 }
@@ -9499,9 +9502,9 @@ void ScanTop(void *arg)
     int     w = (int) arg;
 
 #ifdef SCAN_MULTI
-    while (1)
-    {
-      pthread_mutex_lock(&thlock[w]);
+again:
+    if (thread_count>1)
+        sema_wait(thwait[w]);
 #endif
     max_delta =  min(videowidth,height)/2 - border;
     brightCount = 0;
@@ -9530,7 +9533,9 @@ void ScanTop(void *arg)
         delta += scan_step;
     }
 #ifdef SCAN_MULTI
-      pthread_mutex_unlock(&thlock[w]);
+    if (thread_count > 1) {
+      sema_post(thdone[w]);
+      goto again;
     }
 #endif
 }
@@ -9547,9 +9552,9 @@ void ScanLeft(void *arg)
     int     w = (int) arg;
 
 #ifdef SCAN_MULTI
-    while (1)
-    {
-      pthread_mutex_lock(&thlock[w]);
+again:
+    if (thread_count>1)
+        sema_wait(thwait[w]);
 #endif
     max_delta =  min(videowidth,height)/2 - border;
     brightCount = 0;
@@ -9578,7 +9583,9 @@ void ScanLeft(void *arg)
         delta += scan_step;
     }
 #ifdef SCAN_MULTI
-      pthread_mutex_unlock(&thlock[w]);
+    if (thread_count > 1) {
+      sema_post(thdone[w]);
+      goto again;
     }
 #endif
 }
@@ -9595,9 +9602,9 @@ void ScanRight(void *arg)
     int     w = (int) arg;
 
 #ifdef SCAN_MULTI
-    while (1)
-    {
-      pthread_mutex_lock(&thlock[w]);
+again:
+    if (thread_count>1)
+        sema_wait(thwait[w]);
 #endif
     max_delta =  min(videowidth,height)/2 - border;
     brightCount = 0;
@@ -9625,7 +9632,9 @@ void ScanRight(void *arg)
         delta += scan_step;
     }
 #ifdef SCAN_MULTI
-      pthread_mutex_unlock(&thlock[w]);
+    if (thread_count > 1) {
+      sema_post(thdone[w]);
+      goto again;
     }
 #endif
 }
@@ -9676,12 +9685,11 @@ bool CheckSceneHasChanged(void)
 #ifdef SCAN_MULTI
     if (thread_count > 1)
     {
-static int thread_init_done = 0;
-static pthread_t  th1, th2, th3, th4;
         if (!thread_init_done) {
+            thread_init_done = 1;
             for (i=0; i < THREAD_WORKERS; i++) {
-                pthread_mutex_init(&thlock[i], NULL);
-                pthread_mutex_lock(&thlock[i]);
+                sema_init(thwait[i], 0);
+                sema_init(thdone[i], 0);
             }
             pthread_create(&th2, NULL, (void*)(void *)ScanBottom, (void *)0);
             pthread_create(&th1, NULL, (void*)(void *)ScanTop, (void *)1);
@@ -9689,12 +9697,11 @@ static pthread_t  th1, th2, th3, th4;
             pthread_create(&th4, NULL, (void*)(void *)ScanRight, (void *)3);
             Sleep(100L);
         }
-        thread_init_done = 1;
         for (i=0; i < THREAD_WORKERS; i++) {
-            pthread_mutex_unlock(&thlock[i]);
+            sema_post(thwait[i]);
         }
         for (i=0; i < THREAD_WORKERS; i++) {
-            pthread_mutex_lock(&thlock[i]);
+            sema_wait(thdone[i]);
         }
     } else {
 #else
@@ -15679,5 +15686,6 @@ void dump_data(char *start, int length)
 
 void close_data()
 {
-	fclose(dump_data_file);
+	if (dump_data_file)
+		fclose(dump_data_file);
 }

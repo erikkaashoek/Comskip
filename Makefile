@@ -5,7 +5,7 @@ LEX      = flex
 YACC     = yacc
 ARCHFLAGS=
 DEFINES  = -DDONATOR -DPROCESS_CC
-CFLAGS   = -g -pipe -Wall -W -Wno-unused-parameter -Wno-unused-label -O2 $(DEFINES) $(ARCHFLAGS)
+CFLAGS   = -g -pipe -Wall -W -Wno-unused-parameter -Wno-unused-label -Wno-unused-result -O2 $(DEFINES) $(ARCHFLAGS)
 LEXFLAGS =
 YACCFLAGS= -d
 INCPATH  = -I. $(INCLUDES)
@@ -64,6 +64,10 @@ ifneq (,$(findstring Windows,$(OS)))
 	SOURCES += win32_pthread.c
 	OBJECTS += win32_pthread.o
 else
+	UNAME_S := $(shell uname -s)
+	ifeq ($(UNAME_S),Linux)
+		SHLIBS += -pthread -lm
+	endif
 	ifneq (,$(shell sdl-config --cflags))
 		CFLAGS += -DHAVE_SDL
 		SOURCES += video_out_sdl.c

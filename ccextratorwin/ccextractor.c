@@ -779,13 +779,14 @@ void CEW_reinit()
 {
 	if (wbout1.fh)
 		fclose(wbout1.fh);
-	if (strlen(wbout1.filename) > 0 )
+	if (wbout1.filename != NULL && strlen(wbout1.filename) > 0 )
 		wbout1.fh=FOPEN (wbout1.filename, "wb");
 	init_boundary_time (&extraction_start);
 	init_boundary_time (&extraction_end);
 
 	wbout1.used=0;
-    init_eia608 (wbout1.data608);
+	if (wbout1.data608)
+		init_eia608 (wbout1.data608);
 
 	prepare_for_new_file();
 	if (wbout1.fh) {
