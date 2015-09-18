@@ -1960,7 +1960,7 @@ int show_silence=0;
 
 void OutputDebugWindow(bool showVideo, int frm, int grf)
 {
-#if 1
+#if defined(_WIN32) || defined(HAVE_SDL)
     int i,j,x,y,a=0,c=0,r,s=0,g,gc,lb=0,e=0,n=0,bl,xd;
     int v,w;
     int bartop = 0;
@@ -3044,10 +3044,8 @@ bool ReviewResult()
                 lastcurframe = curframe;
             }
         OutputDebugWindow((review_file ? true : false),curframe, grf);
-#if 1
+#if defined(_WIN32) || defined(HAVE_SDL)
         vo_wait();
-//				vo_refresh();
-//				Sleep(100L);
 #endif
     }
     return false;
@@ -8599,7 +8597,7 @@ FILE* LoadSettings(int argc, char ** argv)
 //		output_debugwindow = true;
 #endif
 
-    if (strstr(argv[0],"GUI"))
+    if (strstr(argv[0],"GUI") || strstr(argv[0], "-gui"))
         output_debugwindow = true;
 
     if (cl_demux->count)

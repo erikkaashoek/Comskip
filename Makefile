@@ -37,12 +37,6 @@ OBJECTS_DIR = ./
 
 ####### Files
 
-HEADERS = comskip.h \
-		platform.h \
-		vo.h
-SOURCES = comskip.c \
-		mpeg2dec.c \
-		video_out_dx.c
 OBJECTS = comskip.o \
 		platform.o \
 		mpeg2dec.o \
@@ -53,7 +47,6 @@ OBJECTS = comskip.o \
 		ccextratorwin/general_loop.o \
 		ccextratorwin/myth.o
 DIST	   = comskip.pro
-QMAKE_TARGET = comskip
 TARGET   = comskip
 
 ####### Platform specific
@@ -61,18 +54,11 @@ TARGET   = comskip
 ifneq (,$(findstring Windows,$(OS)))
 	PLATFORMLIBS = -L./vendor -lgdi32 -lcomdlg32
 	PLATFORMINCS = -I./vendor
-	SOURCES += win32_pthread.c
 	OBJECTS += win32_pthread.o
 else
 	UNAME_S := $(shell uname -s)
 	ifeq ($(UNAME_S),Linux)
 		SHLIBS += -pthread -lm
-	endif
-	ifneq (,$(shell sdl-config --cflags))
-		CFLAGS += -DHAVE_SDL
-		SOURCES += video_out_sdl.c
-		OBJECTS += video_out_sdl.o
-		PLATFORMLIBS += $(shell sdl-config --libs)
 	endif
 endif
 
@@ -91,34 +77,29 @@ first: all
 
 ####### Build rules
 
+ifneq (,$(shell sdl-config --cflags))
+comskip-sdl.o: comskip.o
+	$(CC) -c $(CFLAGS) $(PLATFORMINCS) $(INCPATH) $(shell sdl-config --cflags) -DHAVE_SDL -o $@ comskip.c
+
+mpeg2dec-sdl.o: mpeg2dec.o
+	$(CC) -c $(CFLAGS) $(PLATFORMINCS) $(INCPATH) $(shell sdl-config --cflags) -DHAVE_SDL -o $@ mpeg2dec.c
+
+comskip-gui: $(TARGET) comskip-sdl.o mpeg2dec-sdl.o video_out_sdl.o
+	$(LINK) $(LFLAGS) -o $@ $(filter-out comskip.o mpeg2dec.o,$(OBJECTS)) comskip-sdl.o mpeg2dec-sdl.o video_out_sdl.o $(PLATFORMLIBS) $(LIBS) $(SHLIBS) $(shell sdl-config --libs)
+
+all: comskip-gui
+endif
+
 all: Makefile $(TARGET)
 
-$(TARGET):  $(UICDECLS) $(OBJECTS) $(OBJMOC)  
-	$(LINK) $(LFLAGS) -o $(TARGET) $(OBJECTS) $(OBJMOC) $(OBJCOMP) $(PLATFORMLIBS) $(LIBS) $(SHLIBS)
+$(TARGET): $(OBJECTS)
+	$(LINK) $(LFLAGS) -o $@ $(OBJECTS) $(PLATFORMLIBS) $(LIBS) $(SHLIBS)
 
-mocables: $(SRCMOC)
-uicables: $(UICDECLS) $(UICIMPLS)
+votest: video_out_dx.c video_out_sdl.c
+	$(LINK) $(CFLAGS) $(PLATFORMINCS) $(INCPATH) -DTEST $(LFLAGS) -o votest video_out_dx.c video_out_sdl.c $(PLATFORMLIBS) $(LIBS) $(SHLIBS)
 
-dist:
-	@mkdir -p .tmp/comskip && $(COPY_FILE) --parents $(SOURCES) $(HEADERS) $(FORMS) $(DIST) .tmp/comskip/ && ( cd `dirname .tmp/comskip` && $(TAR) comskip.tar comskip && $(GZIP) comskip.tar ) && $(MOVE) `dirname .tmp/comskip`/comskip.tar.gz . && $(DEL_FILE) -r .tmp/comskip
-
-mocclean:
-uiclean:
-
-yaccclean:
-lexclean:
 clean:
 	-$(DEL_FILE) $(OBJECTS)
-	-$(DEL_FILE) *~ core *.core
-
-
-####### Sub-libraries
-
-distclean: clean
-	-$(DEL_FILE) ../../$(TARGET) $(TARGET)
-
-
-FORCE:
 
 ####### Compile
 
@@ -133,9 +114,8 @@ mpeg2dec.o: mpeg2dec.c platform.h \
 platform.o: platform.c platform.h
 
 video_out_dx.o: video_out_dx.c resource.h
+
 video_out_sdl.o: video_out_sdl.c
-votest: video_out_dx.c video_out_sdl.c
-	$(LINK) $(CFLAGS) $(PLATFORMINCS) $(INCPATH) -DTEST $(LFLAGS) -o votest video_out_dx.c video_out_sdl.c $(PLATFORMLIBS) $(LIBS) $(SHLIBS)
 
 ####### Install
 
@@ -143,4 +123,3 @@ install: $(TARGET)
 	$(COPY_FILE) $(TARGET) $(DESTDIR)/bin/$(TARGET)
 
 uninstall:
-
