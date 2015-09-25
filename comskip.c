@@ -8146,6 +8146,7 @@ FILE* LoadSettings(int argc, char ** argv)
     struct arg_lit*		cl_quiet				= arg_lit0("q", "quiet", "Not output logging to the console window");
     struct arg_lit*		cl_demux				= arg_lit0("m", "demux", "Demux the input into elementary streams");
     struct arg_lit*		cl_hwassist				= arg_lit0(NULL, "hwassist", "Activate Hardware Assisted video decoding");
+    struct arg_int*		cl_threads				= arg_int0(NULL, "threads", "<int>", "The number of threads to use");
     struct arg_int*		cl_verbose				= arg_intn("v", "verbose", NULL, 0, 1, "Verbose level");
     struct arg_file*	cl_ini					= arg_filen(NULL, "ini", NULL, 0, 1, "Ini file to use");
     struct arg_file*	cl_logo					= arg_filen(NULL, "logo", NULL, 0, 1, "Logo file to use");
@@ -8169,6 +8170,7 @@ FILE* LoadSettings(int argc, char ** argv)
         cl_output_plist,
         cl_demux,
         cl_hwassist,
+        cl_threads,
         cl_pid,
         cl_ts,
         cl_detectmethod,
@@ -8608,6 +8610,11 @@ FILE* LoadSettings(int argc, char ** argv)
     if (cl_hwassist->count)
     {
         hardware_decode = 1;
+    }
+
+    if (cl_threads->count)
+    {
+        thread_count = cl_threads->ival;
     }
 
     if (!loadingTXT && !useExistingLogoFile && cl_logo->count==0)
