@@ -8614,7 +8614,7 @@ FILE* LoadSettings(int argc, char ** argv)
 
     if (cl_threads->count)
     {
-        thread_count = cl_threads->ival;
+        thread_count = cl_threads->ival[0];
     }
 
     if (!loadingTXT && !useExistingLogoFile && cl_logo->count==0)
