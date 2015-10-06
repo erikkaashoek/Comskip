@@ -8101,17 +8101,17 @@ void LoadIniFile()
         giveUpOnLogoSearch += added_recording * 60;
 }
 
-FILE* LoadFile(char *f)
-{
-    char cwd[1000];
-    char exe[1000];
-    char *cmd[2];
-    _getcwd(cwd, 256);
-    sprintf(exe, "%s%c%s", cwd, PATH_SEPARATOR, "Comskip.exe");
-    cmd[0] = exe;
-    cmd[1] = f;
-    return( LoadSettings( 2, cmd));
-}
+// FILE* LoadFile(char *f)
+// {
+//     char cwd[1000];
+//     char exe[1000];
+//     char *cmd[2];
+//     _getcwd(cwd, 256);
+//     sprintf(exe, "%s%c%s", cwd, PATH_SEPARATOR, "Comskip.exe");
+//     cmd[0] = exe;
+//     cmd[1] = f;
+//     return( LoadSettings( 2, cmd));
+// }
 
 FILE* LoadSettings(int argc, char ** argv)
 {
