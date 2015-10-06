@@ -8651,7 +8651,7 @@ FILE* LoadSettings(int argc, char ** argv)
         {
             log_file = myfopen(logfilename, "w");
             fprintf(log_file, "################################################################\n");
-            fprintf(log_file, "Generated using %s Comskip %s.%s\n", COMSKIPPUBLIC, COMSKIPVERSION,SUBVERSION);
+            fprintf(log_file, "Generated using %s %s\n", COMSKIPPUBLIC, PACKAGE_STRING);
             fprintf(log_file, "Loading comskip csv file - %s\n", in->filename[0]);
             fprintf(log_file, "Time at start of run:\n%s", ctime(&ltime));
             fprintf(log_file, "################################################################\n");
@@ -8673,7 +8673,7 @@ FILE* LoadSettings(int argc, char ** argv)
         {
             log_file = myfopen(logfilename, "w");
             fprintf(log_file, "################################################################\n");
-            fprintf(log_file, "Generated using %s Comskip %s.%s\n", COMSKIPPUBLIC, COMSKIPVERSION,SUBVERSION);
+            fprintf(log_file, "Generated using %s %s\n", COMSKIPPUBLIC, PACKAGE_STRING);
             fprintf(log_file, "Time at start of run:\n%s", ctime(&ltime));
             fprintf(log_file, "################################################################\n");
             fclose(log_file);
