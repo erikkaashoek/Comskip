@@ -8101,6 +8101,7 @@ void LoadIniFile()
         giveUpOnLogoSearch += added_recording * 60;
 }
 
+// FIXME This appears to be unused, can we just delete it?
 // FILE* LoadFile(char *f)
 // {
 //     char cwd[1000];
