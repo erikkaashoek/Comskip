@@ -1,4 +1,4 @@
-AC_INIT([Comskip], 0.88.089)
+AC_INIT([Comskip], [0.88.089], [https://github.com/erikkaashoek/Comskip/issues])
 AM_INIT_AUTOMAKE([-Wall -Werror foreign])
 
 AC_PROG_CC
