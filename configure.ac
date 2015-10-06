@@ -31,10 +31,10 @@ AM_CONDITIONAL([ENABLE_DONATOR], [test "x${enable_donator}" = "xyes"])
 
 AC_ARG_ENABLE([static], [AS_HELP_STRING([--enable-static], [build a statically linked binary])])
 AC_MSG_CHECKING([whether to build a statically linked binary])
-AS_IF([test "x${platform_darwin}" = "xyes"], AC_MSG_RESULT([static linking not supported on darwin]),
-    [test "x${enable_static}" = "xyes"], AC_MSG_RESULT([yes]), AC_MSG_RESULT([no]))
-AS_IF([test "x${platform_darwin}" = "xyes"], enable_static=no)
-AM_CONDITIONAL([ENABLE_STATIC], [test "x${enable_static}" = "xyes"])
+AS_IF([test "x${enable_static}" = "xyes"], AC_MSG_RESULT([yes]), AC_MSG_RESULT([no]))
+AS_IF([test "x${platform_darwin}" = "xyes"], static_c_lib=no,
+    [test "x${enable_static}" = "xyes"], static_c_lib=yes, static_c_lib=no)
+AM_CONDITIONAL([ENABLE_STATIC], [test "x${static_c_lib}" = "xyes"])
 
 PKG_PROG_PKG_CONFIG
 AS_IF([test "x${enable_static}" = "xyes"], PKG_CONFIG="$PKG_CONFIG --static")
