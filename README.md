@@ -1,53 +1,68 @@
-## comskip
+## Comskip
 
-commercial detector
+Commercial detector
 http://www.kaashoek.com/comskip/
 
-### requirements
+### Requirements
 
-- recent build of ffmpeg with headers and shared libraries (2.4+)
+- FFmpeg with headers and shared libraries (2.4+)
 - libargtable2 for option parsing
-- optional: sdl for gui on linux/mac
+- Optional: SDL for building the Comskip GUI
 
-### building
+### Building
 
-#### windows
+#### Building from GitHub
+
+Building directly from GitHub also requires GNU autotools (autoconf, automake, and libtool).
 
 ```
 $ git clone git://github.com/erikkaashoek/Comskip
 $ cd Comskip
-$ mingw32-make CC=mingw32-gcc INCLUDES="-I./ffmpeg/include" LIBS="-L./ffmpeg/lib"
-
-$ comskip.exe
-```
-
-#### macosx
-
-```
-$ brew install argtable ffmpeg sdl
-
-$ git clone git://github.com/erikkaashoek/Comskip
-$ cd Comskip
+$ ./autogen.sh
+$ ./configure
 $ make
-
-$ ./comskip
 ```
 
-#### linux
+#### Building from a tarball
 
-##### ubuntu vivid (15.04)
+```
+$ tar zxpfv comskip-<version>.tar.gz
+$ cd comskip-<version>
+$ ./configure
+$ make
+```
+
+### Setting up a build environment
+
+#### Windows
+
+There are many ways to setup a build system on Windows. These instructions use MSYS2 and MinGW-w64, but other environments should also work:
+
+- Install MSYS2 by following the instructions at https://msys2.github.io/
+- Install the essential build tools: `pacman -S mingw-w64-i686-gcc autoconf automake libtool pkgconfig`
+- Close the MSYS2 shell and launch a MinGW-w64 shell; this is the shell you'll use for all builds
+- Build FFmpeg (http://ffmpeg.org/) and argtable2 (http://argtable.sourceforge.net/) from source and install them to /usr/local
+- Add /usr/local/lib/pkg-config to PKG_CONFIG_PATH (e.g., add `export PKG_CONFIG_PATH=$PKG_CONFIG_PATH:/usr/local/lib/pkgconfig` to ~/.bashrc, then type `source ~/.bashrc`)
+
+#### Mac OS X
+
+First install Xcode (freely available from the Mac OS X App Store). After it's installed, install the Xcode command-line tools by executing `xcode-select --install` from a terminal.
+
+The easiest way to install Comskip's dependencies is via Homebrew (http://brew.sh/):
+
+```
+$ brew install autoconf automake libtool pkgconfig argtable ffmpeg sdl
+```
+
+#### Linux
+
+##### Ubuntu Vivid (15.04)
 
 ```
 $ apt-get install -y git build-essential libargtable2-dev libavformat-ffmpeg-dev libsdl1.2-dev
-
-$ git clone git://github.com/erikkaashoek/Comskip
-$ cd Comskip
-$ make
-
-$ ./comskip
 ```
 
-##### ubuntu trusty (14.04)
+##### Ubuntu Trusty (14.04)
 
 ```
 $ add-apt-repository -y ppa:mc3man/trusty-media
@@ -59,16 +74,9 @@ $ apt-get install -y ffmpeg libva-dev libsoxr-dev libvorbis-dev libbz2-dev zlib1
 $ git clone https://github.com/foo86/dcadec
 $ cd dcadec
 $ make install
-$ cd ..
-
-$ git clone git://github.com/erikkaashoek/Comskip
-$ cd Comskip
-$ make INCLUDES=-I/opt/ffmpeg/include LIBS="-L/opt/ffmpeg/lib -lavutil -lavformat -lavcodec -ldl -lva -lswscale -lswresample -lsoxr -lvorbis -lbz2 -lz -lxvidcore -lvpx -lx264 -lx265 -lspeex -lfdk-aac -lvorbisenc -lopus -lmp3lame -ldca -lfaac -lopencore-amrnb -lvo-aacenc -lopencore-amrwb -ldcadec"
-
-$ ./comskip
 ```
 
-##### ubuntu precise (12.04)
+##### Ubuntu Precise (12.04)
 
 ```
 $ add-apt-repository -y ppa:pavlyshko/precise
@@ -84,10 +92,4 @@ $ dpkg -i libwebp5_0.4.1-1.2pmo1~precise_amd64.deb
 
 $ apt-get install -y git build-essential libargtable2-dev libsdl1.2-dev
 $ apt-get install -y ffmpeg-opti libavformat-ffmpeg-opti-dev
-
-$ git clone git://github.com/erikkaashoek/Comskip
-$ cd Comskip
-$ make LIBS="-L/opt/ffmpeg/lib" SHLIBS="-lavutil.ffmpeg -lavformat.ffmpeg -lavcodec.ffmpeg -largtable2"
-
-$ ./comskip
 ```
