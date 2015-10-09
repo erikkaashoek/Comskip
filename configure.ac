@@ -1,6 +1,7 @@
 AC_INIT([Comskip], [0.81.089], [https://github.com/erikkaashoek/Comskip/issues])
 AM_INIT_AUTOMAKE([-Wall -Werror foreign])
 
+: ${CFLAGS=""}
 AC_PROG_CC
 
 AC_CHECK_LIB([m],[fmax])
@@ -24,10 +25,10 @@ AM_CONDITIONAL([PLATFORM_WIN32], [test "x$platform_win32" = "xyes"])
 AC_MSG_CHECKING([whether host is darwin])
 AC_MSG_RESULT([$platform_darwin])
 
-AC_ARG_ENABLE([donator], [AS_HELP_STRING([--enable-donator], [build with donator features])])
+AC_ARG_ENABLE([donator], [AS_HELP_STRING([--disable-donator], [build without donator features])])
 AC_MSG_CHECKING([whether to enable donator features])
-AS_IF([test "x${enable_donator}" = "xyes"], AC_MSG_RESULT([yes]), AC_MSG_RESULT([no]))
-AM_CONDITIONAL([ENABLE_DONATOR], [test "x${enable_donator}" = "xyes"])
+AS_IF([test "x${enable_donator}" = "xno"], AC_MSG_RESULT([no]), AC_MSG_RESULT([yes]))
+AM_CONDITIONAL([ENABLE_DONATOR], [test "x${enable_donator}" != "xno"])
 
 AC_ARG_ENABLE([static], [AS_HELP_STRING([--enable-static], [build a statically linked binary])])
 AC_MSG_CHECKING([whether to build a statically linked binary])
@@ -36,13 +37,18 @@ AS_IF([test "x${platform_darwin}" = "xyes"], static_c_lib=no,
     [test "x${enable_static}" = "xyes"], static_c_lib=yes, static_c_lib=no)
 AM_CONDITIONAL([ENABLE_STATIC], [test "x${static_c_lib}" = "xyes"])
 
+AC_ARG_ENABLE([debug], [AS_HELP_STRING([--enable-debug], [build with debugging symbols and verbose output])])
+AC_MSG_CHECKING([whether to build with debugging options enabled])
+AS_IF([test "x${enable_debug}" = "xyes"], AC_MSG_RESULT([yes]), AC_MSG_RESULT([no]))
+AM_CONDITIONAL([ENABLE_DEBUG], [test "x${enable_debug}" = "xyes"])
+
 PKG_PROG_PKG_CONFIG
 AS_IF([test "x${enable_static}" = "xyes"], PKG_CONFIG="$PKG_CONFIG --static")
 PKG_CHECK_MODULES(argtable2, [argtable2 >= 2.12])
 PKG_CHECK_MODULES(ffmpeg, [libavutil >= 2.4 libavformat >= 2.4 libavcodec >= 2.4])
 
 PKG_CHECK_MODULES(sdl, [sdl >= 1.2.0], has_sdl=yes, has_sdl=no)
-AC_MSG_CHECKING([whether to build graphical user interface])
+AC_MSG_CHECKING([whether to build the graphical user interface])
 AC_MSG_RESULT([$has_sdl])
 AM_CONDITIONAL([BUILD_GUI], [test "x${has_sdl}" = "xyes"])
 

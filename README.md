@@ -93,3 +93,11 @@ $ dpkg -i libwebp5_0.4.1-1.2pmo1~precise_amd64.deb
 $ apt-get install -y git build-essential libargtable2-dev libsdl1.2-dev
 $ apt-get install -y ffmpeg-opti libavformat-ffmpeg-opti-dev
 ```
+
+### Building static binaries
+
+You can build a static binary by passing the `--enable-static` parameter to `configure`, but beware the following caveats:
+
+- True static linking on Mac OS OX is not supported by Apple. You can get close by temporarily removing all .dylib files from /usr/local, leaving their associated .a files behind. See https://dropline.net/2015/10/static-linking-on-mac-os-x/ for more details and a script to automate the process.
+
+- Some libraries have incomplete or incorrect dependencies listed in their pkgconfig files. If static linking fails on your system, you'll need to override these by manually specifying the `argtable2_LIBS`, `ffmpeg_LIBS`, and `sdl_LIBS` environment variables with the required list of libraries and their locations.

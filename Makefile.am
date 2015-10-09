@@ -37,3 +37,12 @@ if ENABLE_STATIC
     comskip_LDFLAGS = -static
     comskip_gui_LDFLAGS = -static
 endif
+
+if ENABLE_DEBUG
+    DEFAULT_CFLAGS = -DDEBUG -ggdb3 -O0
+else
+    DEFAULT_CFLAGS = -g -O2
+endif
+comskip_CFLAGS = $(DEFAULT_CFLAGS)
+comskip_gui_CFLAGS = $(DEFAULT_CFLAGS)
+votest_CFLAGS = $(DEFAULT_CFLAGS)
