@@ -1114,7 +1114,7 @@ void raise_exception(void)
 {
 #ifdef _WIN32
     *(int *)0 = 0;
-#else
+#elif defined(__amd64__) || defined(__i386__)
     __asm__("int3");
 #endif
 }
