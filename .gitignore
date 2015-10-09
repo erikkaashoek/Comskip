@@ -1,6 +1,8 @@
 *.o
 /comskip
 /comskip.exe
+/comskip-gui
+/comskip-gui.exe
 /comskip.depend
 /comskip.ini
 /bin/
@@ -8,3 +10,16 @@
 /votest
 /votest.exe
 /*.dSYM
+
+# Autotools stuff
+.deps
+Makefile
+Makefile.in
+aclocal.m4
+autom4te.cache
+compile
+config.*
+configure
+depcomp
+install-sh
+missing
