@@ -49,6 +49,14 @@
 #error "MAX_PATH is undefined"
 #endif
 
+#ifdef _POSIX_ARG_MAX
+#define MAX_ARG _POSIX_ARG_MAX
+#elif defined(ARG_MAX)
+#define MAX_ARG ARG_MAX
+#else
+#define MAX_ARG MAX_PATH
+#endif
+
 #define bool  int
 #define false 0
 #define true  1

@@ -426,7 +426,7 @@ extern int standoff_size;
 extern int standoff_initial_size;
 extern int standoff_initial_wait;
 
-char					incomingCommandLine[MAX_PATH];
+char					incomingCommandLine[MAX_ARG];
 char					logofilename[MAX_PATH];
 char					logfilename[MAX_PATH];
 char					mpegfilename[MAX_PATH];
@@ -8103,7 +8103,7 @@ void LoadIniFile()
 
 FILE* LoadSettings(int argc, char ** argv)
 {
-    char				tempstr[MAX_PATH];
+    char				tempstr[MAX_ARG];
 //	FILE*				ini_file = NULL;
     FILE*				logo_file = NULL;
     FILE*				log_file = NULL;
