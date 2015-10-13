@@ -45,7 +45,7 @@ AM_CONDITIONAL([ENABLE_DEBUG], [test "x${enable_debug}" = "xyes"])
 PKG_PROG_PKG_CONFIG
 AS_IF([test "x${enable_static}" = "xyes"], PKG_CONFIG="$PKG_CONFIG --static")
 PKG_CHECK_MODULES(argtable2, [argtable2 >= 2.12])
-PKG_CHECK_MODULES(ffmpeg, [libavutil >= 2.4 libavformat >= 2.4 libavcodec >= 2.4])
+PKG_CHECK_MODULES(ffmpeg, [libavutil >= 54.7 libavformat >= 56.4 libavcodec >= 56.1])
 
 PKG_CHECK_MODULES(sdl, [sdl >= 1.2.0], has_sdl=yes, has_sdl=no)
 AC_MSG_CHECKING([whether to build the graphical user interface])
