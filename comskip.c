@@ -934,7 +934,7 @@ void				BuildCommListAsYouGo(void);
 void				BuildCommercial(void);
 int					RetreiveVolume (int f);
 void InsertBlackFrame(int f, int b, int u, int v, int c);
-extern void DecodeOnePicture(FILE * f, double pts, double length);
+extern void DecodeOnePicture(FILE * f, double pts);
 
 
 
@@ -3040,7 +3040,7 @@ bool ReviewResult()
         if (frame_count > 0 && review_file)
             if (curframe!= lastcurframe)
             {
-                DecodeOnePicture(review_file, (framearray ? F2T(curframe) : (double)curframe / fps) , ((double)frame_count)/fps);
+                DecodeOnePicture(review_file, (framearray ? F2T(curframe) : (double)curframe / fps));
                 lastcurframe = curframe;
             }
         OutputDebugWindow((review_file ? true : false),curframe, grf);

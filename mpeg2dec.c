@@ -657,7 +657,7 @@ void audio_packet_process(VideoState *is, AVPacket *pkt)
                  is->audio_clock = prev_audio_clock; //Ignore small jitter
             }
             else {
-                Debug(1 ,"Strange audio pts step of %6.5f instead of %6.5f at frame %d\n", (is->audio_clock - prev_audio_clock)+0.0005, 0.0 , framenum);
+                Debug(5 ,"Strange audio pts step of %6.5f instead of %6.5f at frame %d\n", (is->audio_clock - prev_audio_clock)+0.0005, 0.0 , framenum);
                 if (do_audio_repair) {
 //                    apts_offset += is->audio_clock - prev_audio_clock ;
 //                    is->audio_clock = prev_audio_clock;
@@ -918,9 +918,11 @@ int SubmitFrame(AVStream        *video_st, AVFrame         *pFrame , double pts)
     return (res);
 }
 
-void Set_seek(VideoState *is, double pts, double length)
+void Set_seek(VideoState *is, double pts)
 {
     AVFormatContext *ic = is->pFormatCtx;
+
+    double length = is->duration;
 
     is->seek_flags = AVSEEK_FLAG_ANY;
     is->seek_flags = AVSEEK_FLAG_BACKWARD;
@@ -938,6 +940,10 @@ void Set_seek(VideoState *is, double pts, double length)
     {
 //                            pos = avio_tell(is->pFormatCtx->pb);
       uint64_t size =  avio_size(ic->pb);
+        if (length < 0) {
+            Debug(0,"Impossible to reposition this file, aborting\n");
+            exit(-1);
+        }
         is->seek_pos = size*fmax(0,pts-4.0)/length;
         is->seek_flags |= AVSEEK_FLAG_BYTE;
     } else {
@@ -981,7 +987,7 @@ again:
         if (!is->seek_by_bytes)
         {
             is->seek_by_bytes = 1; // Fall back to byte seek
-            Set_seek(is, is->seek_pts, is->duration);
+            Set_seek(is, is->seek_pts);
             goto again;
         }
 
@@ -1006,7 +1012,7 @@ again:
     is->seek_no_flush = 0;
 }
 
-void DecodeOnePicture(FILE * f, double pts, double length)
+void DecodeOnePicture(FILE * f, double pts)
 {
     VideoState *is = global_video_state;
     AVPacket *packet;
@@ -1018,7 +1024,7 @@ void DecodeOnePicture(FILE * f, double pts, double length)
     is = global_video_state;
 
     reviewing = 1;
-    Set_seek(is, pts, length);
+    Set_seek(is, pts);
 
     pev_best_effort_timestamp = 0;
     best_effort_timestamp = 0;
@@ -1050,7 +1056,7 @@ nextpacket:
                 av_free_packet(packet);
                 goto nextpacket;
             }
-            if (is->seek_req < 6 && (is->seek_flags & AVSEEK_FLAG_BYTE) &&  fabs(packet_time - (is->seek_pts - 2.5) ) < is->duration / (10 * is->seek_req)) {
+            if (is->seek_req < 6 && (is->seek_flags & AVSEEK_FLAG_BYTE) &&  is->duration > 0 && fabs(packet_time - (is->seek_pts - 2.5) ) < is->duration / (10 * is->seek_req)) {
                 is->seek_pos += ((is->seek_pts - 2.5 - packet_time) / is->duration ) * avio_size(is->pFormatCtx->pb) * 1.1;
                 is->seek_req++;
                 goto again;
@@ -1203,11 +1209,12 @@ static int    prev_strange_framenum = 0;
             headerpos = avio_tell(is->pFormatCtx->pb);
             if (initial_pts_set < 3 && !reviewing)
             {
-                if (!ISSAME(initial_pts, av_q2d(is->video_st->time_base)* (best_effort_timestamp - (frame_delay * framenum) / av_q2d(is->video_st->time_base) - (is->video_st->start_time != AV_NOPTS_VALUE ? is->video_st->start_time : 0)))) {
+//              if (!ISSAME(initial_pts, av_q2d(is->video_st->time_base)* (best_effort_timestamp - (frame_delay * framenum) / av_q2d(is->video_st->time_base) - (is->video_st->start_time != AV_NOPTS_VALUE ? is->video_st->start_time : 0)))) {
+                if (!ISSAME(initial_pts, (best_effort_timestamp  - (is->video_st->start_time != AV_NOPTS_VALUE ? is->video_st->start_time : 0)) * av_q2d(is->video_st->time_base) - (frame_delay * framenum) )) {
                     initial_pts = (best_effort_timestamp  - (is->video_st->start_time != AV_NOPTS_VALUE ? is->video_st->start_time : 0)) * av_q2d(is->video_st->time_base) - (frame_delay * framenum);
                     Debug( 10,"\nInitial pts = %10.3f\n", initial_pts);
-                    if (timeline_repair<2)
-                        initial_pts = 0.0;
+//                    if (timeline_repair<2)
+//                        initial_pts = 0.0;
                 }
                 initial_pts_set++;
                 final_pts = 0;
@@ -1318,7 +1325,7 @@ static int    prev_strange_framenum = 0;
             && !ISSAME(1*frame_delay/ is->video_st->codec->ticks_per_frame, calculated_delay)
             ){
             if ( (prev_strange_framenum + 1 != framenum) &&( prev_strange_step < fabs(calculated_delay - frame_delay))) {
-                Debug(1 ,"Strange video pts step of %6.5f instead of %6.5f at frame %d\n", calculated_delay+0.0005, frame_delay+0.0005, framenum); // Unknown strange step
+                Debug(5 ,"Strange video pts step of %6.5f instead of %6.5f at frame %d\n", calculated_delay+0.0005, frame_delay+0.0005, framenum); // Unknown strange step
                 if (calculated_delay < -0.5)
                     do_audio_repair = 0;        // Disable audio repair with messed up video timeline
             }
@@ -1432,6 +1439,7 @@ static int    prev_strange_framenum = 0;
                         exit(1);
                     }
                     retries = 0;
+                    exit(-1);
                 }
             }
 //            if (selftest == 4) exit(1);
@@ -1836,6 +1844,10 @@ again:
         else
             is->duration =  av_q2d(is->video_st->time_base)* is->video_st->duration;
 
+        if (is->duration < 0 && (live_tv_retries > 0)) {
+           Debug(0, "Could not establish duration, live TV decoding may fail\n");
+        }
+
 
         /* Calc FPS */
         if(is->video_st->r_frame_rate.den && is->video_st->r_frame_rate.num)
@@ -2143,7 +2155,7 @@ nextpacket:
                     av_free_packet(packet);
                     goto nextpacket;
                 }
-                if (is->seek_req < 6 && (is->seek_flags & AVSEEK_FLAG_BYTE) &&  fabs(packet_time - (is->seek_pts - 2.5) ) < is->duration / (10 * is->seek_req))
+                if (is->seek_req < 6 && (is->seek_flags & AVSEEK_FLAG_BYTE) &&  is->duration > 0 && fabs(packet_time - (is->seek_pts - 2.5) ) < is->duration / (10 * is->seek_req))
                 {
                     is->seek_pos += ((is->seek_pts - 2.5 - packet_time) / is->duration ) * avio_size(is->pFormatCtx->pb) * 0.9;
                     is->seek_req++;
@@ -2223,7 +2235,7 @@ nextpacket:
 
                         if (selftest == 0) Sleep(4000L);
                         file_open();
-                        Set_seek(is, retry_target, is->duration);
+                        Set_seek(is, retry_target);
 
                         retries++;
                         goto again;
@@ -2280,8 +2292,12 @@ nextpacket:
 #ifdef SELFTEST
             if (selftest == 1 && pass == 0 && is->seek_req == 0 && framenum == 50)
             {
-                selftest_target = fmin(450.0, is->duration - 2);
-                Set_seek(is, selftest_target, is->duration);
+                if (is->duration > 2) {
+                    selftest_target = fmin(450.0, is->duration - 2);
+                } else {
+                    selftest_target = 1.0;
+                }
+                Set_seek(is, selftest_target);
                 pass = 1;
                 framenum++;
             }
