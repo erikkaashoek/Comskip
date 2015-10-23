@@ -26,7 +26,7 @@
 #ifdef HAVE_SDL
 #include <SDL.h>
 #endif
-
+#include <argtable2.h>
 #define SELFTEST
 
 int pass = 0;
