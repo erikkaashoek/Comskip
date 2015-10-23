@@ -43,7 +43,7 @@ extern char osname[1024];
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <SDL/SDL.h>
+#include <SDL.h>
 //#include <inttypes.h>
 //#include "video_out.h"
 

@@ -24,7 +24,7 @@
 #include "platform.h"
 #include "vo.h"
 #ifdef HAVE_SDL
-#include <SDL/SDL.h>
+#include <SDL.h>
 #endif
 
 #define SELFTEST
@@ -2050,7 +2050,7 @@ int main (int argc, char ** argv)
             HomeDir[len] = '\0';
         }
 
-        fprintf (stderr, "Comskip %s.%s, made using ffmpeg\n", COMSKIPVERSION,SUBVERSION);
+        fprintf (stderr, "%s, made using ffmpeg\n", PACKAGE_STRING);
 
 #ifndef DONATOR
         fprintf (stderr, "Public build\n");

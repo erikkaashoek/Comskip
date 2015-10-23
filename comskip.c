@@ -8101,18 +8101,6 @@ void LoadIniFile()
         giveUpOnLogoSearch += added_recording * 60;
 }
 
-FILE* LoadFile(char *f)
-{
-    char cwd[1000];
-    char exe[1000];
-    char *cmd[2];
-    _getcwd(cwd, 256);
-    sprintf(exe, "%s%c%s", cwd, PATH_SEPARATOR, "Comskip.exe");
-    cmd[0] = exe;
-    cmd[1] = f;
-    return( LoadSettings( 2, cmd));
-}
-
 FILE* LoadSettings(int argc, char ** argv)
 {
     char				tempstr[MAX_ARG];
@@ -8651,7 +8639,7 @@ FILE* LoadSettings(int argc, char ** argv)
         {
             log_file = myfopen(logfilename, "w");
             fprintf(log_file, "################################################################\n");
-            fprintf(log_file, "Generated using %s Comskip %s.%s\n", COMSKIPPUBLIC, COMSKIPVERSION,SUBVERSION);
+            fprintf(log_file, "Generated using %s %s\n", COMSKIPPUBLIC, PACKAGE_STRING);
             fprintf(log_file, "Loading comskip csv file - %s\n", in->filename[0]);
             fprintf(log_file, "Time at start of run:\n%s", ctime(&ltime));
             fprintf(log_file, "################################################################\n");
@@ -8673,7 +8661,7 @@ FILE* LoadSettings(int argc, char ** argv)
         {
             log_file = myfopen(logfilename, "w");
             fprintf(log_file, "################################################################\n");
-            fprintf(log_file, "Generated using %s Comskip %s.%s\n", COMSKIPPUBLIC, COMSKIPVERSION,SUBVERSION);
+            fprintf(log_file, "Generated using %s %s\n", COMSKIPPUBLIC, PACKAGE_STRING);
             fprintf(log_file, "Time at start of run:\n%s", ctime(&ltime));
             fprintf(log_file, "################################################################\n");
             fclose(log_file);
