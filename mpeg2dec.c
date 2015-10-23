@@ -928,7 +928,6 @@ void Set_seek(VideoState *is, double pts)
     is->seek_flags = AVSEEK_FLAG_BACKWARD;
     is->seek_req = true;
     is->seek_pts = pts;
-    pts = fmax(0,pts+initial_pts);
 #ifdef DEBUG
     printf("Seek to %8.2f\n", pts);
 #endif // DEBUG
@@ -947,10 +946,11 @@ void Set_seek(VideoState *is, double pts)
         is->seek_pos = size*fmax(0,pts-4.0)/length;
         is->seek_flags |= AVSEEK_FLAG_BYTE;
     } else {
+        pts = fmax(0,pts+initial_pts);
         is->seek_pos = pts / av_q2d(is->video_st->time_base);
         if (is->video_st->start_time != AV_NOPTS_VALUE)
         {
-//            is->seek_pos += is->video_st->start_time;
+            is->seek_pos += is->video_st->start_time;
         }
     }
 }
@@ -1207,7 +1207,7 @@ static int    prev_strange_framenum = 0;
         else
         {
             headerpos = avio_tell(is->pFormatCtx->pb);
-            if (initial_pts_set < 3 && !reviewing)
+            if ((initial_pts_set < 3 && !reviewing) || (reviewing && initial_pts_set < 1)  )
             {
 //              if (!ISSAME(initial_pts, av_q2d(is->video_st->time_base)* (best_effort_timestamp - (frame_delay * framenum) / av_q2d(is->video_st->time_base) - (is->video_st->start_time != AV_NOPTS_VALUE ? is->video_st->start_time : 0)))) {
                 if (!ISSAME(initial_pts, (best_effort_timestamp  - (is->video_st->start_time != AV_NOPTS_VALUE ? is->video_st->start_time : 0)) * av_q2d(is->video_st->time_base) - (frame_delay * framenum) )) {
