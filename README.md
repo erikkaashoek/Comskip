@@ -3,6 +3,9 @@
 Commercial detector
 http://www.kaashoek.com/comskip/
 
+![Example Comskip image](https://github.com/essandess/etv-comskip/blob/master/example.png)
+*Commercials are marked and skipped using [associated projects](https://github.com/essandess/etv-comskip).*
+
 ### Requirements
 
 - FFmpeg with headers and shared libraries (2.4+)
@@ -52,6 +55,12 @@ The easiest way to install Comskip's dependencies is via Homebrew (http://brew.s
 
 ```
 $ brew install autoconf automake libtool pkgconfig argtable ffmpeg sdl
+```
+
+[Macports](https://www.macports.org/install.php) natively compiles all libraries from source. The project [etv-comskip](https://github.com/essandess/etv-comskip) has an example [Makefile](https://github.com/essandess/etv-comskip/blob/master/Makefile) using Macports tools.
+
+```
+$ sudo port install ffmpeg coreutils argtable
 ```
 
 #### Linux
