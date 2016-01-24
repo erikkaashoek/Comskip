@@ -6442,7 +6442,7 @@ void OutputCommercialBlock(int i, long prev, long start, long end, bool last)
 
         if (demux_pid && enable_mencoder_pts)
         {
-            fprintf(edl_file, "%.2f\t%.2f\t%d\n", get_frame_pts(s_start) + frame[1].pts, get_frame_pts(s_end) + frame[1].pts, edl_skip_field);
+            fprintf(edl_file, "%.2f\t%.2f\t%d\n", get_frame_pts(s_start) + F2T(1), get_frame_pts(s_end) + F2T(1), edl_skip_field);
         }
         else
         {
@@ -6460,7 +6460,7 @@ void OutputCommercialBlock(int i, long prev, long start, long end, bool last)
 
         if (demux_pid && enable_mencoder_pts)
         {
-            fprintf(live_file, "%.2f\t%.2f\t%d\n", get_frame_pts(s_start) + frame[1].pts, get_frame_pts(s_end) + frame[1].pts, edl_skip_field);
+            fprintf(live_file, "%.2f\t%.2f\t%d\n", get_frame_pts(s_start) + F2T(1), get_frame_pts(s_end) + F2T(1), edl_skip_field);
         }
         else
         {
@@ -6480,7 +6480,7 @@ void OutputCommercialBlock(int i, long prev, long start, long end, bool last)
     {
         if (start < 5)
             start = 0;
-        fprintf(edlp_file, "%.2f\t%.2f\t%d\n", get_frame_pts(start) + frame[1].pts, get_frame_pts(end) + frame[1].pts, edl_skip_field);
+        fprintf(edlp_file, "%.2f\t%.2f\t%d\n", get_frame_pts(start) + F2T(1), get_frame_pts(end) + F2T(1), edl_skip_field);
     }
     CLOSEOUTFILE(edlp_file);
 
@@ -6490,7 +6490,7 @@ void OutputCommercialBlock(int i, long prev, long start, long end, bool last)
     }
     CLOSEOUTFILE(bcf_file);
 
-    if (edlx_file)
+    if (edlx_file && frame)
     {
         if (prev < start /* &&!last */ && end - start > 2)
         {
@@ -10911,9 +10911,10 @@ bool ProcessLogoTest(int framenum_real, int curLogoTest, int close)
 void ResetLogoBuffers(void)
 {
     newestLogoBuffer = oldestLogoBuffer = 0;
-    if (newestLogoBuffer == num_logo_buffers) newestLogoBuffer = 0; // rotates buffer
-    logoFrameNum[newestLogoBuffer] = framenum_real;
-    oldestLogoBuffer = 0;
+    if (logoFrameNum) {
+        if (newestLogoBuffer == num_logo_buffers) newestLogoBuffer = 0; // rotates buffer
+        logoFrameNum[newestLogoBuffer] = framenum_real;
+        oldestLogoBuffer = 0;
     /*
          for (i = 0; i < num_logo_buffers; i++) {
               free(logoFrameBuffer[i]);
@@ -10925,6 +10926,7 @@ void ResetLogoBuffers(void)
                    exit(16);
               }
          */
+    }
 }
 
 void FillLogoBuffer(void)
@@ -15444,7 +15446,7 @@ void set_fps(double fp,double dfps, int ticks, double rfps, double afps)
             Debug(1, "AFps[%d]= %5.3f f/s\n", ticks, afps);
         }
     }
-    if ( fps < 12.0 || fps > 100 )
+    if ( fps < 10.0 || fps > 100 )
     {
         fps = dfps;
         if (/* old_fps != fps && */ showed_fps < 4)

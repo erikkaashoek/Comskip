@@ -456,6 +456,7 @@ void sound_to_frames(VideoState *is, short **b, int s, int c, int format)
 {
     int i,l;
     int volume;
+    static int old_c = 0;
     double old_base_apts;
     static double old_audio_clock=0.0;
     double calculated_delay = 0.0;
@@ -479,8 +480,15 @@ void sound_to_frames(VideoState *is, short **b, int s, int c, int format)
        audio_samples=0;
        return;
     }
-    if (old_sample_rate != 0 && old_sample_rate != is->audio_st->codec->sample_rate)
-        Debug(1, "Audio samplerate switched from %d to %d\n", old_sample_rate, is->audio_st->codec->sample_rate );
+
+    if (old_c != 0 && old_c != c) {
+        Debug(1, "Audio channels switched at pts=%6.5f from %d to %d\n", base_apts, old_c, c);
+//        InsertBlackFrame()
+    }
+    old_c = c;
+    if (old_sample_rate != 0 && old_sample_rate != is->audio_st->codec->sample_rate) {
+         Debug(1, "Audio samplerate switched from %d to %d\n", old_sample_rate, is->audio_st->codec->sample_rate );
+    }
     old_sample_rate = is->audio_st->codec->sample_rate;
 
     old_base_apts = base_apts;
@@ -495,7 +503,7 @@ void sound_to_frames(VideoState *is, short **b, int s, int c, int format)
                         )
                         old_base_apts = base_apts; // Ignore AC3 packet jitter
             }
-    if (old_base_apts != 0.0 && !ISSAME(base_apts, old_base_apts)) {
+    if (old_base_apts != 0.0 && (fabs(base_apts - old_base_apts)>0.01)) {
         Debug(1, "Jump in base apts from %6.5f to %6.5f, delta=%6.5f\n",old_base_apts, base_apts, base_apts -old_base_apts);
     }
 
@@ -1423,7 +1431,7 @@ static int    prev_strange_framenum = 0;
                     goto quit;
                 }
             } else {
-                if (fabs(is->seek_pts - is->video_clock) > 8 ) {
+                if (fabs(is->seek_pts - is->video_clock) > 80 ) {
                     Debug(1,"Positioning file failing with pts=%6.2f\n", is->video_clock );
                     if (selftest == 1 || selftest == 3)
                     {
