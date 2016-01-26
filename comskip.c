@@ -1951,7 +1951,7 @@ void InitHasLogo()
 
 int oheight = 0;
 int owidth = 0;
-int divider = 1;
+double divider = 1;
 int oldfrm = -1;
 int zstart = 0;
 int zfactor = 1;
@@ -2001,6 +2001,20 @@ void OutputDebugWindow(bool showVideo, int frm, int grf)
                 divider = 2;
             }
             else
+            if (height < 150 || width < 200)
+            {
+                divider = 0.25;
+                oheight = height / divider;
+                owidth = width / divider;
+                owidth = videowidth / divider;
+            } else
+            if (height < 300 || width < 400)
+            {
+                divider = 0.5;
+                oheight = height / divider;
+                owidth = width / divider;
+                owidth = videowidth / divider;
+            } else
             {
                 oheight = height;
                 owidth = width;
@@ -2055,7 +2069,7 @@ void OutputDebugWindow(bool showVideo, int frm, int grf)
                 for (y = 0+border; y < oheight-border; y++)
                 {
                     if (x*divider < width && y*divider < height)
-                        PIXEL(x,y+barh) = frame_ptr[(y*divider)*(width)+(x*divider)] >> (grf?1:0);
+                        PIXEL(x,y+barh) = frame_ptr[((int)(y*divider))*(width)+(int)(x*divider)] >> (grf?1:0);
 //					PIXEL(x,y+barh) = min_br[(y*divider)*width+(x*divider)];		//MAXMIN Logo search
 
 //					PIXEL(x,y+barh) = vert_edges[(y*divider)*width+(x*divider)];	//Edge detect
@@ -2098,7 +2112,7 @@ void OutputDebugWindow(bool showVideo, int frm, int grf)
                                 else r = 0;
                                 if (cvert_edgemask[y * width + x]) g = 255;
                                 else g = 0;
-                                if (r || g) SETPIXEL((x-s)/divider,(y-s)/divider+barh,r,g,0);
+                                if (r || g) SETPIXEL(((int)((x-s)/divider)),((int)((y-s)/divider))+barh,r,g,0);
                             }
                         }
                     }
@@ -2121,9 +2135,10 @@ void OutputDebugWindow(bool showVideo, int frm, int grf)
                                 }
                                 if (r > 255) r = 255;
                                 if (g > 255) g = 255;
-                                if (r > 128 || g >  128) SETPIXEL(x/divider,y/divider+barh,r,g,0);
+                                //if (r > 128 || g >  128)
+                                    SETPIXEL(((int)(x/divider)),((int)(y/divider))+barh,r,g,0);
 
-#ifdef nodef
+#ifdef xxxxxx
                         for (y = s; y < oheight; y++)
                         {
                             for (x = s ; x < owidth; x++)
@@ -2135,15 +2150,17 @@ void OutputDebugWindow(bool showVideo, int frm, int grf)
                                 else g = 0;
  */
                                 if (edgemask_filled) {
-                                    r = 255 * thoriz_edgemask[(y*divider) * width + (x*divider)] / num_logo_buffers;
-                                    g = 255 * tvert_edgemask[(y*divider) * width + (x*divider)] / num_logo_buffers;
+                                    r = 255 * thoriz_edgemask[((int)((y*divider))) * width + ((int)((x*divider)))] / num_logo_buffers;
+                                    g = 255 * tvert_edgemask[((int)((y*divider))) * width + ((int)((x*divider)))] / num_logo_buffers;
                                 } else {
-                                    r = 255 * hor_edgecount[(y*divider) * width + (x*divider)] / num_logo_buffers;
-                                    g = 255 * ver_edgecount[(y*divider) * width + (x*divider)] / num_logo_buffers;
+                                    r = 255 * hor_edgecount[((int)((y*divider))) * width + ((int)((x*divider)))] / num_logo_buffers;
+                                    g = 255 * ver_edgecount[((int)((y*divider))) * width + ((int)((x*divider)))] / num_logo_buffers;
                                 }
                                 if (r > 255) r = 255;
                                 if (g > 255) g = 255;
                                 if (r > 128 || g >  128) SETPIXEL(x-s,y-s+barh,r,g,0);
+                            }
+                        }
 #endif
                            }
                         }
@@ -2243,16 +2260,16 @@ void OutputDebugWindow(bool showVideo, int frm, int grf)
             if (x == 0) x = owidth;
             for (i=frame[frm].minX/divider; i < x; i++)  				// AR lines
             {
-                SETPIXEL(i, (frame[frm].minY/divider)+barh, 0,0,255);
-                SETPIXEL(i, (frame[frm].maxY/divider)+barh, 0,0,255);
+                SETPIXEL(i, ((int)((frame[frm].minY/divider)))+barh, 0,0,255);
+                SETPIXEL(i, ((int)((frame[frm].maxY/divider)+barh)), 0,0,255);
 
 //				graph[frame[frm].minY* owidth + i] = 255;
 //				graph[frame[frm].maxY* owidth + i] = 255;
             }
             for (i=(frame[frm].minY/divider); i < (frame[frm].maxY/divider); i++)  				// AR lines
             {
-                SETPIXEL((frame[frm].minX/divider), i+barh, 0,0,255);
-                SETPIXEL((frame[frm].maxX/divider), i+barh, 0,0,255);
+                SETPIXEL(((int)((frame[frm].minX/divider))), i+barh, 0,0,255);
+                SETPIXEL(((int)((frame[frm].maxX/divider))), i+barh, 0,0,255);
             }
 
 
@@ -2263,13 +2280,13 @@ void OutputDebugWindow(bool showVideo, int frm, int grf)
 #ifdef SHOWLOGOBOXWHILESCANNING
             for (x = tlogoMinX/divider; x < tlogoMaxX/divider; x++)  		// Logo box X
             {
-                SETPIXEL(x,tlogoMinY/divider+barh,255,e,e);
-                SETPIXEL(x,tlogoMaxY/divider+barh,255,e,e);
+                SETPIXEL(x,((int)(tlogoMinY/divider))+barh,255,e,e);
+                SETPIXEL(x,((int)(tlogoMaxY/divider))+barh,255,e,e);
             }
             for (y = tlogoMinY/divider; y < tlogoMaxY/divider; y++)  		// Logo box Y
             {
-                SETPIXEL(tlogoMinX/divider,y+barh,255,e,e);
-                SETPIXEL(tlogoMaxX/divider,y+barh,255,e,e);
+                SETPIXEL(((int)(tlogoMinX/divider)),y+barh,255,e,e);
+                SETPIXEL(((int)(tlogoMaxX/divider)),y+barh,255,e,e);
             }
 #else
             for (x = clogoMinX/divider; x < clogoMaxX/divider; x++)  		// Logo box X
@@ -11356,6 +11373,8 @@ int CountEdgePixels(void)
         }
     }
     count = hcount + vcount;
+//    if (count>0)
+//        Debug(1, "\nFrame[%d] edgecount=%d",framenum_real, count);
 //	printf("%6d %6d\n",hcount, vcount);
     //if ((hcount < 50 * scale / edge_step) || (vcount < 50 * scale /edge_step )) count = 0;
     return (count);
