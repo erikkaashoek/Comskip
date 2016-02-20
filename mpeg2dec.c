@@ -482,12 +482,12 @@ void sound_to_frames(VideoState *is, short **b, int s, int c, int format)
     }
 
     if (old_c != 0 && old_c != c) {
-        Debug(1, "Audio channels switched at pts=%6.5f from %d to %d\n", base_apts, old_c, c);
+        Debug(5, "Audio channels switched at pts=%6.5f from %d to %d\n", base_apts, old_c, c);
 //        InsertBlackFrame()
     }
     old_c = c;
     if (old_sample_rate != 0 && old_sample_rate != is->audio_st->codec->sample_rate) {
-         Debug(1, "Audio samplerate switched from %d to %d\n", old_sample_rate, is->audio_st->codec->sample_rate );
+         Debug(5, "Audio samplerate switched from %d to %d\n", old_sample_rate, is->audio_st->codec->sample_rate );
     }
     old_sample_rate = is->audio_st->codec->sample_rate;
 
@@ -504,7 +504,7 @@ void sound_to_frames(VideoState *is, short **b, int s, int c, int format)
                         old_base_apts = base_apts; // Ignore AC3 packet jitter
             }
     if (old_base_apts != 0.0 && (fabs(base_apts - old_base_apts)>0.01)) {
-        Debug(1, "Jump in base apts from %6.5f to %6.5f, delta=%6.5f\n",old_base_apts, base_apts, base_apts -old_base_apts);
+        Debug(8, "Jump in base apts from %6.5f to %6.5f, delta=%6.5f\n",old_base_apts, base_apts, base_apts -old_base_apts);
     }
 
     if (s+audio_samples > AUDIOBUFFER ) {
@@ -595,14 +595,14 @@ void audio_packet_process(VideoState *is, AVPacket *pkt)
         ac3_package_misalignment_count = 0;
     }
     if (!ALIGN_AC3_PACKETS && ac3_package_misalignment_count > 4) {
-        Debug(1, "AC3 packets misaligned, enabling AC3 re-alignment\n");
+        Debug(8, "AC3 packets misaligned, enabling AC3 re-alignment\n");
         ALIGN_AC3_PACKETS = 1;
     }
 
     if (ALIGN_AC3_PACKETS && is->audio_st->codec->codec_id == AV_CODEC_ID_AC3) {
         if (ac3_packet_index + pkt_temp->size >= AC3_BUFFER_SIZE )
         {
-            Debug(1,"AC3 sync error\n");
+            Debug(8,"AC3 sync error\n");
             return;
         }
         memcpy(&ac3_packet[ac3_packet_index], pkt_temp->data, pkt_temp->size);
@@ -618,7 +618,7 @@ void audio_packet_process(VideoState *is, AVPacket *pkt)
         if (pkt_temp->size < 2)
             return; // No packet start found
         if (ps>0)
-            Debug(1,"Skipped %d of added %d bytes in audio input stream around frame %d\n", ps, pkt->size, framenum);
+            Debug(8,"Skipped %d of added %d bytes in audio input stream around frame %d\n", ps, pkt->size, framenum);
         pp = pkt_temp->data;
         rps = pkt_temp->size-2;
         while (rps > 1 && (pp[rps] != 0x0b || pp[rps+1] != 0x77) ) {
@@ -637,7 +637,7 @@ void audio_packet_process(VideoState *is, AVPacket *pkt)
             return;
         }
         if ( (pkt_temp->size % 768 ) != 0)
-            Debug(1,"Strange packet size of %d bytes in audio input stream around frame %d\n", rps, framenum);
+            Debug(8,"Strange packet size of %d bytes in audio input stream around frame %d\n", rps, framenum);
 
     }
 
@@ -665,7 +665,7 @@ void audio_packet_process(VideoState *is, AVPacket *pkt)
                  is->audio_clock = prev_audio_clock; //Ignore small jitter
             }
             else {
-                Debug(5 ,"Strange audio pts step of %6.5f instead of %6.5f at frame %d\n", (is->audio_clock - prev_audio_clock)+0.0005, 0.0 , framenum);
+                Debug(8 ,"Strange audio pts step of %6.5f instead of %6.5f at frame %d\n", (is->audio_clock - prev_audio_clock)+0.0005, 0.0 , framenum);
                 if (do_audio_repair) {
 //                    apts_offset += is->audio_clock - prev_audio_clock ;
 //                    is->audio_clock = prev_audio_clock;
@@ -874,7 +874,7 @@ int SubmitFrame(AVStream        *video_st, AVFrame         *pFrame , double pts)
         videowidth= pFrame->width;
         changed = 1;
     }
-    if (changed) Debug(2, "Format changed to [%d : %d]\n", videowidth, height);
+    if (changed) Debug(5, "Format changed to [%d : %d]\n", videowidth, height);
     infopos = headerpos;
     frame_ptr = pFrame->data[0];
     if (frame_ptr == NULL)
@@ -1333,7 +1333,7 @@ static int    prev_strange_framenum = 0;
             && !ISSAME(1*frame_delay/ is->video_st->codec->ticks_per_frame, calculated_delay)
             ){
             if ( (prev_strange_framenum + 1 != framenum) &&( prev_strange_step < fabs(calculated_delay - frame_delay))) {
-                Debug(5 ,"Strange video pts step of %6.5f instead of %6.5f at frame %d\n", calculated_delay+0.0005, frame_delay+0.0005, framenum); // Unknown strange step
+                Debug(8 ,"Strange video pts step of %6.5f instead of %6.5f at frame %d\n", calculated_delay+0.0005, frame_delay+0.0005, framenum); // Unknown strange step
                 if (calculated_delay < -0.5)
                     do_audio_repair = 0;        // Disable audio repair with messed up video timeline
             }

@@ -164,10 +164,12 @@ int debug_cur_segment;
 frame_info*			frame = NULL;
 long				frame_count = 0;
 long				max_frame_count;
+double				fps = 22.0;						// frames per second (NTSC=29.970, PAL=25)
 
 double get_frame_pts(int f) {
-    if (!frame)
-        return(0.0);
+    if (!frame) {
+            return(f / fps);
+    }
     if (f < 1)
         f = 1;
     if (f > frame_count -1)
@@ -275,6 +277,7 @@ long				max_block_count;
 #define		C_F			((long)1<<27)
 #define		C_t			((long)1<<28)
 #define		C_H7		((long)1<<29)
+#define		C_H8		((long)1<<30)
 
 
 #define C_CUTMASK	(C_c | C_l | C_s | C_a | C_u | C_b | C_t | C_r)
@@ -479,7 +482,7 @@ double					logo_quality;
 int						width, old_width, videowidth;
 int						height, old_height;
 int						ar_width = 0;
-int						subsample_video = 0x3f;
+int						subsample_video = 0x1ff;
 //#define MAXWIDTH	800
 //#define MAXHEIGHT	600
 #define MAXWIDTH	2000
@@ -494,7 +497,6 @@ int					selftest = 0;
 int					verbose = 0;						// show extra info
 double              avg_fps = 22;
 
-double				fps = 22.0;						// frames per second (NTSC=29.970, PAL=25)
 int					border = 10;						// border around edge of video to ignore
 int					ticker_tape=0, ticker_tape_percentage=0;						// border from bottom to ignore
 int					ignore_side=0;
@@ -947,6 +949,7 @@ char *CauseString(int i)
     char *c = &(cs[ii][0]);
     char *rc = &(cs[ii][0]);
 
+    *c++ = (i & C_H8		? '8' : ' ');
     *c++ = (i & C_H7		? '7' : ' ');
     *c++ = (i & C_H6		? '6' : ' ');
     *c++ = (i & C_H5		? '5' : ' ');
@@ -1237,7 +1240,7 @@ bool BuildBlocks(bool recalc)
                 for (i = 1; i < frame_count; i++)
                 {
                     frame[i].isblack &= ~C_u;
-                    if (/*!(frame[i].isblack & C_b) && */ non_uniformity > 0 && frame[i].uniform < non_uniformity && frame[i].brightness < 180/*&& frame[i].volume < max_volume*/ )
+                    if (/*!(frame[i].isblack & C_b) && */ non_uniformity > 0 && frame[i].uniform < non_uniformity && frame[i].brightness < 250 /*&& frame[i].volume < max_volume*/ )
                         InsertBlackFrame(i,frame[i].brightness,frame[i].uniform,frame[i].volume, (int)C_u);
                 }
             }
@@ -5408,6 +5411,38 @@ void WeighBlocks(void)
     		}
     	}
     */
+
+    if (!(disable_heuristics & (1 << (8- 1))))
+    {
+        for (i = 0; i < block_count-2; i++)
+        {
+            if ( (cblock[i].cause & (C_b | C_u ) )  &&
+                    cblock[i].score > 1.05 &&
+                    cblock[i].length < min_show_segment_length &&
+                    (i == 0 || cblock[i-1].score <1)
+               )
+            {
+                k = j = cblock[i].f_end;
+                while (j>1 && frame[j].brightness < 16)
+                    j--;
+                if (k - j > 10 &&
+                    F2T(k) - F2T(j) > 5.0) // If more then 5 seconds dark frames
+                {
+
+                    cblock[i].score = 0.5;
+                    Debug(3, "H8 Added cblock %i because long dark sequence at end.\n", i);
+                    cblock[i].cause |= C_H8;
+                    cblock[i].less |= C_H8;
+                }
+            }
+        }
+    }
+
+
+
+
+
+
     if (delete_show_before_or_after_current && logo_block_count >= 80)
         Debug(10, "Too many logo blocks, disabling the delete_show_before_or_after_current processing\n");
     if (delete_show_before_or_after_current &&
@@ -7770,6 +7805,8 @@ char * FindString(char* str1, char* str2, char *v)
 //			return(foundText);
         }
     }
+    else
+        return(0);
 
     t = tmp;
     while (*str2)
@@ -9323,6 +9360,7 @@ int MatchCutScene(unsigned char *cutscene)
     int c=0;
     if (width > 800) step = 8;
     if (width < 400) step = 2;
+    if (width < 200) step = 1;
     for (y = border; y < (height - border); y += step)
     {
         for (x = border; x < (videowidth - border); x += step)
@@ -9348,6 +9386,7 @@ void RecordCutScene(int frame_count, int brightness)
 
     if (width > 800) step = 8;
     if (width < 400) step = 2;
+    if (width < 200) step = 1;
     c = 0;
     for (y = border; y < (height - border); y += step)
     {
@@ -9615,6 +9654,46 @@ again:
 #endif
 }
 
+void DetectCredits(int frame_count)
+{
+static int credit_length = 0;
+static int prev_credit_length = 0;
+static int prev_credit_end = 0;
+static int credit_count = 0;
+        if (frame_count > 1 &&
+            abs(frame[frame_count].brightness - frame[frame_count-1]. brightness) < 2  &&
+            frame[frame_count].brightness < max_avg_brightness + 5
+            ) {
+                frame[frame_count].cutscenematch = frame[frame_count-1].cutscenematch - 1;
+                credit_length++;
+
+        }
+        else if ( credit_length > fps * 0.5)
+        {
+            frame[frame_count].cutscenematch = 100;
+            if (abs(credit_length - prev_credit_length)< 10 &&
+                  frame_count - credit_length - prev_credit_end < (int)fps/2) {
+                credit_count++;
+                if (credit_count > 5)
+                    Debug(1,"Credits[%i] detected at frame %i\n",credit_count,frame_count);
+            }
+            prev_credit_end = frame_count;
+            prev_credit_length = credit_length;
+            credit_length = 0;
+        } else if (frame_count - prev_credit_end  < (int)fps/2) {
+            frame[frame_count].cutscenematch = 100;
+            credit_length = 0;
+        } else {
+            frame[frame_count].cutscenematch = 100;
+            credit_length = 0;
+            credit_count = 0;
+            prev_credit_length = 0;
+            prev_credit_end = 0;
+        }
+
+}
+
+
 bool CheckSceneHasChanged(void)
 {
     register int		i;
@@ -9872,7 +9951,7 @@ bool CheckSceneHasChanged(void)
                 cause |= C_u;
                 Debug(7, "Frame %6i (%.3fs) - Black frame with brightness of %i,uniform of %i and volume of %i\n", framenum_real, get_frame_pts(framenum_real), brightness, uniform, black[black_count-1].volume);
             }
-            if (brightness > max_avg_brightness && uniform < non_uniformity && brightness < 180)
+            if (brightness > max_avg_brightness && uniform < non_uniformity && brightness < 250 )
             {
                 cause |= C_u;
                 Debug(7, "Frame %6i (%.3fs) - Uniform frame with brightness of %i and uniform of %i\n", framenum_real, get_frame_pts(framenum_real), brightness, uniform);
@@ -9974,6 +10053,7 @@ bool CheckSceneHasChanged(void)
 
     if (framearray) frame[frame_count].cutscenematch = 100;
 //	if (brightness > max_avg_brightness + 10)
+    if (cutscenes)
     {
 
         if (framearray) frame[frame_count].cutscenematch = 100;
@@ -9986,9 +10066,14 @@ bool CheckSceneHasChanged(void)
                 {
                     if (frame[frame_count].cutscenematch > cutscenematch*100/cslength[i])
                         frame[frame_count].cutscenematch = cutscenematch*100/cslength[i];
+                    if (frame[frame_count].cutscenematch < cutscenedelta)
+                        cause |= C_t;
                 }
             }
         }
+
+    } else {
+        DetectCredits(frame_count);
     }
     if (frame[frame_count].cutscenematch < cutscenedelta)
         cause |= C_t;
@@ -13625,7 +13710,6 @@ ccagain:
         else
             frame[i].isblack &= ~C_r;
 
-
         if (commDetectMethod & BLACK_FRAME)
         {
             // if (frame[i].brightness <= max_avg_brightness && (non_uniformity == 0 || frame[i].uniform < non_uniformity)/* && frame[i].volume < max_volume */ && !(frame[i].isblack & C_b))
@@ -13644,7 +13728,7 @@ ccagain:
             }
 
             frame[i].isblack &= ~C_u;
-            if (!(frame[i].isblack & C_b) && non_uniformity > 0 && frame[i].uniform < non_uniformity && frame[i].brightness < 180/*&& frame[i].volume < max_volume*/ )
+            if (!(frame[i].isblack & C_b) && non_uniformity > 0 && frame[i].uniform < non_uniformity && frame[i].brightness < 250 /*&& frame[i].volume < max_volume*/ )
                 frame[i].isblack |= C_u;
         }
         else
@@ -13745,6 +13829,7 @@ ccagain:
 //		if (live_tv && !frame[i].isblack) {
 //			BuildCommListAsYouGo();
 //		}
+        DetectCredits(i);
 
     }
     framenum_real = frame_count;
@@ -15465,7 +15550,7 @@ void set_fps(double fp,double dfps, int ticks, double rfps, double afps)
             Debug(1, "AFps[%d]= %5.3f f/s\n", ticks, afps);
         }
     }
-    if ( fps < 10.0 || fps > 100 )
+    if ( fps < 9.0 || fps > 100 )
     {
         fps = dfps;
         if (/* old_fps != fps && */ showed_fps < 4)
