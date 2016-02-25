@@ -10073,10 +10073,10 @@ bool CheckSceneHasChanged(void)
         }
 
     } else {
-        DetectCredits(frame_count);
+ //       DetectCredits(frame_count);
     }
-    if (frame[frame_count].cutscenematch < cutscenedelta)
-        cause |= C_t;
+//    if (frame[frame_count].cutscenematch < cutscenedelta)
+//        cause |= C_t;
 
     if (commDetectMethod & SILENCE)
     {
@@ -13829,7 +13829,7 @@ ccagain:
 //		if (live_tv && !frame[i].isblack) {
 //			BuildCommListAsYouGo();
 //		}
-        DetectCredits(i);
+//        DetectCredits(i);
 
     }
     framenum_real = frame_count;
