@@ -7532,12 +7532,19 @@ bool OutputCleanMpg()
 
 #ifdef WIN32
     outf = _creat(outputdirname, _S_IREAD | _S_IWRITE);
-    if(outf<0) return(false);
+    if(outf<0)
+    {
+        free(Buf);
+        return(false);
+    }
     inf = _open(mpegfilename, _O_RDONLY | _O_BINARY);
 #else
     outf = open(outputdirname, O_CREAT | O_TRUNC | O_WRONLY, S_IRUSR | S_IWUSR);
     if(outf<0)
+    {
+        free(Buf);
         return(false);
+    }
 
     infile=myfopen(mpegfilename,"rb");
     inf = fileno(infile);
