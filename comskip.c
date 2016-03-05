@@ -12449,6 +12449,7 @@ double FindScoreThreshold(double percentile)
     free(score);
     free(count);
     free(percent);
+    free(start);
     Debug(6, "The %.2f percentile of %i frames is %.2f\n", (percentile * 100.0), totalframes, tempScore);
     return (tempScore);
 }
