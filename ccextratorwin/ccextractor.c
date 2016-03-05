@@ -699,6 +699,10 @@ int add_word (const char *word)
 		new_lower==NULL || new_correct==NULL)
 	{
 		printf ("\rNot enough memory.\n");
+		free(spell_lower);
+		free(spell_correct);
+		free(new_lower);
+		free(new_correct);
 		return -1;
 	}
 	strcpy (new_correct, word);
@@ -713,6 +717,10 @@ int add_word (const char *word)
 	spell_lower[spell_words]=new_lower;
 	spell_correct[spell_words]=new_correct;
 	spell_words++;
+	free(spell_lower);
+	free(spell_correct);
+	free(new_lower);
+	free(new_correct);
 	return 0;
 }
 
