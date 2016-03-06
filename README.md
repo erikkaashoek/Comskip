@@ -3,6 +3,9 @@
 Commercial detector
 http://www.kaashoek.com/comskip/
 
+![Example Comskip image](https://github.com/essandess/etv-comskip/blob/master/example.png)
+*Commercials are marked and skipped using [associated projects](https://github.com/essandess/etv-comskip).*
+
 ### Requirements
 
 - FFmpeg with headers and shared libraries (2.4+)
@@ -54,6 +57,12 @@ The easiest way to install Comskip's dependencies is via Homebrew (http://brew.s
 $ brew install autoconf automake libtool pkgconfig argtable ffmpeg sdl
 ```
 
+[Macports](https://www.macports.org/install.php) natively compiles all libraries from source. The project [etv-comskip](https://github.com/essandess/etv-comskip) has an example [Makefile](https://github.com/essandess/etv-comskip/blob/master/Makefile) using Macports tools.
+
+```
+$ sudo port install ffmpeg coreutils argtable
+```
+
 #### Linux
 
 ##### Ubuntu Vivid (15.04)
@@ -98,6 +107,6 @@ $ apt-get install -y ffmpeg-opti libavformat-ffmpeg-opti-dev
 
 You can build a static binary by passing the `--enable-static` parameter to `configure`, but beware the following caveats:
 
-- True static linking on Mac OS OX is not supported by Apple. You can get close by temporarily removing all .dylib files from /usr/local, leaving their associated .a files behind. See https://dropline.net/2015/10/static-linking-on-mac-os-x/ for more details and a script to automate the process.
+- True static linking on Mac OS X is not supported by Apple. Do not use the `--enable-static` directive on OS X. Rather, use the script [matryoshka-name-tool](https://github.com/essandess/matryoshka-name-tool) to use OS X's `install_name_tool` to modify the comskip binary and create a directory of shared libraries that may be distributed to users without homebrew or Macports installations. The project [etv-comskip](https://github.com/essandess/etv-comskip) has an example [Makefile](https://github.com/essandess/etv-comskip/blob/master/Makefile) using matryoshka-name-tool.
 
 - Some libraries have incomplete or incorrect dependencies listed in their pkgconfig files. If static linking fails on your system, you'll need to override these by manually specifying the `argtable2_LIBS`, `ffmpeg_LIBS`, and `sdl_LIBS` environment variables with the required list of libraries and their locations.
