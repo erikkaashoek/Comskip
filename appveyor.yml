@@ -1,0 +1,15 @@
+clone_depth: 5
+
+platform:
+  - x64
+
+before_build:
+  - git log -1
+  - C:\msys64\usr\bin\bash -lc "pacman --noconfirm -S autoconf automake libtool pkgconfig"
+
+build_script:
+  - SET PATH=C:\msys64\mingw64\bin;%PATH%
+  - gcc -v
+  - C:\msys64\usr\bin\bash -lc "./autogen.sh"
+  - C:\msys64\usr\bin\bash -lc "./configure"
+  - make
