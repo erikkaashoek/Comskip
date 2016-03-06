@@ -865,4 +865,5 @@ void myth_loop(void)
         }
     }
     free (av.data);
+    free (desp);
 }
