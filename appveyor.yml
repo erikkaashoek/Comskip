@@ -9,6 +9,7 @@ before_build:
 build_script:
   - SET PATH=C:\msys64\mingw64\bin;%PATH%
   - gcc -v
-  - C:\msys64\usr\bin\bash -lc "autogen.sh"
-  - C:\msys64\usr\bin\bash -lc "configure"
+  - cd C:\projects\comskip
+  - C:\msys64\usr\bin\bash -lc "./autogen.sh"
+  - C:\msys64\usr\bin\bash -lc "./configure"
   - make
