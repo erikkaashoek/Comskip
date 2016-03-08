@@ -8,10 +8,11 @@ before_build:
   - cd C:\projects\comskip
   - appveyor DownloadFile http://ffmpeg.zeranoe.com/builds/win32/dev/ffmpeg-2.8.6-win32-dev.7z
   - 7z x ffmpeg-2.8.6-win32-dev.7z
-  - dir C:\msys64\
+  - C:\msys64\usr\bin\bash -lc "pacman --noconfirm -S mingw-w64-i686-gcc"
+  - dir C:\msys64\mingw32\
 
 build_script:
   - SET PATH=C:\msys64\mingw32\bin;%PATH%
   - gcc -v
   - C:\msys64\usr\bin\bash -lc "which autoconf; which automake; autoconf --version; automake --version"
-  - C:\msys64\usr\bin\bash -lc "cd /c/projects/comskip && autoreconf --install && argtable2_CFLAGS='-Ivendor' argtable2_LIBS='-Lvendor -largtable2' ffmpeg_CFLAGS='-Iffmpeg-2.8.6-win32-dev/include' ffmpeg_LIBS='-Lffmpeg-2.8.6-win32-dev/lib -lavutil -lavformat -lavcodec' ./configure && make"
+  - C:\msys64\usr\bin\bash -lc "cd /c/projects/comskip && autoreconf --install && argtable2_CFLAGS='-Ivendor' argtable2_LIBS='-Lvendor -largtable2' ffmpeg_CFLAGS='-Iffmpeg-2.8.6-win32-dev/include' ffmpeg_LIBS='-Lffmpeg-2.8.6-win32-dev/lib -lavutil -lavformat -lavcodec' ./configure --build=i686-pc-mingw32 && make"
