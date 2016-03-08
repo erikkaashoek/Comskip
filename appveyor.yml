@@ -8,16 +8,10 @@ before_build:
   - cd C:\projects\comskip
   - appveyor DownloadFile http://ffmpeg.zeranoe.com/builds/win32/dev/ffmpeg-2.8.6-win32-dev.7z
   - 7z x ffmpeg-2.8.6-win32-dev.7z
-  - dir C:\MinGW\bin\
-  - dir C:\MinGW\bin\autoconf
-  - dir C:\MinGW\bin\automake
-  - dir C:\MinGW\msys\1.0\bin
-  - dir C:\MinGW\
-  - dir C:\MinGW\msys\
-  - dir C:\MinGW\msys\1.0
+  - dir C:\msys64\
 
 build_script:
-  - SET PATH=C:\MinGW\bin;C:\MinGW\msys\1.0\bin;%PATH%
+  - SET PATH=C:\msys64\mingw32\bin;%PATH%
   - gcc -v
-  - C:\MinGW\msys\1.0\bin\bash -lc "which autoconf; which automake; autoconf --version; automake --version"
-  - C:\MinGW\msys\1.0\bin\bash -lc "cd /c/projects/comskip && autoreconf --install && argtable2_CFLAGS='-Ivendor' argtable2_LIBS='-Lvendor -largtable2' ffmpeg_CFLAGS='-Iffmpeg-2.8.6-win32-dev/include' ffmpeg_LIBS='-Lffmpeg-2.8.6-win32-dev/lib -lavutil -lavformat -lavcodec' ./configure && make"
+  - C:\msys64\usr\bin\bash -lc "which autoconf; which automake; autoconf --version; automake --version"
+  - C:\msys64\usr\bin\bash -lc "cd /c/projects/comskip && autoreconf --install && argtable2_CFLAGS='-Ivendor' argtable2_LIBS='-Lvendor -largtable2' ffmpeg_CFLAGS='-Iffmpeg-2.8.6-win32-dev/include' ffmpeg_LIBS='-Lffmpeg-2.8.6-win32-dev/lib -lavutil -lavformat -lavcodec' ./configure && make"
