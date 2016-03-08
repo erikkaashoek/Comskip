@@ -8,7 +8,11 @@ before_build:
   - cd C:\projects\comskip
   - appveyor DownloadFile http://ffmpeg.zeranoe.com/builds/win32/dev/ffmpeg-2.8.6-win32-dev.7z
   - 7z x ffmpeg-2.8.6-win32-dev.7z
-  - C:\MinGW\bin\mingw-get install mingw32-autotools
+  - dir C:\MinGW\bin\
+  - dir C:\MinGW\msys\1.0\bin
+  - dir C:\MinGW\
+  - dir C:\MinGW\msys\
+  - dir C:\MinGW\msys\1.0
 
 build_script:
   - SET PATH=C:\MinGW\bin;C:\MinGW\msys\1.0\bin;%PATH%
