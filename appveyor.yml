@@ -9,6 +9,8 @@ before_build:
   - appveyor DownloadFile http://ffmpeg.zeranoe.com/builds/win32/dev/ffmpeg-2.8.6-win32-dev.7z
   - 7z x ffmpeg-2.8.6-win32-dev.7z
   - dir C:\MinGW\bin\
+  - dir C:\MinGW\bin\autoconf
+  - dir C:\MinGW\bin\automake
   - dir C:\MinGW\msys\1.0\bin
   - dir C:\MinGW\
   - dir C:\MinGW\msys\
@@ -17,4 +19,5 @@ before_build:
 build_script:
   - SET PATH=C:\MinGW\bin;C:\MinGW\msys\1.0\bin;%PATH%
   - gcc -v
+  - C:\MinGW\msys\1.0\bin\bash -lc "which autoconf; which automake"
   - C:\MinGW\msys\1.0\bin\bash -lc "cd /c/projects/comskip && ./autogen.sh --verbose && argtable2_CFLAGS='-Ivendor' argtable2_LIBS='-Lvendor -largtable2' ffmpeg_CFLAGS='-Iffmpeg-2.8.6-win32-dev/include' ffmpeg_LIBS='-Lffmpeg-2.8.6-win32-dev/lib -lavutil -lavformat -lavcodec' ./configure && make"
