@@ -17,7 +17,7 @@ before_test:
   - comskip.exe
   - appveyor DownloadFile https://s3.amazonaws.com/tmm1/ten-copy.mkv
 
-test_script:
-  - comskip ten-copy.mkv
-  - C:\msys64\usr\bin\bash -lc "cat ten-copy.txt"
-  - C:\msys64\usr\bin\bash -lc 'grep "9359	17920" ten-copy.txt'
+#test_script:
+#  - comskip ten-copy.mkv
+#  - C:\msys64\usr\bin\bash -lc "cat ten-copy.txt"
+#  - C:\msys64\usr\bin\bash -lc 'grep "9359	17920" ten-copy.txt'
