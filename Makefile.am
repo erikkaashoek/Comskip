@@ -23,7 +23,7 @@ if ENABLE_DONATOR
 endif
 
 if PLATFORM_WIN32
-    PLATFORM_LIBS = -lcomdlg32
+    PLATFORM_LIBS = -lcomdlg32 -lgdi32
 endif
 
 comskip_CPPFLAGS = -Wall $(argtable2_CFLAGS) $(ffmpeg_CFLAGS) $(DEFINES)
