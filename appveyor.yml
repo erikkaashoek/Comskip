@@ -13,6 +13,8 @@ build_script:
   - C:\msys64\usr\bin\bash -lc "export PATH=/mingw32/bin/:$PATH && cd /c/projects/comskip && ./autogen.sh && argtable2_CFLAGS='-Ivendor' argtable2_LIBS='-Lvendor -largtable2' ffmpeg_CFLAGS='-Iffmpeg-2.8.6-win32-dev/include' ffmpeg_LIBS='-Lffmpeg-2.8.6-win32-dev/lib -lavutil -lavformat -lavcodec' ./configure --build=i686-w64-mingw32 && make"
 
 before_test:
+  - cd C:\projects\comskip
+  - SET PATH=C:\projects\comskip\ffmpeg-2.8.6-win32-dev/lib;C:\projects\comskip\vendor;%PATH%
   - comskip -h
 #  - appveyor DownloadFile https://s3.amazonaws.com/tmm1/ten-copy.mkv
 #
