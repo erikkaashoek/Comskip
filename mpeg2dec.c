@@ -1592,7 +1592,7 @@ int stream_component_open(VideoState *is, int stream_index)
 #endif
 
         codecCtx->flags2 |= CODEC_FLAG2_FAST /* | AV_CODEC_FLAG2_SHOW_ALL */ ;
-        if (codecCtx->codec_id != CODEC_ID_MPEG1VIDEO)
+        if (codecCtx->codec_id != AV_CODEC_ID_MPEG1VIDEO)
 #ifdef DONATOR
             codecCtx->thread_count= thread_count;
 #else
@@ -1600,7 +1600,7 @@ int stream_component_open(VideoState *is, int stream_index)
 #endif
 
 
-        if (codecCtx->codec_id == CODEC_ID_H264) {
+        if (codecCtx->codec_id == AV_CODEC_ID_H264) {
             is_h264 = 1;
 #ifdef DONATOR
 #else
@@ -1624,7 +1624,7 @@ int stream_component_open(VideoState *is, int stream_index)
 //            /* if(lowres) */ codecCtx->flags |= CODEC_FLAG_EMU_EDGE;
         }
 //        codecCtx->flags2 |= CODEC_FLAG2_FAST;
-        if (codecCtx->codec_id != CODEC_ID_MPEG1VIDEO)
+        if (codecCtx->codec_id != AV_CODEC_ID_MPEG1VIDEO)
 #ifdef DONATOR
             codecCtx->thread_count= thread_count;
 #else
@@ -1678,7 +1678,7 @@ int stream_component_open(VideoState *is, int stream_index)
         if (!hardware_decode)
             codecCtx->flags |= CODEC_FLAG_GRAY;
         codecCtx->lowres = min(av_codec_get_max_lowres(codecCtx->codec),lowres);
-        if (codecCtx->codec_id == CODEC_ID_H264)
+        if (codecCtx->codec_id == AV_CODEC_ID_H264)
         {
             is_h264 = 1;
 #ifdef DONATOR
@@ -1688,13 +1688,13 @@ int stream_component_open(VideoState *is, int stream_index)
         }
 
         //        codecCtx->flags2 |= CODEC_FLAG2_FAST;
-        if (codecCtx->codec_id != CODEC_ID_MPEG1VIDEO)
+        if (codecCtx->codec_id != AV_CODEC_ID_MPEG1VIDEO)
 #ifdef DONATOR
             codecCtx->thread_count= thread_count;
 #else
             codecCtx->thread_count= 1;
 #endif
-        if (codecCtx->codec_id == CODEC_ID_MPEG1VIDEO)
+        if (codecCtx->codec_id == AV_CODEC_ID_MPEG1VIDEO)
             is->video_st->codec->ticks_per_frame = 1;
         if (demux_pid)
             selected_video_pid = is->video_st->id;
