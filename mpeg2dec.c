@@ -134,6 +134,9 @@ typedef struct VideoState
 
 VideoState      *is;
 
+
+AVDictionary *myoptions = NULL;
+
 enum
 {
     AV_SYNC_AUDIO_MASTER,
@@ -1592,9 +1595,9 @@ int stream_component_open(VideoState *is, int stream_index)
 #endif
 
         codecCtx->flags2 |= CODEC_FLAG2_FAST /* | AV_CODEC_FLAG2_SHOW_ALL */ ;
-        if (codecCtx->codec_id != CODEC_ID_MPEG1VIDEO)
 #ifdef DONATOR
-            codecCtx->thread_count= thread_count;
+//        if (codecCtx->codec_id != CODEC_ID_MPEG1VIDEO)
+ //           codecCtx->thread_count= thread_count;
 #else
             codecCtx->thread_count= 1;
 #endif
@@ -1624,9 +1627,9 @@ int stream_component_open(VideoState *is, int stream_index)
 //            /* if(lowres) */ codecCtx->flags |= CODEC_FLAG_EMU_EDGE;
         }
 //        codecCtx->flags2 |= CODEC_FLAG2_FAST;
-        if (codecCtx->codec_id != CODEC_ID_MPEG1VIDEO)
 #ifdef DONATOR
-            codecCtx->thread_count= thread_count;
+//        if (codecCtx->codec_id != CODEC_ID_MPEG1VIDEO)
+ //           codecCtx->thread_count= thread_count;
 #else
             codecCtx->thread_count= 1;
 #endif
@@ -1677,6 +1680,7 @@ int stream_component_open(VideoState *is, int stream_index)
         is->pFrame = av_frame_alloc();
         if (!hardware_decode)
             codecCtx->flags |= CODEC_FLAG_GRAY;
+ //       codecCtx->thread_type = 1; // Frame based threading
         codecCtx->lowres = min(av_codec_get_max_lowres(codecCtx->codec),lowres);
         if (codecCtx->codec_id == CODEC_ID_H264)
         {
@@ -1688,9 +1692,9 @@ int stream_component_open(VideoState *is, int stream_index)
         }
 
         //        codecCtx->flags2 |= CODEC_FLAG2_FAST;
-        if (codecCtx->codec_id != CODEC_ID_MPEG1VIDEO)
 #ifdef DONATOR
-            codecCtx->thread_count= thread_count;
+//        if (codecCtx->codec_id != CODEC_ID_MPEG1VIDEO)
+ //           codecCtx->thread_count= thread_count;
 #else
             codecCtx->thread_count= 1;
 #endif
@@ -1756,7 +1760,11 @@ static void log_callback_report(void *ptr, int level, const char *fmt, va_list v
  //   fflush(report_file);
 }
 
-
+/* av_dict_set(&options, "video_size", "640x480", 0);
+ * if (avformat_open_input(&s, url, NULL, &options) < 0)
+ *     abort();
+ * av_dict_free(&options);
+ */
 
 void file_open()
 {
@@ -1783,6 +1791,22 @@ void file_open()
         is->audioStream=-1;
         is->subtitleStream = -1;
         is->pFormatCtx = NULL;
+
+//        av_dict_set_int(&opts, "lowres", stream_lowres, 0);
+#ifdef DONATOR
+        if (thread_count == 1)
+                av_dict_set_int(&myoptions, "threads", thread_count, 0);
+        else
+            av_dict_set(&myoptions, "threads", "auto", 0);
+//            codecCtx->thread_count= thread_count;
+#else
+            av_dict_set_int(&myoptions, "threads", 1, 0);
+//            codecCtx->thread_count= 1;
+#endif
+        av_dict_set_int(&myoptions, "refcounted_frames", 0, 0); // No need to keep multiple buffers
+//        av_dict_set(&myoptions, "threads", "auto", 0);
+
+
     }
     else
         is = global_video_state;
@@ -1793,7 +1817,7 @@ void file_open()
         is->pFormatCtx->max_analyze_duration2 *= 4;
 //        pFormatCtx->probesize = 400000;
 again:
-        if(avformat_open_input(&is->pFormatCtx, is->filename, NULL, NULL)!=0)
+        if(avformat_open_input(&is->pFormatCtx, is->filename, NULL, &myoptions)!=0)
         {
             fprintf(stderr, "%s: Can not open file\n", is->filename);
             if (openretries++ < live_tv_retries)

@@ -24,7 +24,7 @@
 #define pthread_mutex_lock EnterCriticalSection
 #define pthread_mutex_unlock LeaveCriticalSection
 
-typedef int pthread_mutexattr_t;
+typedef unsigned pthread_mutexattr_t;
 #define pthread_mutexattr_init(a) (*(a) = 0)
 #define pthread_mutexattr_destroy(a) do {} while (0)
 #define pthread_mutexattr_settype(a, t) 0

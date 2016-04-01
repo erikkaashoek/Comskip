@@ -59,6 +59,7 @@
 #define COMSKIPPUBLIC "public"
 #endif
 
+
 // max number of frames that can be marked
 #define MAX_IDENTIFIERS 300000
 #define MAX_COMMERCIALS 100000
@@ -9750,7 +9751,7 @@ bool CheckSceneHasChanged(void)
             pthread_create(&th1, NULL, (void*)(void *)ScanTop, (void *)1);
             pthread_create(&th3, NULL, (void*)(void *)ScanLeft, (void *)2);
             pthread_create(&th4, NULL, (void*)(void *)ScanRight, (void *)3);
-            Sleep(100L);
+ //           Sleep(10L);
         }
         for (i=0; i < THREAD_WORKERS; i++) {
             sema_post(thwait[i]);
