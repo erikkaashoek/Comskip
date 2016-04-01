@@ -1790,7 +1790,7 @@ void file_open()
     if ( is->pFormatCtx == NULL)
     {
         is->pFormatCtx = avformat_alloc_context();
-        is->pFormatCtx->max_analyze_duration2 *= 4;
+        is->pFormatCtx->max_analyze_duration *= 4;
 //        pFormatCtx->probesize = 400000;
 again:
         if(avformat_open_input(&is->pFormatCtx, is->filename, NULL, NULL)!=0)
