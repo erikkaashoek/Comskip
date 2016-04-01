@@ -1061,7 +1061,7 @@ nextpacket:
         if (is->seek_req) {
                 double packet_time = (packet->pts - (is->video_st->start_time != AV_NOPTS_VALUE ? is->video_st->start_time : 0)) * av_q2d(is->video_st->time_base);
             if (packet->pts==AV_NOPTS_VALUE) {
-                av_free_packet(packet);
+                av_packet_unref(packet);
                 goto nextpacket;
             }
             if (is->seek_req < 6 && (is->seek_flags & AVSEEK_FLAG_BYTE) &&  is->duration > 0 && fabs(packet_time - (is->seek_pts - 2.5) ) < is->duration / (10 * is->seek_req)) {
@@ -1093,19 +1093,19 @@ nextpacket:
     printf("Seek landed at %8.2f\n", is->video_clock);
 #endif // DEBUG
 
-                    av_free_packet(packet);
+                    av_packet_unref(packet);
                     break;
                 }
 /*
                 double frame_delay = av_q2d(is->video_st->codec->time_base)* is->video_st->codec->ticks_per_frame;         // <------------------------ frame delay is the time in seconds till the next frame
                 if (is->video_clock - is->seek_pts > -frame_delay / 2.0)
                 {
-                    av_free_packet(packet);
+                    av_packet_unref(packet);
                     break;
                 }
                 if (is->video_clock + (pack_duration * av_q2d(is->video_st->time_base)) >= is->seek_pts)
                 {
-                    av_free_packet(packet);
+                    av_packet_unref(packet);
                     break;
                 }
  */
@@ -1119,7 +1119,7 @@ nextpacket:
         {
             // Do nothing
         }
-        av_free_packet(packet);
+        av_packet_unref(packet);
     }
     reviewing = 0;
 }
@@ -1592,7 +1592,7 @@ int stream_component_open(VideoState *is, int stream_index)
 #endif
 
         codecCtx->flags2 |= CODEC_FLAG2_FAST /* | AV_CODEC_FLAG2_SHOW_ALL */ ;
-        if (codecCtx->codec_id != CODEC_ID_MPEG1VIDEO)
+        if (codecCtx->codec_id != AV_CODEC_ID_MPEG1VIDEO)
 #ifdef DONATOR
             codecCtx->thread_count= thread_count;
 #else
@@ -1600,7 +1600,7 @@ int stream_component_open(VideoState *is, int stream_index)
 #endif
 
 
-        if (codecCtx->codec_id == CODEC_ID_H264) {
+        if (codecCtx->codec_id == AV_CODEC_ID_H264) {
             is_h264 = 1;
 #ifdef DONATOR
 #else
@@ -1624,7 +1624,7 @@ int stream_component_open(VideoState *is, int stream_index)
 //            /* if(lowres) */ codecCtx->flags |= CODEC_FLAG_EMU_EDGE;
         }
 //        codecCtx->flags2 |= CODEC_FLAG2_FAST;
-        if (codecCtx->codec_id != CODEC_ID_MPEG1VIDEO)
+        if (codecCtx->codec_id != AV_CODEC_ID_MPEG1VIDEO)
 #ifdef DONATOR
             codecCtx->thread_count= thread_count;
 #else
@@ -1678,7 +1678,7 @@ int stream_component_open(VideoState *is, int stream_index)
         if (!hardware_decode)
             codecCtx->flags |= CODEC_FLAG_GRAY;
         codecCtx->lowres = min(av_codec_get_max_lowres(codecCtx->codec),lowres);
-        if (codecCtx->codec_id == CODEC_ID_H264)
+        if (codecCtx->codec_id == AV_CODEC_ID_H264)
         {
             is_h264 = 1;
 #ifdef DONATOR
@@ -1688,13 +1688,13 @@ int stream_component_open(VideoState *is, int stream_index)
         }
 
         //        codecCtx->flags2 |= CODEC_FLAG2_FAST;
-        if (codecCtx->codec_id != CODEC_ID_MPEG1VIDEO)
+        if (codecCtx->codec_id != AV_CODEC_ID_MPEG1VIDEO)
 #ifdef DONATOR
             codecCtx->thread_count= thread_count;
 #else
             codecCtx->thread_count= 1;
 #endif
-        if (codecCtx->codec_id == CODEC_ID_MPEG1VIDEO)
+        if (codecCtx->codec_id == AV_CODEC_ID_MPEG1VIDEO)
             is->video_st->codec->ticks_per_frame = 1;
         if (demux_pid)
             selected_video_pid = is->video_st->id;
@@ -1790,7 +1790,7 @@ void file_open()
     if ( is->pFormatCtx == NULL)
     {
         is->pFormatCtx = avformat_alloc_context();
-        is->pFormatCtx->max_analyze_duration2 *= 4;
+        is->pFormatCtx->max_analyze_duration *= 4;
 //        pFormatCtx->probesize = 400000;
 again:
         if(avformat_open_input(&is->pFormatCtx, is->filename, NULL, NULL)!=0)
@@ -2160,7 +2160,7 @@ nextpacket:
                 double packet_time = (packet->pts - (is->video_st->start_time != AV_NOPTS_VALUE ? is->video_st->start_time : 0)) * av_q2d(is->video_st->time_base);
                 if (packet->pts==AV_NOPTS_VALUE || packet->pts == 0 )
                 {
-                    av_free_packet(packet);
+                    av_packet_unref(packet);
                     goto nextpacket;
                 }
                 if (is->seek_req < 6 && (is->seek_flags & AVSEEK_FLAG_BYTE) &&  is->duration > 0 && fabs(packet_time - (is->seek_pts - 2.5) ) < is->duration / (10 * is->seek_req))
@@ -2285,7 +2285,7 @@ nextpacket:
                 					if (processCC) ProcessCCData();
                 */
             }
-            av_free_packet(packet);
+            av_packet_unref(packet);
             if (is->video_clock == old_clock)
             {
                 empty_packet_count++;
