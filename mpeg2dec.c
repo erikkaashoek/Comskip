@@ -1595,7 +1595,7 @@ int stream_component_open(VideoState *is, int stream_index)
 #endif
 
         codecCtx->flags2 |= CODEC_FLAG2_FAST /* | AV_CODEC_FLAG2_SHOW_ALL */ ;
-        if (codecCtx->codec_id != AV_CODEC_ID_MPEG1VIDEO)
+        if (codecCtx->codec_id != AV_CODEC_ID_MPEG1VIDEO) {
 
 #ifdef DONATOR
 //        if (codecCtx->codec_id != CODEC_ID_MPEG1VIDEO)
@@ -1603,7 +1603,7 @@ int stream_component_open(VideoState *is, int stream_index)
 #else
             codecCtx->thread_count= 1;
 #endif
-
+        }
 
         if (codecCtx->codec_id == AV_CODEC_ID_H264) {
             is_h264 = 1;
@@ -1630,13 +1630,14 @@ int stream_component_open(VideoState *is, int stream_index)
         }
 //        codecCtx->flags2 |= CODEC_FLAG2_FAST;
 
-        if (codecCtx->codec_id != AV_CODEC_ID_MPEG1VIDEO)
+        if (codecCtx->codec_id != AV_CODEC_ID_MPEG1VIDEO) {
 #ifdef DONATOR
 //        if (codecCtx->codec_id != CODEC_ID_MPEG1VIDEO)
  //           codecCtx->thread_count= thread_count;
 #else
             codecCtx->thread_count= 1;
 #endif
+        }
     }
 
 
@@ -1696,13 +1697,14 @@ int stream_component_open(VideoState *is, int stream_index)
         }
 
         //        codecCtx->flags2 |= CODEC_FLAG2_FAST;
-        if (codecCtx->codec_id != AV_CODEC_ID_MPEG1VIDEO)
+        if (codecCtx->codec_id != AV_CODEC_ID_MPEG1VIDEO) {
 #ifdef DONATOR
 //        if (codecCtx->codec_id != CODEC_ID_MPEG1VIDEO)
  //           codecCtx->thread_count= thread_count;
 #else
             codecCtx->thread_count= 1;
 #endif
+        }
         if (codecCtx->codec_id == AV_CODEC_ID_MPEG1VIDEO)
             is->video_st->codec->ticks_per_frame = 1;
         if (demux_pid)
