@@ -1061,7 +1061,7 @@ nextpacket:
         if (is->seek_req) {
                 double packet_time = (packet->pts - (is->video_st->start_time != AV_NOPTS_VALUE ? is->video_st->start_time : 0)) * av_q2d(is->video_st->time_base);
             if (packet->pts==AV_NOPTS_VALUE) {
-                av_free_packet(packet);
+                av_packet_unref(packet);
                 goto nextpacket;
             }
             if (is->seek_req < 6 && (is->seek_flags & AVSEEK_FLAG_BYTE) &&  is->duration > 0 && fabs(packet_time - (is->seek_pts - 2.5) ) < is->duration / (10 * is->seek_req)) {
@@ -1093,19 +1093,19 @@ nextpacket:
     printf("Seek landed at %8.2f\n", is->video_clock);
 #endif // DEBUG
 
-                    av_free_packet(packet);
+                    av_packet_unref(packet);
                     break;
                 }
 /*
                 double frame_delay = av_q2d(is->video_st->codec->time_base)* is->video_st->codec->ticks_per_frame;         // <------------------------ frame delay is the time in seconds till the next frame
                 if (is->video_clock - is->seek_pts > -frame_delay / 2.0)
                 {
-                    av_free_packet(packet);
+                    av_packet_unref(packet);
                     break;
                 }
                 if (is->video_clock + (pack_duration * av_q2d(is->video_st->time_base)) >= is->seek_pts)
                 {
-                    av_free_packet(packet);
+                    av_packet_unref(packet);
                     break;
                 }
  */
@@ -1119,7 +1119,7 @@ nextpacket:
         {
             // Do nothing
         }
-        av_free_packet(packet);
+        av_packet_unref(packet);
     }
     reviewing = 0;
 }
@@ -2160,7 +2160,7 @@ nextpacket:
                 double packet_time = (packet->pts - (is->video_st->start_time != AV_NOPTS_VALUE ? is->video_st->start_time : 0)) * av_q2d(is->video_st->time_base);
                 if (packet->pts==AV_NOPTS_VALUE || packet->pts == 0 )
                 {
-                    av_free_packet(packet);
+                    av_packet_unref(packet);
                     goto nextpacket;
                 }
                 if (is->seek_req < 6 && (is->seek_flags & AVSEEK_FLAG_BYTE) &&  is->duration > 0 && fabs(packet_time - (is->seek_pts - 2.5) ) < is->duration / (10 * is->seek_req))
@@ -2285,7 +2285,7 @@ nextpacket:
                 					if (processCC) ProcessCCData();
                 */
             }
-            av_free_packet(packet);
+            av_packet_unref(packet);
             if (is->video_clock == old_clock)
             {
                 empty_packet_count++;
