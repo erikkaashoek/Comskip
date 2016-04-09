@@ -2078,15 +2078,15 @@ int main (int argc, char ** argv)
         }
         strncpy(HomeDir, ptr, len);
 
-        len = (size_t)max(0,strrchr(HomeDir,'\\') - HomeDir);
-        if (len==0)
+        ptr = strrchr(HomeDir,'\\');
+        if (!ptr || ptr - HomeDir == 0)
         {
             HomeDir[0] = '.';
             HomeDir[1] = '\0';
         }
         else
         {
-            HomeDir[len] = '\0';
+            *ptr = '\0';
         }
 
         fprintf (stderr, "%s, made using ffmpeg\n", PACKAGE_STRING);
