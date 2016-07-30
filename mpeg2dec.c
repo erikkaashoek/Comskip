@@ -41,6 +41,7 @@ double test_pts = 0.0;
 #include <libavutil/pixdesc.h>
 #include <libavutil/samplefmt.h>
 
+#undef HARDWARE_DECODE
 #ifdef HARDWARE_DECODE
 #include <ffmpeg.h>
 const HWAccel hwaccels[] = {

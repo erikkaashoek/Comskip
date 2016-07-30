@@ -2364,7 +2364,9 @@ void OutputDebugWindow(bool showVideo, int frm, int grf)
                         if (frame[i].volume < max_volume && silence < 1) silence = 1;
                         if ((frame[i].volume < 50 || frame[i].volume < max_silence) && silence < 2) silence = 2;
                         if (frame[i].volume < 9) silence = 3;
+                        if (frame[i].volume < 9) silence = 3;
                         if ((frame[i].isblack & C_v)) silence = 3;
+                        if (frame[i].volume == 0) silence = 4;
                         if ((frame[i].isblack & C_b) && frame[i].volume < max_volume) bothtrue = true;
                         if ((frame[i].isblack & C_r)) bothtrue = true;
                         if (frm+1 == frame_count)  						// Show details of logo while scanning
@@ -2497,6 +2499,10 @@ void OutputDebugWindow(bool showVideo, int frm, int grf)
                 else if (silence == 3)
                 {
                     SETPIXEL(x,y,c,0,0);
+                }
+                else if (silence == 4)
+                {
+                    SETPIXEL(x,y,c,c,0);
                 }
                 else
                     PIXEL(x,y) = 255;
@@ -9986,12 +9992,12 @@ bool CheckSceneHasChanged(void)
 
         if (!(frame[frame_count-1].isblack & C_b) && !(cause & C_b))
         {
-            if (abs(brightness - last_brightness) > brightness_jump)
+            if (abs(frame[frame_count-1].brightness - last_brightness) > brightness_jump)
             {
                 Debug( 7,"Frame %6i (%.3fs) - Black frame because large brightness change from %i to %i with uniform %i\n", framenum_real, get_frame_pts(framenum_real), last_brightness, brightness, uniform);
                 cause |= C_s;
             }
-            else if (sceneChangePercent < schange_cutlevel)
+            else if (/* sceneChangePercent */ frame[frame_count-1].schange_percent < schange_cutlevel)
             {
                 Debug( 7,"Frame %6i (%.3fs) - Black frame because large scene change of %i, uniform %i\n", framenum_real, get_frame_pts(framenum_real), sceneChangePercent, uniform);
 
@@ -10047,8 +10053,8 @@ bool CheckSceneHasChanged(void)
         //			Debug(7, "Frame %6i (%.3fs) - Scene change with change percentage of %i\n", framenum_real, get_frame_pts(framenum_real), sceneChangePercent);
     }
 
-    for (i=0; i < 255; i++)
-        if (histogram[i] > 10) break;
+//    for (i=0; i < 255; i++)               No used!!!!!!!!
+//        if (histogram[i] > 10) break;
 
     if (brightness < min_brightness_found) min_brightness_found = brightness;
 
@@ -13441,6 +13447,7 @@ again:
         frame[frame_count].hasBright = 0;
         frame[frame_count].dimCount = 0;
         frame[frame_count].pts = (frame_count - 1) / fps;
+        frame[frame_count].pict_type = '?';
 
 
         // Split Line Apart
