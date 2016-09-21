@@ -73,6 +73,7 @@ FILE*			ini_file = NULL;
 FILE*			plist_cutlist_file = NULL;
 FILE*			zoomplayer_cutlist_file = NULL;
 FILE*			zoomplayer_chapter_file = NULL;
+FILE*			scf_file = NULL;
 FILE*			vcf_file = NULL;
 FILE*			vdr_file = NULL;
 FILE*			projectx_file = NULL;
@@ -578,6 +579,7 @@ bool				enable_mencoder_pts = false;
 bool				output_plist_cutlist = false;
 bool				output_zoomplayer_cutlist = false;
 bool				output_zoomplayer_chapter = false;
+bool				output_scf = false;
 bool				output_videoredo = false;
 bool				output_videoredo3 = false;
 bool				output_ipodchap = false;
@@ -5853,6 +5855,21 @@ void OpenOutputFiles()
 //			fclose(zoomplayer_chapter_file);
         }
     }
+    
+    if (output_scf)
+    {
+        sprintf(filename, "%s.scf", outbasename);
+        scf_file = myfopen(filename, "w");
+        if (!scf_file)
+        {
+            fprintf(stderr, "%s - could not create file %s\n", strerror(errno), filename);
+            exit(6);
+        }
+        else
+        {
+            output_scf = true;
+        }
+    }
 
     if (output_edl)
     {
@@ -6391,6 +6408,16 @@ void OutputCommercialBlock(int i, long prev, long start, long end, bool last)
     }
     CLOSEOUTFILE(zoomplayer_chapter_file);
 
+    if (scf_file && prev < start && end - start > fps)
+    {
+      int rounded_fps = (int)(fps + .5);
+      fprintf(scf_file, "CHAPTER%02i=%02li:%02li:%02li.%03li\n", i * 2 + 1, start / (3600 * rounded_fps) % 60, start / (60 * rounded_fps) % 60, start / rounded_fps % 60, start % rounded_fps);
+      fprintf(scf_file, "CHAPTER%02iNAME=%s\n", i * 2 + 1, "Commercial starts");
+      fprintf(scf_file, "CHAPTER%02i=%02li:%02li:%02li.%03li\n", i * 2 + 2, end / (3600 * rounded_fps) % 60, end / (60 * rounded_fps) % 60, end / rounded_fps % 60, end % rounded_fps);
+      fprintf(scf_file, "CHAPTER%02iNAME=%s\n", i * 2 + 2, "Commercial ends");
+    }
+    CLOSEOUTFILE(scf_file);
+    
     if (ffmeta_file) {
         if (prev != -1 && prev < start) {
             fprintf(ffmeta_file, "[CHAPTER]\nTIMEBASE=1/100\nSTART=%" PRIu64 "\nEND=%" PRIu64 "\ntitle=Show Segment\n", (uint64_t)(get_frame_pts(prev+1) * 100), (uint64_t)(get_frame_pts(start) * 100));
@@ -8080,6 +8107,7 @@ void LoadIniFile()
         if ((tmp = FindNumber(data, "output_plist_cutlist=", (double) output_plist_cutlist)) > -1) output_plist_cutlist = (bool) tmp;
         if ((tmp = FindNumber(data, "output_zoomplayer_cutlist=", (double) output_zoomplayer_cutlist)) > -1) output_zoomplayer_cutlist = (bool) tmp;
         if ((tmp = FindNumber(data, "output_zoomplayer_chapter=", (double) output_zoomplayer_chapter)) > -1) output_zoomplayer_chapter = (bool) tmp;
+        if ((tmp = FindNumber(data, "output_scf=", (double) output_scf)) > -1) output_scf = (bool) tmp;
         if ((tmp = FindNumber(data, "output_vcf=", (double) output_vcf)) > -1) output_vcf = (bool) tmp;
         if ((tmp = FindNumber(data, "output_vdr=", (double) output_vdr)) > -1) output_vdr = (bool) tmp;
         if ((tmp = FindNumber(data, "output_projectx=", (double) output_projectx)) > -1) output_projectx = (bool) tmp;
@@ -8178,6 +8206,7 @@ FILE* LoadSettings(int argc, char ** argv)
     struct arg_lit*		cl_playnice				= arg_lit0("n", "playnice", "Slows detection down");
     struct arg_lit*		cl_output_zp_cutlist	= arg_lit0(NULL, "zpcut", "Outputs a ZoomPlayer cutlist");
     struct arg_lit*		cl_output_zp_chapter	= arg_lit0(NULL, "zpchapter", "Outputs a ZoomPlayer chapter file");
+    struct arg_lit*		cl_output_scf			= arg_lit0(NULL, "scf", "Outputs a simple chapter file for mkvmerge");
     struct arg_lit*		cl_output_vredo			= arg_lit0(NULL, "videoredo", "Outputs a VideoRedo cutlist");
     struct arg_lit*		cl_output_vredo3		= arg_lit0(NULL, "videoredo3", "Outputs a VideoRedo3 cutlist");
     struct arg_lit*		cl_output_csv			= arg_lit0(NULL, "csvout", "Outputs a csv of the frame array");
@@ -8212,6 +8241,7 @@ FILE* LoadSettings(int argc, char ** argv)
         cl_playnice,
         cl_output_zp_cutlist,
         cl_output_zp_chapter,
+        cl_output_scf,
         cl_output_vredo,
         cl_output_vredo3,
         cl_output_csv,
@@ -8857,7 +8887,7 @@ FILE* LoadSettings(int argc, char ** argv)
         }
     }
 
-    out_file = plist_cutlist_file = zoomplayer_cutlist_file = zoomplayer_chapter_file = vcf_file = vdr_file = projectx_file = avisynth_file = cuttermaran_file = videoredo_file = videoredo3_file = btv_file = edl_file = ffmeta_file = ffsplit_file = live_file = ipodchap_file = edlp_file = edlx_file = mls_file = womble_file = mpgtx_file = dvrcut_file = dvrmstb_file = tuning_file = training_file = 0L;
+    out_file = plist_cutlist_file = zoomplayer_cutlist_file = zoomplayer_chapter_file = vcf_file = vdr_file = scf_file = projectx_file = avisynth_file = cuttermaran_file = videoredo_file = videoredo3_file = btv_file = edl_file = ffmeta_file = ffsplit_file = live_file = ipodchap_file = edlp_file = edlx_file = mls_file = womble_file = mpgtx_file = dvrcut_file = dvrmstb_file = tuning_file = training_file = 0L;
 
     if (cl_output_plist->count)
         output_plist_cutlist = true;
@@ -8865,6 +8895,8 @@ FILE* LoadSettings(int argc, char ** argv)
         output_zoomplayer_cutlist = true;
     if (cl_output_zp_chapter->count)
         output_zoomplayer_chapter = true;
+    if (cl_output_scf->count)
+        output_scf = true;
     if (cl_output_vredo->count)
         output_videoredo = true;
     if (cl_output_vredo3->count)
