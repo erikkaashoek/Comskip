@@ -514,6 +514,7 @@ int					punish_no_logo = true;
 int					validate_silence = true;
 int					validate_uniform = true;
 int					validate_scenechange = true;
+int                 remove_silent_segments = 0;
 int					validate_ar = true;
 
 int					punish = 0;
@@ -1466,6 +1467,7 @@ bool BuildBlocks(bool recalc)
             }
         }
     }
+
 
     if (ValidateBlackFrames(C_b, 3.0, false) < 1 / 3.0)
         Debug(8, "Black Frame cutting too low\n");
@@ -3966,6 +3968,24 @@ scanagain:
         }
     }
 
+    if (remove_silent_segments) {
+        i = 1;
+        j = 1;
+        for (i=1; i < frame_count; i++)
+        {
+            if (frame[i].volume < 5) {
+                j = i+1;
+                while (j < frame_count && frame[j].volume < 10 ) j++;
+                if ((frame[j-1].pts - frame[i].pts) > remove_silent_segments) {
+                    Debug(4, "\nDetected a long silent segment from frames %d till %d\n", i, j-1);
+                    InsertBlackFrame(i,frame[i].brightness,frame[i].uniform,frame[i].volume, C_v);
+                    InsertBlackFrame(j-1,frame[j-1].brightness,frame[j-1].uniform,frame[j].volume, C_v);
+                }
+                i = j + 1;
+            }
+        }
+    }
+
     if (commDetectMethod & SILENCE)
     {
         silence_count = 0;
@@ -5652,6 +5672,25 @@ void WeighBlocks(void)
             }
         }
     }
+    if (remove_silent_segments > 0 && !(disable_heuristics & (1 << (9 - 1))))
+    {
+        for (i = 0; i < block_count; i++)
+        {
+            if (cblock[i].volume<20 && cblock[i].length > remove_silent_segments )
+            {
+                   cblock[i].score = 5;
+                    Debug(3, "H9  Demoting cblock %i because is long and has total silence\n",
+                    i, i);
+                    cblock[i].cause |= C_H3;
+                    cblock[i].more |= C_H3;
+
+            }
+        }
+
+    }
+
+
+
     if (!(disable_heuristics & (1 << (2 - 1))))
     {
         /*		i = 0;
@@ -7945,6 +7984,7 @@ void LoadIniFile()
         if ((tmp = FindNumber(data, "non_uniformity=", (double) non_uniformity)) > -1) non_uniformity = (int)tmp;
         AddIniString("[Detailed Settings]\n");
         if ((tmp = FindNumber(data, "min_silence=", (double) min_silence)) > -1) min_silence = (int)tmp;
+        if ((tmp = FindNumber(data, "remove_silent_segments=", (double) remove_silent_segments)) > -1) remove_silent_segments = (int)tmp;
         if ((tmp = FindNumber(data, "noise_level=", (double) noise_level)) > -1) noise_level = (int)tmp;
         if ((tmp = FindNumber(data, "brightness_jump=", (double) brightness_jump)) > -1) brightness_jump = (bool) tmp;
         if ((tmp = FindNumber(data, "fps=", (double) fps)) > -1) fps = tmp;
