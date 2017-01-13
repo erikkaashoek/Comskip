@@ -14138,10 +14138,11 @@ void AddXDS(unsigned char hi, unsigned char lo)
                 }
                 else if (XDSbuf[1] == 0x83)
                 {
-                    if (strcmp((const char*) XDS_block[XDS_block_count].name, (const char*)&XDSbuf[2]) != 0)
+                    size_t n = sizeof(XDS_block[XDS_block_count].name);
+                    if (strncmp((const char*) XDS_block[XDS_block_count].name, (const char*)&XDSbuf[2], n) != 0)
                     {
                         Add_XDS_block();
-                        strcpy(XDS_block[XDS_block_count].name, (const char*) &XDSbuf[2]);
+                        strncpy(XDS_block[XDS_block_count].name, (const char*) &XDSbuf[2], n);
                     }
                     Debug(10, "XDS[%i]: Program Name: %s\n", framenum, &XDSbuf[2]);
 //		XDS_block[XDS_block_count].name[0] = 0;
