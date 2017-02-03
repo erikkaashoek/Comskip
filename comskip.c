@@ -8241,6 +8241,7 @@ FILE* LoadSettings(int argc, char ** argv)
     struct arg_file*	cl_logo					= arg_filen(NULL, "logo", NULL, 0, 1, "Logo file to use");
     struct arg_file*	cl_cut					= arg_filen(NULL, "cut", NULL, 0, 1, "CutScene file to use");
     struct arg_file*	cl_work					= arg_filen(NULL, "output", NULL, 0, 1, "Folder to use for all output files");
+    struct arg_file*	cl_work_fname		= arg_filen(NULL, "output-filename", NULL, 0, 1, "Filename base to use for all output files");
     struct arg_int*	cl_selftest					= arg_intn(NULL, "selftest", NULL, 0, 1, "Execute a selftest");
     struct arg_file*	in						= arg_filen(NULL, NULL, NULL, 1, 1, "Input file");
     struct arg_file*	out						= arg_filen(NULL, NULL, NULL, 0, 1, "Output folder for cutlist");
@@ -8272,6 +8273,7 @@ FILE* LoadSettings(int argc, char ** argv)
         cl_logo,
         cl_cut,
         cl_work,
+        cl_work_fname,
         cl_selftest,
         in,
         out,
@@ -8557,6 +8559,11 @@ FILE* LoadSettings(int argc, char ** argv)
         printf("Setting ini file to %s as per commandline\n", inifilename);
     }
     ini_file = myfopen(inifilename, "r");
+
+    if (cl_work_fname->count)
+    {
+        sprintf(shortbasename, "%s", cl_work_fname->filename[0]);
+    }
 
     if (cl_work->count)
     {
