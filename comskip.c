@@ -8956,6 +8956,7 @@ FILE* LoadSettings(int argc, char ** argv)
     if (!loadingTXT && (output_srt || output_smi ))
     {
 #ifdef PROCESS_CC
+        char *filename;
         char *CEW_argv[10];
         i = 0;
         CEW_argv[i++] = "comskip.exe";
@@ -8963,10 +8964,16 @@ FILE* LoadSettings(int argc, char ** argv)
         {
             CEW_argv[i++] = "-sami";
             output_srt = 1;
+            asprintf(&filename, "%s.smi", outbasename);
         }
         else
+        {
             CEW_argv[i++] = "-srt";
+            asprintf(&filename, "%s.smi", outbasename);
+        }
         CEW_argv[i++] = (char *)in->filename[0];
+        CEW_argv[i++] = "-o";
+        CEW_argv[i++] = filename;
         CEW_init (i, CEW_argv);
 #endif
     }
