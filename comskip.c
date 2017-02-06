@@ -13320,10 +13320,15 @@ void InitializeBlackArray(long i)
 
 void InitializeSchangeArray(long i)
 {
-    if (schange_count >= max_schange_count)
+    if (i >= max_schange_count)
     {
         max_schange_count += 2000;
-        schange = realloc(schange, (max_schange_count + 1) * sizeof(schange_info));
+        void *ptr = realloc(schange, (max_schange_count + 1) * sizeof(schange_info));
+        if (ptr == NULL) {
+            Debug(0, "Could not allocate memory for %i scene change frames.\n", max_schange_count);
+            exit(12);
+        }
+        schange = ptr;
         Debug(9, "Resizing scene change array to accomodate %i frames.\n", max_schange_count);
     }
 
