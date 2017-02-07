@@ -194,7 +194,7 @@ typedef struct
 
 schange_info*			schange = NULL;
 long					schange_count = 0;
-long					max_schange_count;
+long					max_schange_count = 0;
 
 typedef struct
 {
