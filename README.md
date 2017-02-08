@@ -42,9 +42,9 @@ $ make
 There are many ways to setup a build system on Windows. These instructions use MSYS2 and MinGW-w64, but other environments should also work:
 
 - Install MSYS2 by following the instructions at https://msys2.github.io/
-- Install the essential build tools: `pacman -S mingw-w64-i686-gcc autoconf automake libtool pkgconfig`
+- Install the essential build tools: `pacman -S mingw-w64-i686-gcc autoconf automake libtool pkgconfig yasm`
 - Close the MSYS2 shell and launch a MinGW-w64 shell; this is the shell you'll use for all builds
-- Build FFmpeg (http://ffmpeg.org/) and argtable2 (http://argtable.sourceforge.net/) from source and install them to /usr/local
+- Build FFmpeg (http://ffmpeg.org/), argtable2 (http://argtable.sourceforge.net/) and SDL2 from source and install them to /usr/local
 - Add /usr/local/lib/pkg-config to PKG_CONFIG_PATH (e.g., add `export PKG_CONFIG_PATH=$PKG_CONFIG_PATH:/usr/local/lib/pkgconfig` to ~/.bashrc, then type `source ~/.bashrc`)
 
 #### Mac OS X
