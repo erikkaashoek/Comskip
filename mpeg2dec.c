@@ -1599,10 +1599,9 @@ int stream_component_open(VideoState *is, int stream_index)
         if (codecCtx->codec_id != AV_CODEC_ID_MPEG1VIDEO) {
 
 #ifdef DONATOR
-//        if (codecCtx->codec_id != CODEC_ID_MPEG1VIDEO)
- //           codecCtx->thread_count= thread_count;
+//           codecCtx->thread_count= thread_count;
 #else
-            codecCtx->thread_count= 1;
+//            codecCtx->thread_count= 1;
 #endif
         }
 
@@ -1633,10 +1632,9 @@ int stream_component_open(VideoState *is, int stream_index)
 
         if (codecCtx->codec_id != AV_CODEC_ID_MPEG1VIDEO) {
 #ifdef DONATOR
-//        if (codecCtx->codec_id != CODEC_ID_MPEG1VIDEO)
- //           codecCtx->thread_count= thread_count;
+//           codecCtx->thread_count= thread_count;
 #else
-            codecCtx->thread_count= 1;
+//            codecCtx->thread_count= 1;
 #endif
         }
     }
@@ -1644,7 +1642,12 @@ int stream_component_open(VideoState *is, int stream_index)
 
     codec = avcodec_find_decoder(codecCtx->codec_id);
 
-    if(!codec || (avcodec_open2(codecCtx, codec, NULL) < 0))
+    if (!hardware_decode)
+//            codecCtx->flags |= CODEC_FLAG_GRAY;
+        av_dict_set_int(&myoptions, "gray", 1, 0);
+
+
+    if(!codec || (avcodec_open2(codecCtx, codec, &myoptions) < 0))
     {
         fprintf(stderr, "Unsupported codec!\n");
         return -1;
@@ -1700,10 +1703,9 @@ int stream_component_open(VideoState *is, int stream_index)
         //        codecCtx->flags2 |= CODEC_FLAG2_FAST;
         if (codecCtx->codec_id != AV_CODEC_ID_MPEG1VIDEO) {
 #ifdef DONATOR
-//        if (codecCtx->codec_id != CODEC_ID_MPEG1VIDEO)
- //           codecCtx->thread_count= thread_count;
+//           codecCtx->thread_count= thread_count;
 #else
-            codecCtx->thread_count= 1;
+//            codecCtx->thread_count= 1;
 #endif
         }
         if (codecCtx->codec_id == AV_CODEC_ID_MPEG1VIDEO)
@@ -1801,6 +1803,9 @@ void file_open()
         is->pFormatCtx = NULL;
 
 //        av_dict_set_int(&opts, "lowres", stream_lowres, 0);
+        if (!hardware_decode)
+//            codecCtx->flags |= CODEC_FLAG_GRAY;
+            av_dict_set_int(&myoptions, "gray", 1, 0);
 #ifdef DONATOR
         if (thread_count == 1)
                 av_dict_set_int(&myoptions, "threads", thread_count, 0);
@@ -1825,7 +1830,7 @@ void file_open()
         is->pFormatCtx->max_analyze_duration *= 4;
 //        pFormatCtx->probesize = 400000;
 again:
-        if(avformat_open_input(&is->pFormatCtx, is->filename, NULL, &myoptions)!=0)
+        if(avformat_open_input(&is->pFormatCtx, is->filename, NULL,&myoptions)!=0)
         {
             fprintf(stderr, "%s: Can not open file\n", is->filename);
             if (openretries++ < live_tv_retries)

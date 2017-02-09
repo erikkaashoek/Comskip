@@ -501,6 +501,8 @@ double              avg_fps = 22;
 int					border = 10;						// border around edge of video to ignore
 int					ticker_tape=0, ticker_tape_percentage=0;						// border from bottom to ignore
 int					ignore_side=0;
+int					ignore_left_side=0;
+int					ignore_right_side=0;
 int					max_brightness = 60;				// frame not black if any pixels checked are greater than this (scale 0 to 255)
 int					maxbright = 1;
 int					min_hasBright = 255000;
@@ -3145,6 +3147,26 @@ int DetectCommercials(int f, double pts)
             for (j = 0; j < ignore_side; j++)
             {
                 frame_ptr[width*i + j] = 0;
+                frame_ptr[width*i + (width -1) - j] = 0;
+            }
+        }
+    }
+    if (ignore_left_side)
+    {
+        for (i = 0; i < height; i++)
+        {
+            for (j = 0; j < ignore_left_side; j++)
+            {
+                frame_ptr[width*i + j] = 0;
+            }
+        }
+    }
+    if (ignore_right_side)
+    {
+        for (i = 0; i < height; i++)
+        {
+            for (j = 0; j < ignore_right_side; j++)
+            {
                 frame_ptr[width*i + (width -1) - j] = 0;
             }
         }
@@ -8065,6 +8087,8 @@ void LoadIniFile()
         if ((tmp = FindNumber(data, "ticker_tape=", (double) ticker_tape)) > -1) ticker_tape = (int)tmp;
         if ((tmp = FindNumber(data, "ticker_tape_percentage=", (double) ticker_tape_percentage)) > -1) ticker_tape_percentage = (int)tmp;
         if ((tmp = FindNumber(data, "ignore_side=", (double) ignore_side)) > -1) ignore_side = (int)tmp;
+        if ((tmp = FindNumber(data, "ignore_left_side=", (double) ignore_left_side)) > -1) ignore_left_side = (int)tmp;
+        if ((tmp = FindNumber(data, "ignore_right_side=", (double) ignore_right_side)) > -1) ignore_right_side = (int)tmp;
         if ((tmp = FindNumber(data, "subtitles=", (double) subtitles)) > -1) subtitles = (int)tmp;
         if ((tmp = FindNumber(data, "logo_at_bottom=", (double) logo_at_bottom)) > -1) logo_at_bottom = (int)tmp;
         if ((tmp = FindNumber(data, "logo_threshold=", (double) logo_threshold)) > -1) logo_threshold = (double)tmp;
@@ -9811,7 +9835,7 @@ bool CheckSceneHasChanged(void)
             pthread_create(&th1, NULL, (void*)(void *)ScanTop, (void *)1);
             pthread_create(&th3, NULL, (void*)(void *)ScanLeft, (void *)2);
             pthread_create(&th4, NULL, (void*)(void *)ScanRight, (void *)3);
- //           Sleep(10L);
+            // Sleep(10L);
         }
         for (i=0; i < THREAD_WORKERS; i++) {
             sema_post(thwait[i]);
