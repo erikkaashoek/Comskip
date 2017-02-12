@@ -41,7 +41,7 @@ double test_pts = 0.0;
 #include <libavutil/pixdesc.h>
 #include <libavutil/samplefmt.h>
 
-#undef HARDWARE_DECODE
+#define HARDWARE_DECODE
 #ifdef HARDWARE_DECODE
 #include <ffmpeg.h>
 const HWAccel hwaccels[] = {
@@ -1185,6 +1185,7 @@ static int    prev_strange_framenum = 0;
 
     if (len1<0)
     {
+/*
         if (len1 == -1 && thread_count > 1)
         {
             InitComSkip();
@@ -1198,6 +1199,7 @@ static int    prev_strange_framenum = 0;
             Debug(1 ,"Restarting processing in single thread mode because frame size is changing \n");
             goto quit;
         }
+  */
     }
 
     // Did we get a video frame?
@@ -1643,9 +1645,12 @@ int stream_component_open(VideoState *is, int stream_index)
     codec = avcodec_find_decoder(codecCtx->codec_id);
 
     if (!hardware_decode)
-//            codecCtx->flags |= CODEC_FLAG_GRAY;
         av_dict_set_int(&myoptions, "gray", 1, 0);
 
+
+ //       av_dict_set_int(&myoptions, "fastint", 1, 0);
+ //       av_dict_set_int(&myoptions, "skip_alpha", 1, 0);
+//        av_dict_set(&myoptions, "threads", "auto", 0);
 
     if(!codec || (avcodec_open2(codecCtx, codec, &myoptions) < 0))
     {
@@ -1689,7 +1694,7 @@ int stream_component_open(VideoState *is, int stream_index)
         is->pFrame = av_frame_alloc();
         if (!hardware_decode)
             codecCtx->flags |= CODEC_FLAG_GRAY;
- //       codecCtx->thread_type = 1; // Frame based threading
+//        codecCtx->thread_type = 1; // Frame based threading
         codecCtx->lowres = min(av_codec_get_max_lowres(codecCtx->codec),lowres);
         if (codecCtx->codec_id == AV_CODEC_ID_H264)
         {
@@ -1807,17 +1812,16 @@ void file_open()
 //            codecCtx->flags |= CODEC_FLAG_GRAY;
             av_dict_set_int(&myoptions, "gray", 1, 0);
 #ifdef DONATOR
-        if (thread_count == 1)
+//        if (thread_count == 1)
                 av_dict_set_int(&myoptions, "threads", thread_count, 0);
-        else
-            av_dict_set(&myoptions, "threads", "auto", 0);
+//        else
+//            av_dict_set(&myoptions, "threads", "auto", 0);
 //            codecCtx->thread_count= thread_count;
 #else
             av_dict_set_int(&myoptions, "threads", 1, 0);
 //            codecCtx->thread_count= 1;
 #endif
-        av_dict_set_int(&myoptions, "refcounted_frames", 0, 0); // No need to keep multiple buffers
-//        av_dict_set(&myoptions, "threads", "auto", 0);
+        av_dict_set_int(&myoptions, "refcounted_frames", 1, 0); // No need to keep multiple buffers
 
 
     }

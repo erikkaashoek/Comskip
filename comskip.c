@@ -1483,7 +1483,7 @@ bool BuildBlocks(bool recalc)
     //	ValidateBlackFrames(C_c, 3.0, true);
 
     if (validate_uniform)
-        ValidateBlackFrames(C_u, 3.0, true);
+        ValidateBlackFrames(C_u, ((logoPercentage < logo_fraction || logoPercentage > logo_percentile) ? 1.2 : 3.0), true);
 
 
     if (commDetectMethod & SILENCE)
