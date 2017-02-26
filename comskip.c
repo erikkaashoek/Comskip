@@ -101,6 +101,8 @@ FILE*			tuning_file = NULL;
 FILE*			training_file = NULL;
 FILE*			aspect_file = NULL;
 FILE*			cutscene_file = NULL;
+FILE*			mkvtoolnix_chapters_file = NULL;
+FILE*			mkvtoolnix_tags_file = NULL;
 extern int		demux_pid;
 extern int		selected_audio_pid;
 extern int		selected_subtitle_pid;
@@ -614,6 +616,7 @@ bool				output_vdr = false;
 bool				output_vcf = false;
 bool				output_projectx = false;
 bool				output_avisynth = false;
+int 				output_mkvtoolnix = 0;
 bool				output_debugwindow = false;
 bool				output_console = true;
 int					disable_heuristics = 0;
@@ -6366,6 +6369,117 @@ void OpenOutputFiles()
             exit(6);
         }
     }
+		if (output_mkvtoolnix>0)
+	{
+		/*
+		<?xml version="1.0" encoding="ISO-8859-1"?>
+		<Chapters>
+			<EditionEntry>
+				<ChapterAtom>
+					<ChapterDisplay>
+						<ChapterString>Comercial</ChapterString>
+					</ChapterDisplay>
+					<ChapterTimeStart>00:00:00</ChapterTimeStart>
+					<ChapterTimeEnd>0:05:15.470000</ChapterTimeEnd>
+				</ChapterAtom>
+				<ChapterAtom>
+					<ChapterDisplay>
+						<ChapterString>Show</ChapterString>
+					</ChapterDisplay>
+					<ChapterTimeStart>0:05:15.470000</ChapterTimeStart>
+					<ChapterTimeEnd>0:29:39.280000</ChapterTimeEnd>
+				</ChapterAtom>
+			</EditionEntry>
+		</Chapters>
+		*/
+		sprintf(filename, "%s.mkvtoolnix.chapters", outbasename);
+		mkvtoolnix_chapters_file = myfopen(filename, "wb");
+		if (!mkvtoolnix_chapters_file)
+		{
+			fprintf(stderr, "%s - could not create file %s\n", strerror(errno), filename);
+			exit(6);
+		}
+		else
+		{
+			fprintf(mkvtoolnix_chapters_file, "<?xml version=\"1.0\" encoding=\"ISO - 8859 - 1\"?>\n<Chapters>\n");
+		}
+	}
+	if (output_mkvtoolnix==2)
+	{
+		/*
+		<?xml version="1.0" encoding="ISO-8859-1"?>
+		<Chapters>
+			<EditionEntry>
+				<EditionUID>1</EditionUID>
+				<ChapterAtom>
+					<ChapterDisplay>
+						<ChapterString>Comercial</ChapterString>
+					</ChapterDisplay>
+					<ChapterTimeStart>00:00:00</ChapterTimeStart>
+					<ChapterTimeEnd>0:05:15.470000</ChapterTimeEnd>
+				</ChapterAtom>
+				<ChapterAtom>
+					<ChapterDisplay>
+						<ChapterString>Show</ChapterString>
+					</ChapterDisplay>
+					<ChapterTimeStart>0:05:15.470000</ChapterTimeStart>
+					<ChapterTimeEnd>0:29:39.280000</ChapterTimeEnd>
+				</ChapterAtom>
+			</EditionEntry>
+			<EditionEntry>
+				<EditionFlagOrdered>1</EditionFlagOrdered>
+				<EditionUID>2</EditionUID>
+				<ChapterAtom>
+					<ChapterDisplay>
+						<ChapterString>Show</ChapterString>
+					</ChapterDisplay>
+					<ChapterFlagEnabled>1</ChapterFlagEnabled>
+					<ChapterTimeStart>0:05:15.470000</ChapterTimeStart>
+					<ChapterTimeEnd>0:29:39.280000</ChapterTimeEnd>
+				</ChapterAtom>
+			</EditionEntry>
+		</Chapters>
+		*/
+		sprintf(filename, "%s.mkvtoolnix.tags", outbasename);
+		mkvtoolnix_tags_file = myfopen(filename, "wb");
+		if (!mkvtoolnix_tags_file)
+		{
+			fprintf(stderr, "%s - could not create file %s\n", strerror(errno), filename);
+			exit(6);
+		}
+		else
+		{
+			fprintf(mkvtoolnix_tags_file, "<?xml version=\"1.0\" encoding=\"ISO - 8859 - 1\"?>\n"\
+				"<Tags>\n"
+				"\t<Tag>\n"\
+				"\t\t<Targets>\n"\
+				"\t\t\t<TargetTypeValue>50</TargetTypeValue>\n"\
+				"\t\t\t<EditionUID>1</EditionUID>\n"\
+				"\t\t</Targets>\n"\
+				"\t\t<Simple>\n"\
+				"\t\t\t<TagLanguage>eng</TagLanguage>\n"\
+				"\t\t\t<Name>TITLE</Name>\n"\
+				"\t\t\t<DefaultLanguage>1</DefaultLanguage>\n"\
+				"\t\t\t<String>With Commercials</String>\n"\
+				"\t\t</Simple>\n"\
+				"\t</Tag>\n"\
+				"\t<Tag>\n"\
+				"\t\t<Targets>\n"\
+				"\t\t\t<TargetTypeValue>50</TargetTypeValue>\n"\
+				"\t\t\t<EditionUID>2</EditionUID>\n"\
+				"\t\t</Targets>\n"\
+				"\t\t<Simple>\n"\
+				"\t\t\t<TagLanguage>eng</TagLanguage>\n"\
+				"\t\t\t<Name>TITLE</Name>\n"\
+				"\t\t\t<DefaultLanguage>1</DefaultLanguage>\n"\
+				"\t\t\t<String>Without Commercials</String>\n"\
+				"\t\t</Simple>\n"\
+				"\t</Tag>\n"\
+				"</Tags>"
+			);	
+			fclose(mkvtoolnix_tags_file);
+		}
+	}
 }
 
 #define CLOSEOUTFILE(F) { if ((F) && last) fclose(F); }
@@ -7303,6 +7417,63 @@ bool OutputBlocks(void)
             fclose(chapters_file);
         }
     }
+	
+	if (mkvtoolnix_chapters_file)
+	{
+		double currentStart = 0;	
+		char startTimespan[15];
+		char endTimespan[15];		
+		
+		if(output_mkvtoolnix > 0){			
+			fprintf(mkvtoolnix_chapters_file,"\t<EditionEntry>\n\t\t<EditionUID>1</EditionUID>\n");
+			for (i = 0; i < block_count; i++)
+            {
+				if(i == 0 || (cblock[i-1].iscommercial != cblock[i].iscommercial)){
+						currentStart = cblock[i].f_start;
+				}	
+				if(i == i-1 || (cblock[i+1].iscommercial != cblock[i].iscommercial)){
+					strcpy(startTimespan, dblSecondsToStrMinutes(get_frame_pts(currentStart)));				
+					fprintf(mkvtoolnix_chapters_file, 
+						"\t\t<ChapterAtom>\n"\
+						"\t\t\t<ChapterDisplay>\n"\
+						"\t\t\t\t<ChapterString>%s</ChapterString>\n"\
+						"\t\t\t</ChapterDisplay>\n"\
+						"\t\t\t<ChapterTimeStart>%s</ChapterTimeStart>\n"\
+						"\t\t</ChapterAtom>\n"
+					, cblock[i].iscommercial ? "Commercial" : "Show", startTimespan);
+				}		
+            }
+			fprintf(mkvtoolnix_chapters_file,"\t</EditionEntry>\n");
+		}
+		if(output_mkvtoolnix == 2){				
+			fprintf(mkvtoolnix_chapters_file,"\t<EditionEntry>\n\t\t<EditionUID>2</EditionUID>\n\t\t<EditionFlagOrdered>1</EditionFlagOrdered>\n");
+			for (i = 0; i < block_count; i++)
+            {
+				if(!cblock[i].iscommercial){
+					if(i == 0 || cblock[i-1].iscommercial){
+						currentStart = cblock[i].f_start;
+					}
+					if(i == i-1 || cblock[i+1].iscommercial){
+						strcpy(startTimespan, dblSecondsToStrMinutes(get_frame_pts(currentStart)));				
+						strcpy(endTimespan, dblSecondsToStrMinutes(get_frame_pts(cblock[i].f_end)));
+						fprintf(mkvtoolnix_chapters_file, 
+							"\t\t<ChapterAtom>\n"\
+							"\t\t\t<ChapterDisplay>\n"\
+							"\t\t\t\t<ChapterString>Show</ChapterString>\n"\
+							"\t\t\t</ChapterDisplay>\n"\
+							"\t\t\t<ChapterFlagEnabled>1</ChapterFlagEnabled>\n"\
+							"\t\t\t<ChapterTimeStart>%s</ChapterTimeStart>\n"\
+							"\t\t\t<ChapterTimeEnd>%s</ChapterTimeEnd>\n"\
+							"\t\t</ChapterAtom>\n"
+						, startTimespan,endTimespan);
+					}
+				}				
+            }
+			fprintf(mkvtoolnix_chapters_file,"\t</EditionEntry>\n");
+		}
+		fprintf(mkvtoolnix_chapters_file,"</Chapters>");		
+		fclose(mkvtoolnix_chapters_file);
+	}
 
     if (reffer_count == -1) {
         reffer_count = commercial_count;
@@ -8183,7 +8354,8 @@ void LoadIniFile()
         if ((tmp = FindNumber(data, "output_ffmeta=", (double) output_ffmeta)) > -1) output_ffmeta = (bool) tmp;
         if ((tmp = FindNumber(data, "output_ffsplit=", (double) output_ffsplit)) > -1) output_ffsplit = (bool) tmp;
         if ((tmp = FindNumber(data, "delete_logo_file=", (double) deleteLogoFile)) > -1) deleteLogoFile = (int)tmp;
-
+        if ((tmp = FindNumber(data, "output_mkvtoolnix=", (double) output_mkvtoolnix)) > -1) output_mkvtoolnix = (int) tmp;
+		
         if ((tmp = FindNumber(data, "cutscene_frame=", (double) cutsceneno)) > -1) cutsceneno = (int)tmp;
         if ((ts = FindString(data, "cutscene_dumpfile=", "")) != 0) strcpy(cutscenefile,ts);
 
