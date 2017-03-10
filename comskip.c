@@ -1,3 +1,4 @@
+//
 // comskip.c
 // Copyright (C) 2004 Scott Michael
 // Based on the work of Chris Pinkham of MythTV
@@ -1255,7 +1256,7 @@ bool BuildBlocks(bool recalc)
     }
 
     j = 0;
-    for (i = 2; i < frame_count - 1; i++)  // frame 0 is not use????
+    for (i = 2; i < frame_count - 1; i++)  // frame 0 is not used
         if (frame[i-1].volume != -1 && frame[i].volume == -1 && frame[i+1].volume != -1)
             j++;
     if (j>0)
@@ -3831,6 +3832,8 @@ scanagain:
 //							rsc = frame[j].schange_percent;
                         j++;
                     }
+                    if (j == t )
+                        break;
                     c = 10;
                     j = j - 10;
                     if (j < 1)
@@ -3848,6 +3851,8 @@ scanagain:
                         }
                         j++;
                     }
+                    if (j == t )
+                        break;
                     while (frame[j].volume < max_volume && j < t)
                     {
                         if (rsc > frame[j].schange_percent)
@@ -3857,6 +3862,8 @@ scanagain:
                         }
                         j++;
                     }
+                    if (j == t )
+                        break;
                     c = 10;
                     while (c-- && j < t)
                     {
@@ -3867,11 +3874,14 @@ scanagain:
                         }
                         j++;
                     }
+                    if (j == t )
+                        break;
                     if (maxsc > rsc)
                     {
                         maxsc = rsc;
                         cp = cpf;
                     }
+                    j = t; // Only search once
 //					cp = j;
 //					j=t;
                 }
@@ -3920,12 +3930,14 @@ scanagain:
                 while (j > t)
                 {
                     rsc = 255;
-                    while (frame[j].volume >= max_volume && j > t)
+                    while (frame[j].volume >= max_volume && j > t) // Search low volume
                     {
 //						if (rsc > frame[j].schange_percent)
 //							rsc = frame[j].schange_percent;
                         j--;
                     }
+                    if (j == t )
+                        break;
                     c = 10;
                     j = j + 10;
                     if (j >= frame_count)
@@ -3934,7 +3946,7 @@ scanagain:
                         c = c - j;
                         j = frame_count - 1;
                     }
-                    while (c-- && j > t)
+                    while (c-- && j > t) // Largest scene change 10 frames before low volume
                     {
                         if (rsc > frame[j].schange_percent)
                         {
@@ -3943,8 +3955,10 @@ scanagain:
                         }
                         j--;
                     }
+                    if (j == t )
+                        break;
 
-                    while (frame[j].volume < max_volume && j > t)
+                    while (frame[j].volume < max_volume && j > t) // largest scene change in low volume
                     {
                         if (rsc > frame[j].schange_percent)
                         {
@@ -3953,8 +3967,10 @@ scanagain:
                         }
                         j--;
                     }
+                    if (j == t )
+                        break;
                     c = 10;
-                    while (c-- && j > t)
+                    while (c-- && j > t) //Largest scene change after low volume
                     {
                         if (rsc > frame[j].schange_percent)
                         {
@@ -3963,11 +3979,14 @@ scanagain:
                         }
                         j--;
                     }
+                    if (j == t )
+                        break;
                     if (maxsc > rsc)
                     {
                         maxsc = rsc;
                         cp = cpf;
                     }
+                    j = t; // Only search once
 //					cp = j;
 //					j=t;
                 }
@@ -3976,8 +3995,8 @@ scanagain:
                     InsertBlackFrame(cp,frame[cp].brightness,frame[cp].uniform,frame[cp].volume, C_l);
                     Debug(
                         3,
-                        "Frame %6i (%.3fs) - Cutpoint added %i seconds before Logo disappears at change percentage of %d\n",
-                        cp, get_frame_pts(cp), (int)F2L(cp, logo_block[i].end), maxsc
+                        "Frame %6i (%.3fs) - Cutpoint added %i seconds before Logo appears at change percentage of %d\n",
+                        cp, get_frame_pts(cp), (int)F2L(logo_block[i].start, cp), maxsc
                     );
                 }
             }
@@ -4021,6 +4040,10 @@ scanagain:
         very_low_volume_count = 0;
         for (i=1; i <frame_count; i++)
         {
+            if (frame[i].volume < 6)
+            {
+                InsertBlackFrame(i,frame[i].brightness,frame[i].uniform,frame[i].volume, C_v);
+            } else
             if (min_silence > 0)
             {
                 if (0 <= frame[i].volume && frame[i].volume < max_silence)
@@ -8043,6 +8066,9 @@ char * FindString(char* str1, char* str2, char *v)
 //			strcat(ini_text, tmp);
 //			return(foundText);
         }
+        else
+            Debug(1, "String parameter for %s must be enclosed in double quotes\n", str2);
+
     }
     else
         return(0);
@@ -9701,7 +9727,8 @@ void LoadCutScene(const char *filename)
             fclose(cutscene_file);
         }
         fclose(cutscene_file);
-    }
+    } else
+         Debug(1, "Can't open cutfile \"%s\"\n", filename);
 }
 
 static DECLARE_ALIGNED(32, int, own_histogram)[4][256];
@@ -10203,6 +10230,7 @@ bool CheckSceneHasChanged(void)
         }
         else if (non_uniformity > 0)
         {
+//????
             if ((brightness <= max_avg_brightness) && uniform < non_uniformity )
             {
                 cause |= C_u;
@@ -10789,7 +10817,7 @@ void EdgeDetect(unsigned char* frame_ptr, int maskNumber)
         }
     }
     else
-    { //??????
+    {
         LOGO_X_LOOP
         {
             LOGO_Y_LOOP {
@@ -13989,10 +14017,11 @@ ccagain:
                 if (frame[i].brightness <= max_avg_brightness && frame[i].hasBright < maxbright && frame[i].dimCount < (int)(.05 * videowidth * height))
                     frame[i].isblack |= C_b;
             }
-
-            frame[i].isblack &= ~C_u;
-            if (!(frame[i].isblack & C_b) && non_uniformity > 0 && frame[i].uniform < non_uniformity && frame[i].brightness < 250 /*&& frame[i].volume < max_volume*/ )
-                frame[i].isblack |= C_u;
+            if (i>1) { // Uniform not calculated for frame 1
+                frame[i].isblack &= ~C_u;
+                if (!(frame[i].isblack & C_b) && non_uniformity > 0 && frame[i].uniform < non_uniformity && frame[i].brightness < 250 /*&& frame[i].volume < max_volume*/ )
+                    frame[i].isblack |= C_u;
+            }
         }
         else
         {

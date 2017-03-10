@@ -41,7 +41,7 @@ double test_pts = 0.0;
 #include <libavutil/pixdesc.h>
 #include <libavutil/samplefmt.h>
 
-#define HARDWARE_DECODE
+#undef HARDWARE_DECODE
 #ifdef HARDWARE_DECODE
 #include <ffmpeg.h>
 const HWAccel hwaccels[] = {
@@ -893,16 +893,20 @@ int SubmitFrame(AVStream        *video_st, AVFrame         *pFrame , double pts)
     else
         pict_type = 'P';
 
-    if (selftest == 2 && framenum == 0 && pass == 0 && test_pts == 0.0)
+    if (selftest == 2 && framenum == 0 && pass == 0 && test_pts == 0.0) //Reset file test
         test_pts = pts;
-    if (selftest == 2 && pass > 0)
+    if (selftest == 2 && pass > 0) //Reset file test
     {
         if (test_pts != pts)
         {
                sample_file = fopen("seektest.log", "a+");
                 fprintf(sample_file, "Reset file Failed, initial pts = %6.3f, seek pts = %6.3f, pass = %d, \"%s\"\n", test_pts, pts, pass+1, is->filename);
                 fclose(sample_file);
+                Debug( 1,"\nSelftest %d FAILED: Reset\n", selftest);
         }
+        else
+           Debug( 1,"\nSelftest 2 OK: Reset\n");
+
         exit(1);
     }
 
@@ -913,7 +917,7 @@ int SubmitFrame(AVStream        *video_st, AVFrame         *pFrame , double pts)
         res = DetectCommercials((int)framenum, pts);
         framenum++;
 #ifdef SELFTEST
-    if (selftest == 2 && pass == 0 && framenum > 20)
+    if (selftest == 2 && pass == 0 && framenum > 20) //Reset input file
     {
         res = true;
         pass++;
@@ -952,10 +956,12 @@ void Set_seek(VideoState *is, double pts)
 //                            pos = avio_tell(is->pFormatCtx->pb);
       uint64_t size =  avio_size(ic->pb);
         if (length < 0) {
-            Debug(0,"Impossible to reposition this file, aborting\n");
-            exit(-1);
+            is->seek_pos = size*fmax(0,pts-4.0)/(frame_count * get_fps());
+//            Debug(0,"Impossible to reposition this file, aborting\n");
+  //          exit(-1);
+        } else {
+            is->seek_pos = size*fmax(0,pts-4.0)/length;
         }
-        is->seek_pos = size*fmax(0,pts-4.0)/length;
         is->seek_flags |= AVSEEK_FLAG_BYTE;
     } else {
         pts = fmax(0,pts+initial_pts);
@@ -996,18 +1002,18 @@ again:
 
         fprintf(stderr, "%s error while seeking. target=%6.3f, \"%s\"\n", error_text,is->seek_pts, is->pFormatCtx->filename);
 
-        if (!is->seek_by_bytes)
-        {
-            is->seek_by_bytes = 1; // Fall back to byte seek
-            Set_seek(is, is->seek_pts);
-            goto again;
-        }
-
         if (selftest)
         {
             sample_file = fopen("seektest.log", "a+");
             fprintf(sample_file, "%s error while seeking, target=%6.3f, \"%s\"\n", error_text,is->seek_pts, is->pFormatCtx->filename);
             fclose(sample_file);
+        }
+
+        if (!is->seek_by_bytes)
+        {
+            is->seek_by_bytes = 1; // Fall back to byte seek
+            Set_seek(is, is->seek_pts);
+            goto again;
         }
     }
     if (!is->seek_no_flush)
@@ -1178,6 +1184,7 @@ static int    prev_strange_framenum = 0;
     }
     real_pts = 0.0;
     pts = 0;
+   // is->video_st->codec.thread_type
     //        is->video_st->codec->flags |= CODEC_FLAG_GRAY;
     // Decode video frame
     len1 = avcodec_decode_video2(is->video_st->codec, is->pFrame, &frameFinished,
@@ -1379,7 +1386,7 @@ static int    prev_strange_framenum = 0;
             {
 
 #ifdef SELFTEST
-                if (selftest == 1 && pass == 1 /*&& framenum > 501 && is->video_clock > 0 */)
+                if (selftest == 1 && pass == 1 /*&& framenum > 501 && is->video_clock > 0 */) //Seek test
                 {
                    if (is->video_clock < selftest_target - 0.05 || is->video_clock > selftest_target + 0.05)
                    {
@@ -1392,7 +1399,10 @@ static int    prev_strange_framenum = 0;
                             (is->seek_by_bytes ? "byteseek": "timeseek" ),
                             is->filename);
                     fclose(sample_file);
+                        Debug( 1,"\nSelftest 1 FAILED: Seektest\n:Starting test 3\n");
                    }
+                    else
+                        Debug( 1,"\nSelftest 1 OK: Seektest\nStarting test 3\n");
                     /*
                                     if (tries ==  0 && fabs((double) av_q2d(is->video_st->time_base)* ((double)(packet->pts - is->video_st->start_time - is->seek_pos ))) > 2.0) {
                      				   is->seek_req=1;
@@ -1402,6 +1412,7 @@ static int    prev_strange_framenum = 0;
                                    } else
                      */
                     selftest = 3;
+                    live_tv_retries = 1;
                     pass = 0;
 //                    exit(1);
                 }
@@ -1415,7 +1426,7 @@ static int    prev_strange_framenum = 0;
         else {
             if (is->video_clock - is->seek_pts > -frame_delay / 2.0)
             {
-                if (selftest == 3)
+                if (selftest == 3) //Reopen at same location
                 {
                     if (is->video_clock < selftest_target - 0.05 || is->video_clock > selftest_target + 0.05)
                     {
@@ -1428,7 +1439,10 @@ static int    prev_strange_framenum = 0;
                             (is->seek_by_bytes ? "byteseek": "timeseek" ),
                             is->filename);
                         fclose(sample_file);
+                        Debug( 1,"\nSelftest 3 FAILED: Reopen\n");
                     }
+                    else
+                        Debug( 1,"\nSelftest 3 OK: Reopen\n");
                     exit(1);
                 }
                 retries = 0;
@@ -1442,7 +1456,7 @@ static int    prev_strange_framenum = 0;
                     if (selftest == 1 || selftest == 3)
                     {
                         sample_file = fopen("seektest.log", "a+");
-                        fprintf(sample_file, "To early error: target=%8.1f, result=%8.1f, error=%6.3f, size=%8.1f, mode=%s, \"%s\"\n",
+                        fprintf(sample_file, "Seek error : target=%8.1f, result=%8.1f, error=%6.3f, size=%8.1f, mode=%s, \"%s\"\n",
                             is->seek_pts,
                             is->video_clock,
                             is->video_clock - is->seek_pts,
@@ -1450,6 +1464,7 @@ static int    prev_strange_framenum = 0;
                             (is->seek_by_bytes ? "byteseek": "timeseek" ),
                             is->filename);
                         fclose(sample_file);
+                        Debug( 1,"\nSelftest %d FAILED\n", selftest);
                         exit(1);
                     }
                     retries = 0;
@@ -1578,8 +1593,8 @@ int stream_component_open(VideoState *is, int stream_index)
 
     if (codecCtx->codec_type == AVMEDIA_TYPE_VIDEO)
     {
-        if (!hardware_decode)
-            codecCtx->flags |= CODEC_FLAG_GRAY;
+ //       if (!hardware_decode)
+ //           codecCtx->flags |= CODEC_FLAG_GRAY;
         is->dec_ctx = codecCtx;
 #ifdef HARDWARE_DECODE
         ist->dec_ctx = codecCtx;
@@ -1597,7 +1612,11 @@ int stream_component_open(VideoState *is, int stream_index)
         }
 #endif
 
-        codecCtx->flags2 |= CODEC_FLAG2_FAST /* | AV_CODEC_FLAG2_SHOW_ALL */ ;
+//        codecCtx->flags2 |= CODEC_FLAG2_FAST /* | AV_CODEC_FLAG2_SHOW_ALL */ ;
+//        codecCtx->flags2 |= AV_CODEC_FLAG2_CHUNKS /* | AV_CODEC_FLAG2_SHOW_ALL */ ;
+
+
+
         if (codecCtx->codec_id != AV_CODEC_ID_MPEG1VIDEO) {
 
 #ifdef DONATOR
@@ -1645,7 +1664,7 @@ int stream_component_open(VideoState *is, int stream_index)
     codec = avcodec_find_decoder(codecCtx->codec_id);
 
     if (!hardware_decode)
-        av_dict_set_int(&myoptions, "gray", 1, 0);
+        av_dict_set_int(&myoptions, "gray", 0, 0);
 
 
  //       av_dict_set_int(&myoptions, "fastint", 1, 0);
@@ -1692,9 +1711,9 @@ int stream_component_open(VideoState *is, int stream_index)
 //          is->video_current_pts_time = av_gettime();
 
         is->pFrame = av_frame_alloc();
-        if (!hardware_decode)
-            codecCtx->flags |= CODEC_FLAG_GRAY;
-//        codecCtx->thread_type = 1; // Frame based threading
+ //       if (!hardware_decode)
+ //           codecCtx->flags |= CODEC_FLAG_GRAY;
+       codecCtx->thread_type = 1; // Frame based threading
         codecCtx->lowres = min(av_codec_get_max_lowres(codecCtx->codec),lowres);
         if (codecCtx->codec_id == AV_CODEC_ID_H264)
         {
@@ -2230,11 +2249,15 @@ nextpacket:
             {
                 ret=AVERROR_EOF;  // Simulate EOF
                 live_tv = 1;
+                live_tv_retries = 2;
+
             }
-            if ((selftest == 4 && retries==0 && framenum > 0 && (framenum % 500) == 0))
+            if ((selftest == 4 && retries==0 && framenum > 0 && (framenum % 500) == 0)) // Test reopen every 500 frames
             {
                 ret=AVERROR_EOF;  // Simulate EOF
                 live_tv = 1;
+                live_tv_retries = 2;
+
             }
             if(ret < 0 )
             {
@@ -2246,10 +2269,11 @@ nextpacket:
                         {
                             if (is->video_clock < selftest_target - 0.05 || is->video_clock > selftest_target + 0.05)
                             {
-//                                sample_file = fopen("seektest.log", "a+");
-//                                fprintf(sample_file, "\"%s\": reopen file failed, size=%8.1f, pts=%6.2f\n", is->filename, is->duration, is->video_clock );
-//                                fclose(sample_file);
-//                                exit(1);
+                                sample_file = fopen("seektest.log", "a+");
+                                fprintf(sample_file, "\"%s\": reopen file failed, size=%8.1f, pts=%6.2f\n", is->filename, is->duration, is->video_clock );
+                                fclose(sample_file);
+                                Debug( 1,"\nSelftest %d FAILED\n", selftest);
+                                exit(1);
                             }
                         }
                         else
@@ -2262,8 +2286,11 @@ nextpacket:
                             {
                                 selftest_target = REOPEN_TIME;
                             }
+                            Debug( 1,"\nSelftest %d starting: Reopen\n", selftest);
                             selftest_target = fmax(selftest_target,0.5);
                             live_tv = 1;
+                            live_tv_retries = 2;
+
                         }
                     }
 
@@ -2339,7 +2366,7 @@ nextpacket:
                 empty_packet_count = 0;
             }
 #ifdef SELFTEST
-            if (selftest == 1 && pass == 0 && is->seek_req == 0 && framenum == 50)
+            if (selftest == 1 && pass == 0 && is->seek_req == 0 && framenum == 50) //Seek test
             {
                 if (is->duration > 2) {
                     selftest_target = fmin(450.0, is->duration - 2);
@@ -2366,7 +2393,9 @@ nextpacket:
                         (is->seek_by_bytes ? "byteseek": "timeseek" ),
                         is->filename);
                 fclose(sample_file);
-            }
+            } else
+                Debug( 1,"\nSelftest 1 OK: Seektest\n");
+
             /*
                             if (tries ==  0 && fabs((double) av_q2d(is->video_st->time_base)* ((double)(packet->pts - is->video_st->start_time - is->seek_pos ))) > 2.0) {
              				   is->seek_req=1;
