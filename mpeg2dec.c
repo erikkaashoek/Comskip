@@ -174,6 +174,7 @@ int64_t best_effort_timestamp;
 #include "comskip.h"
 
 extern int coding_type;
+extern int audio_channels;
 
 void InitComSkip(void);
 void BuildCommListAsYouGo(void);
@@ -489,6 +490,7 @@ void sound_to_frames(VideoState *is, short **b, int s, int c, int format)
         Debug(5, "Audio channels switched at pts=%6.5f from %d to %d\n", base_apts, old_c, c);
 //        InsertBlackFrame()
     }
+    audio_channels = c;
     old_c = c;
     if (old_sample_rate != 0 && old_sample_rate != is->audio_st->codec->sample_rate) {
          Debug(5, "Audio samplerate switched from %d to %d\n", old_sample_rate, is->audio_st->codec->sample_rate );
@@ -1620,9 +1622,9 @@ int stream_component_open(VideoState *is, int stream_index)
         if (codecCtx->codec_id != AV_CODEC_ID_MPEG1VIDEO) {
 
 #ifdef DONATOR
-//           codecCtx->thread_count= thread_count;
+           codecCtx->thread_count= thread_count;
 #else
-//            codecCtx->thread_count= 1;
+            codecCtx->thread_count= 1;
 #endif
         }
 
@@ -1653,9 +1655,9 @@ int stream_component_open(VideoState *is, int stream_index)
 
         if (codecCtx->codec_id != AV_CODEC_ID_MPEG1VIDEO) {
 #ifdef DONATOR
-//           codecCtx->thread_count= thread_count;
+           codecCtx->thread_count= thread_count;
 #else
-//            codecCtx->thread_count= 1;
+            codecCtx->thread_count= 1;
 #endif
         }
     }
@@ -1727,9 +1729,9 @@ int stream_component_open(VideoState *is, int stream_index)
         //        codecCtx->flags2 |= CODEC_FLAG2_FAST;
         if (codecCtx->codec_id != AV_CODEC_ID_MPEG1VIDEO) {
 #ifdef DONATOR
-//           codecCtx->thread_count= thread_count;
+           codecCtx->thread_count= thread_count;
 #else
-//            codecCtx->thread_count= 1;
+            codecCtx->thread_count= 1;
 #endif
         }
         if (codecCtx->codec_id == AV_CODEC_ID_MPEG1VIDEO)
@@ -1835,7 +1837,7 @@ void file_open()
                 av_dict_set_int(&myoptions, "threads", thread_count, 0);
 //        else
 //            av_dict_set(&myoptions, "threads", "auto", 0);
-//            codecCtx->thread_count= thread_count;
+//           codecCtx->thread_count= thread_count;
 #else
             av_dict_set_int(&myoptions, "threads", 1, 0);
 //            codecCtx->thread_count= 1;
