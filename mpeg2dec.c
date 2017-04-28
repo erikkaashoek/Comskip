@@ -216,7 +216,7 @@ int selection_restart_count = 0;
 int found_pids=0;
 
 int64_t pts;
-double initial_pts;
+double initial_pts = 0.0;
 int64_t final_pts;
 double pts_offset = 0.0;
 
@@ -444,10 +444,10 @@ void backfill_frame_volumes()
     if (framenum < 3)
         return;
     f = framenum-2;
-    while (get_frame_pts(f) + initial_pts> base_apts && f > 1) // Find first frame with samples available, could be incomplete
+    while (get_frame_pts(f) + initial_pts > base_apts && f > 1) // Find first frame with samples available, could be incomplete
         f--;
-    while (f < framenum-1 && (get_frame_pts(f+1) + initial_pts)<= top_apts && (top_apts - base_apts) > .2 /* && get_frame_pts(f-1) >= base_apts */) {
-        volume = retreive_frame_volume(fmax(get_frame_pts(f) + initial_pts, base_apts), get_frame_pts(f+1) + initial_pts);
+    while (f < framenum-1 && (get_frame_pts(f+1) + initial_pts )<= top_apts && (top_apts - base_apts) > .2 /* && get_frame_pts(f-1) >= base_apts */) {
+        volume = retreive_frame_volume(fmax(get_frame_pts(f) + initial_pts , base_apts), get_frame_pts(f+1) + initial_pts);
         if (volume > -1) set_frame_volume(f, volume);
         f++;
     }
@@ -655,7 +655,7 @@ void audio_packet_process(VideoState *is, AVPacket *pkt)
     if (pkt->pts != AV_NOPTS_VALUE)
     {
         prev_audio_clock = is->audio_clock;
-        is->audio_clock = av_q2d(is->audio_st->time_base)*( pkt->pts -  (is->video_st->start_time != AV_NOPTS_VALUE ? is->video_st->start_time : 0)) - apts_offset;
+        is->audio_clock = av_q2d(is->audio_st->time_base)*( pkt->pts -  (is->audio_st->start_time != AV_NOPTS_VALUE ? is->audio_st->start_time : 0)) - apts_offset;
             if (ALIGN_AC3_PACKETS && is->audio_st->codec->codec_id == AV_CODEC_ID_AC3) {
                     if (   ISSAME(is->audio_clock - prev_audio_clock, 0.032)
                         || ISSAME(is->audio_clock - prev_audio_clock, -0.032)
@@ -677,6 +677,11 @@ void audio_packet_process(VideoState *is, AVPacket *pkt)
 //                    is->audio_clock = prev_audio_clock;
                 }
             }
+        }
+        if (!initial_apts_set) {
+            initial_apts = is->audio_clock;
+            Debug( 10,"\nInitial audio pts = %10.3f\n", initial_apts);
+
         }
     }
 
@@ -1186,8 +1191,8 @@ static int    prev_strange_framenum = 0;
     }
     real_pts = 0.0;
     pts = 0;
-   // is->video_st->codec.thread_type
-    //        is->video_st->codec->flags |= CODEC_FLAG_GRAY;
+    //is->video_st->codec.thread_type
+    if (!hardware_decode) is->video_st->codec->flags |= CODEC_FLAG_GRAY;
     // Decode video frame
     len1 = avcodec_decode_video2(is->video_st->codec, is->pFrame, &frameFinished,
                                  packet);
@@ -1230,12 +1235,12 @@ static int    prev_strange_framenum = 0;
         else
         {
             headerpos = avio_tell(is->pFormatCtx->pb);
-            if ((initial_pts_set < 3 && !reviewing) || (reviewing && initial_pts_set < 1)  )
+            if ((initial_pts_set < 3 && !reviewing) || (reviewing && initial_pts_set < 2)  )
             {
 //              if (!ISSAME(initial_pts, av_q2d(is->video_st->time_base)* (best_effort_timestamp - (frame_delay * framenum) / av_q2d(is->video_st->time_base) - (is->video_st->start_time != AV_NOPTS_VALUE ? is->video_st->start_time : 0)))) {
                 if (!ISSAME(initial_pts, (best_effort_timestamp  - (is->video_st->start_time != AV_NOPTS_VALUE ? is->video_st->start_time : 0)) * av_q2d(is->video_st->time_base) - (frame_delay * framenum) )) {
                     initial_pts = (best_effort_timestamp  - (is->video_st->start_time != AV_NOPTS_VALUE ? is->video_st->start_time : 0)) * av_q2d(is->video_st->time_base) - (frame_delay * framenum);
-                    Debug( 10,"\nInitial pts = %10.3f\n", initial_pts);
+                    Debug( 10,"\nInitial video pts = %10.3f\n", initial_pts);
 //                    if (timeline_repair<2)
 //                        initial_pts = 0.0;
                 }
@@ -1595,8 +1600,7 @@ int stream_component_open(VideoState *is, int stream_index)
 
     if (codecCtx->codec_type == AVMEDIA_TYPE_VIDEO)
     {
- //       if (!hardware_decode)
- //           codecCtx->flags |= CODEC_FLAG_GRAY;
+        if (!hardware_decode) codecCtx->flags |= CODEC_FLAG_GRAY;
         is->dec_ctx = codecCtx;
 #ifdef HARDWARE_DECODE
         ist->dec_ctx = codecCtx;
@@ -1665,8 +1669,7 @@ int stream_component_open(VideoState *is, int stream_index)
 
     codec = avcodec_find_decoder(codecCtx->codec_id);
 
-    if (!hardware_decode)
-        av_dict_set_int(&myoptions, "gray", 0, 0);
+    if (!hardware_decode) av_dict_set_int(&myoptions, "gray", 1, 0);
 
 
  //       av_dict_set_int(&myoptions, "fastint", 1, 0);
@@ -1713,9 +1716,8 @@ int stream_component_open(VideoState *is, int stream_index)
 //          is->video_current_pts_time = av_gettime();
 
         is->pFrame = av_frame_alloc();
- //       if (!hardware_decode)
- //           codecCtx->flags |= CODEC_FLAG_GRAY;
-       codecCtx->thread_type = 1; // Frame based threading
+        if (!hardware_decode) codecCtx->flags |= CODEC_FLAG_GRAY;
+//       codecCtx->thread_type = 1; // Frame based threading
         codecCtx->lowres = min(av_codec_get_max_lowres(codecCtx->codec),lowres);
         if (codecCtx->codec_id == AV_CODEC_ID_H264)
         {
@@ -1829,9 +1831,10 @@ void file_open()
         is->pFormatCtx = NULL;
 
 //        av_dict_set_int(&opts, "lowres", stream_lowres, 0);
-        if (!hardware_decode)
+        if (!hardware_decode) {
 //            codecCtx->flags |= CODEC_FLAG_GRAY;
             av_dict_set_int(&myoptions, "gray", 1, 0);
+        }
 #ifdef DONATOR
 //        if (thread_count == 1)
                 av_dict_set_int(&myoptions, "threads", thread_count, 0);
@@ -2361,6 +2364,7 @@ nextpacket:
                 empty_packet_count++;
                 if (empty_packet_count > 1000)
                     Debug(0, "Empty input\n");
+                empty_packet_count = 0;
             }
             else
             {
