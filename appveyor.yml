@@ -30,4 +30,4 @@ test_script:
   - SET PATH=C:\projects\comskip\ffmpeg-3.0-win64-shared/bin;%PATH%
   - comskip ten-copy.mkv
   - cat ten-copy.txt
-  - grep "9359\s17921" ten-copy.txt
+  - grep "9359\s17919" ten-copy.txt
