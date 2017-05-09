@@ -4496,7 +4496,7 @@ again:
                     cc_text[j].start_frame = cc_text[j + 1].start_frame;
                     cc_text[j].end_frame = cc_text[j + 1].end_frame;
                     cc_text[j].text_len = cc_text[j + 1].text_len;
-                    strncpy((char*)cc_text[j].text, (char*)cc_text[j + 1].text, cc_text[j + 1].text_len);
+                    strncpy((char*)cc_text[j].text, (char*)cc_text[j + 1].text, sizeof(cc_text[j].text));
                 }
 
                 cc_text_count--;
