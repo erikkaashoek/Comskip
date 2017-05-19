@@ -1959,7 +1959,7 @@ void InitHasLogo()
 {
 
     int x,y;
-    memset(haslogo,MAXWIDTH*MAXHEIGHT,sizeof(char));
+    memset(haslogo, 0, MAXWIDTH*MAXHEIGHT*sizeof(char));
     for (y = clogoMinY - LOGO_BORDER; y < clogoMaxY + LOGO_BORDER; y++)
     {
         for (x = clogoMinX-LOGO_BORDER; x < clogoMaxX + LOGO_BORDER ; x++)
