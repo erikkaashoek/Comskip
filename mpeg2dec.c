@@ -466,6 +466,7 @@ void sound_to_frames(VideoState *is, short **b, int s, int c, int format)
     static double old_audio_clock=0.0;
     double calculated_delay = 0.0;
     double avg_volume = 0.0;
+    int planar = av_sample_fmt_is_planar(format);
     float *(fb[16]);
     short *(sb[16]);
     static int old_sample_rate = 0;
@@ -532,7 +533,10 @@ void sound_to_frames(VideoState *is, short **b, int s, int c, int format)
             for (i = 0; i < s; i++)
             {
                 volume = 0;
-                for (l=0;l < is->audio_st->codec->channels;l++ ) volume += *((fb[l])++) * 64000;
+                if (planar)
+                    for (l=0;l < is->audio_st->codec->channels;l++ ) volume += *((fb[l])++) * 64000;
+                else
+                    for (l=0;l < is->audio_st->codec->channels;l++ ) volume += *((fb[0])++) * 64000;
                 *audio_buffer_ptr++ = volume / is->audio_st->codec->channels;
                 avg_volume += abs(volume / is->audio_st->codec->channels);
             }
@@ -546,7 +550,10 @@ void sound_to_frames(VideoState *is, short **b, int s, int c, int format)
             for (i = 0; i < s; i++)
             {
                 volume = 0;
-                for (l=0;l < is->audio_st->codec->channels;l++ ) volume += *((sb[l])++);
+                if (planar)
+                    for (l=0;l < is->audio_st->codec->channels;l++ ) volume += *((sb[l])++);
+                else
+                    for (l=0;l < is->audio_st->codec->channels;l++ ) volume += *((sb[0])++);
                 *audio_buffer_ptr++ = volume / is->audio_st->codec->channels;
                 avg_volume += abs(volume / is->audio_st->codec->channels);
             }
@@ -2339,11 +2346,13 @@ nextpacket:
 
             if(packet->stream_index == is->videoStream)
             {
-                video_packet_process(is, packet);
+                if (packet->size > 0 && packet->data != NULL)
+                    video_packet_process(is, packet);
             }
             else if(packet->stream_index == is->audioStream)
             {
-                audio_packet_process(is, packet);
+                if (packet->size > 0 && packet->data != NULL)
+                    audio_packet_process(is, packet);
             }
             else
             {
