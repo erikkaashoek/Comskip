@@ -700,7 +700,7 @@ unsigned int		min_black_frames_for_break = 1;
 bool				detectBlackFrames;
 bool				detectSceneChanges;
 int             dummy1;
-unsigned char*		frame_ptr;
+unsigned char*		frame_ptr = 0;
 int dummy2;
 
 // bool				frameIsBlack;
@@ -9922,7 +9922,10 @@ void LoadCutScene(const char *filename)
          Debug(1, "Can't open cutfile \"%s\"\n", filename);
 }
 
-static DECLARE_ALIGNED(32, int, own_histogram)[4][256];
+#define OWN_HISTOGRAM_WIDTH 4
+#define OWN_HISTOGRAM_HEIGHT 256
+
+static DECLARE_ALIGNED(32, int, own_histogram)[OWN_HISTOGRAM_WIDTH][OWN_HISTOGRAM_HEIGHT];
 int scan_step;
 
 #define SCAN_MULTI
@@ -9961,6 +9964,12 @@ again:
             if (haslogo[i])
                 continue;
             hereBright = frame_ptr[i];
+#ifdef DEBUG_HERE_BRIGHT_MEM
+            if (hereBright >= OWN_HISTOGRAM_HEIGHT) {
+            	printf("Error, invalid here bright %i >= %i", hereBright, OWN_HISTOGRAM_HEIGHT);
+            	exit(1);
+            }
+#endif
             own_histogram[0][hereBright]++;
             if (hereBright > test_brightness)
                 brightCount++;
@@ -10011,6 +10020,12 @@ again:
             if (haslogo[i])
                 continue;
             hereBright = frame_ptr[i];
+#ifdef DEBUG_HERE_BRIGHT_MEM
+            if (hereBright >= OWN_HISTOGRAM_HEIGHT) {
+            	printf("Error, invalid here bright %i >= %i", hereBright, OWN_HISTOGRAM_HEIGHT);
+            	exit(1);
+            }
+#endif
             own_histogram[1][hereBright]++;
             if (hereBright > test_brightness)
                 brightCount++;
@@ -10061,6 +10076,12 @@ again:
             if (haslogo[i])
                 continue;
             hereBright = frame_ptr[i];
+#ifdef DEBUG_HERE_BRIGHT_MEM
+            if (hereBright >= OWN_HISTOGRAM_HEIGHT) {
+            	printf("Error, invalid here bright %i >= %i", hereBright, OWN_HISTOGRAM_HEIGHT);
+            	exit(1);
+            }
+#endif
             own_histogram[2][hereBright]++;
             if (hereBright > test_brightness)
                 brightCount++;
@@ -10111,6 +10132,12 @@ again:
             if (haslogo[i])
                 continue;
             hereBright = frame_ptr[i];
+#ifdef DEBUG_HERE_BRIGHT_MEM
+            if (hereBright >= OWN_HISTOGRAM_HEIGHT) {
+            	printf("Error, invalid here bright %i >= %i", hereBright, OWN_HISTOGRAM_HEIGHT);
+            	exit(1);
+            }
+#endif
             own_histogram[3][hereBright]++;
             if (hereBright > test_brightness)
                 brightCount++;
