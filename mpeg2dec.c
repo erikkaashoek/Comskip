@@ -1910,14 +1910,6 @@ again:
         // Dump information about file onto standard error
         if (retries == 0) av_dump_format(is->pFormatCtx, 0, is->filename, 0);
     }
-#ifndef DONATOR
-
-    if (strcmp(is->pFormatCtx->iformat->name,"wtv")==0)
-    {
-        Debug(0, "WTV files can only be processed by the Donator version\n");
-        exit(-1);
-    }
-#endif
 
     if ( is->videoStream == -1)
     {

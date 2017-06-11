@@ -1,4 +1,4 @@
-AC_INIT([Comskip], [0.81.089], [https://github.com/erikkaashoek/Comskip/issues])
+AC_INIT([Comskip], [0.81.098], [https://github.com/erikkaashoek/Comskip/issues])
 AM_INIT_AUTOMAKE([-Wall -Werror foreign])
 
 : ${CFLAGS=""}
