@@ -12,13 +12,13 @@ artifacts:
 before_build:
   - git log -1
   - cd C:\projects\comskip
-  - appveyor DownloadFile http://ffmpeg.zeranoe.com/builds/win64/shared/ffmpeg-3.1.1-win64-shared.7z
-  - appveyor DownloadFile http://ffmpeg.zeranoe.com/builds/win64/dev/ffmpeg-3.1.1-win64-dev.7z
+  - appveyor DownloadFile http://ffmpeg.zeranoe.com/builds/win64/shared/ffmpeg-3.1.1-win64-shared.zip
+  - appveyor DownloadFile http://ffmpeg.zeranoe.com/builds/win64/dev/ffmpeg-3.1.1-win64-dev.zip
   - appveyor DownloadFile https://downloads.sourceforge.net/project/argtable/argtable/argtable-2.13/argtable2-13.tar.gz
 
 build_script:
-  - 7z x ffmpeg-3.1.1-win64-shared.7z
-  - 7z x ffmpeg-3.1.1-win64-dev.7z
+  - 7z x ffmpeg-3.1.1-win64-shared.zip
+  - 7z x ffmpeg-3.1.1-win64-dev.zip
   - C:\msys64\usr\bin\bash -lc "cd /c/projects/comskip && tar xf argtable2-13.tar.gz && cd argtable2-13 && ./configure --build=x86_64-w64-mingw32 && make"
   - C:\msys64\usr\bin\bash -lc "cd /c/projects/comskip && ./autogen.sh && argtable2_CFLAGS='-Iargtable2-13/src' argtable2_LIBS='-Largtable2-13/src/.libs -largtable2' ffmpeg_CFLAGS='-Iffmpeg-3.1.1-win64-dev/include' ffmpeg_LIBS='-Lffmpeg-3.1.1-win64-dev/lib -lavutil -lavformat -lavcodec' ./configure && make"
 
