@@ -61,6 +61,9 @@
 #endif
 
 
+#define MAX(X,Y) (X>Y?X:Y)
+#define MIN(X,Y) (X<Y?X:Y)
+
 // max number of frames that can be marked
 #define MAX_IDENTIFIERS 300000
 #define MAX_COMMERCIALS 100000
@@ -1939,11 +1942,11 @@ void InitScanLines()
             if ( clogoMinX > videowidth - clogoMaxX)   // Most pixels left of the logo
             {
                 lineStart[i] = border;
-                lineEnd[i] = clogoMinX-LOGO_BORDER;
+                lineEnd[i] = MAX(0,clogoMinX-LOGO_BORDER);
             }
             else
             {
-                lineStart[i] = clogoMaxX+LOGO_BORDER;
+                lineStart[i] = MIN(videowidth-1,clogoMaxX+LOGO_BORDER);
                 lineEnd[i] = videowidth-1-border;
             }
         }
@@ -1960,9 +1963,9 @@ void InitHasLogo()
 
     int x,y;
     memset(haslogo, 0, MAXWIDTH*MAXHEIGHT*sizeof(char));
-    for (y = clogoMinY - LOGO_BORDER; y < clogoMaxY + LOGO_BORDER; y++)
+    for (y = MAX(0,clogoMinY - LOGO_BORDER); y < MIN(MAXHEIGHT,clogoMaxY + LOGO_BORDER); y++)
     {
-        for (x = clogoMinX-LOGO_BORDER; x < clogoMaxX + LOGO_BORDER ; x++)
+        for (x = MAX(0,clogoMinX-LOGO_BORDER); x < MIN(MAXWIDTH,clogoMaxX + LOGO_BORDER) ; x++)
         {
             haslogo[y*width+x] = 1;
         }
@@ -14340,7 +14343,7 @@ ccagain:
             */
         }
 
-        if ((frame[i].schange_percent < 20) && (black[black_count - 1].frame != i))
+        if ((frame[i].schange_percent < 20) && i > 1 && black_count > 0 && (black[black_count - 1].frame != i))
         {
             if (frame[i].brightness < frame[i - 1].brightness * 2)
             {
