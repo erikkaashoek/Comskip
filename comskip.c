@@ -3546,7 +3546,7 @@ void InsertBlackFrame(int f, int b, int u, int v, int c)
 {
     int i;
 
-    //		if ((black_count==0 || black[black_count-1].frame < logo_block[logo_block_count-1].end )) {
+    //		if ((black_count==0 || black[MAX(0, black_count - 1)].frame < logo_block[logo_block_count-1].end )) {
 
     i = 0;
     while (i < black_count && black[i].frame != f)
@@ -10450,7 +10450,7 @@ bool CheckSceneHasChanged(void)
         if ((brightness <= max_avg_brightness) && hasBright <= maxbright * width * height / 720 / 480 && !isDim /* && uniform < non_uniformity */  /* && !lastLogoTest because logo disappearance is detected too late*/)
         {
             cause |= C_b;
-            Debug(7, "Frame %6i (%.3fs) - Black frame with brightness of %i,uniform of %i and volume of %i\n", framenum_real, get_frame_pts(framenum_real), brightness, uniform, black[MAX(0,black_count - 1)].volume);
+            Debug(7, "Frame %6i (%.3fs) - Black frame with brightness of %i,uniform of %i and volume of %i\n", framenum_real, get_frame_pts(framenum_real), brightness, uniform, black[MAX(0, black_count - 1)].volume);
         }
         else if (non_uniformity > 0)
         {
@@ -10458,7 +10458,7 @@ bool CheckSceneHasChanged(void)
             if ((brightness <= max_avg_brightness) && uniform < non_uniformity )
             {
                 cause |= C_u;
-                Debug(7, "Frame %6i (%.3fs) - Black frame with brightness of %i,uniform of %i and volume of %i\n", framenum_real, get_frame_pts(framenum_real), brightness, uniform, black[MAX(0,black_count - 1)].volume);
+                Debug(7, "Frame %6i (%.3fs) - Black frame with brightness of %i,uniform of %i and volume of %i\n", framenum_real, get_frame_pts(framenum_real), brightness, uniform, black[MAX(0, black_count - 1)].volume);
             }
             if (brightness > max_avg_brightness && uniform < non_uniformity && brightness < 250 )
             {
@@ -14343,7 +14343,7 @@ ccagain:
             */
         }
 
-        if ((frame[i].schange_percent < 20) && i > 1 && black_count > 0 && (black[black_count - 1].frame != i))
+        if ((frame[i].schange_percent < 20) && i > 1 && black_count > 0 && (black[MAX(0, black_count - 1)].frame != i))
         {
             if (frame[i].brightness < frame[i - 1].brightness * 2)
             {
@@ -15720,10 +15720,10 @@ void BuildCommListAsYouGo(void)
 
     if (black_count > 0
 #ifdef OLD_LIVE_TV
-        && (black[black_count-1].brightness <= local_blacklevel)
+        && (black[MAX(0, black_count - 1)].brightness <= local_blacklevel)
          &&   (framenum_real > lastFrame)
 #endif
-            /*(black[black_count-1].frame == framenum_real) &&*/
+            /*(black[MAX(0, black_count - 1)].frame == framenum_real) &&*/
         )
     {
 
