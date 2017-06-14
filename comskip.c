@@ -10450,7 +10450,7 @@ bool CheckSceneHasChanged(void)
         if ((brightness <= max_avg_brightness) && hasBright <= maxbright * width * height / 720 / 480 && !isDim /* && uniform < non_uniformity */  /* && !lastLogoTest because logo disappearance is detected too late*/)
         {
             cause |= C_b;
-            Debug(7, "Frame %6i (%.3fs) - Black frame with brightness of %i,uniform of %i and volume of %i\n", framenum_real, get_frame_pts(framenum_real), brightness, uniform, black[black_count-1].volume);
+            Debug(7, "Frame %6i (%.3fs) - Black frame with brightness of %i,uniform of %i and volume of %i\n", framenum_real, get_frame_pts(framenum_real), brightness, uniform, black[MIN(0,black_count-1)].volume);
         }
         else if (non_uniformity > 0)
         {
@@ -10458,7 +10458,7 @@ bool CheckSceneHasChanged(void)
             if ((brightness <= max_avg_brightness) && uniform < non_uniformity )
             {
                 cause |= C_u;
-                Debug(7, "Frame %6i (%.3fs) - Black frame with brightness of %i,uniform of %i and volume of %i\n", framenum_real, get_frame_pts(framenum_real), brightness, uniform, black[black_count-1].volume);
+                Debug(7, "Frame %6i (%.3fs) - Black frame with brightness of %i,uniform of %i and volume of %i\n", framenum_real, get_frame_pts(framenum_real), brightness, uniform, black[MIN(0,black_count-1)].volume);
             }
             if (brightness > max_avg_brightness && uniform < non_uniformity && brightness < 250 )
             {
