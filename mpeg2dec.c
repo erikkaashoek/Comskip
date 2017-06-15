@@ -1674,7 +1674,15 @@ int stream_component_open(VideoState *is, int stream_index)
     }
 
 
-    codec = avcodec_find_decoder(codecCtx->codec_id);
+	codec = avcodec_find_decoder(codecCtx->codec_id);
+	
+	// If decoding in hardware try if running on a Raspberry Pi and then use it's decoder instead.
+    if (hardware_decode) {
+		if (codecCtx->codec_id == AV_CODEC_ID_MPEG2VIDEO && avcodec_find_decoder_by_name("mpeg2_mmal") >= 0) codec = avcodec_find_decoder_by_name("mpeg2_mmal");
+		if (codecCtx->codec_id == AV_CODEC_ID_H264 && avcodec_find_decoder_by_name("h264_mmal") >= 0) codec = avcodec_find_decoder_by_name("h264_mmal");
+		if (codecCtx->codec_id == AV_CODEC_ID_MPEG4 && avcodec_find_decoder_by_name("mpeg4_mmal") >= 0) codec = avcodec_find_decoder_by_name("mpeg4_mmal");
+		if (codecCtx->codec_id == AV_CODEC_ID_VC1 && avcodec_find_decoder_by_name("vc1_mmal") >= 0) codec = avcodec_find_decoder_by_name("vc1_mmal");
+    }
 
     if (!hardware_decode) av_dict_set_int(&myoptions, "gray", 1, 0);
 
