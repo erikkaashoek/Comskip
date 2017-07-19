@@ -9141,33 +9141,39 @@ FILE* LoadSettings(int argc, char ** argv)
         else if (loadingCSV)
         {
             log_file = myfopen(logfilename, "w");
-            fprintf(log_file, "################################################################\n");
-            fprintf(log_file, "Generated using %s %s\n", COMSKIPPUBLIC, PACKAGE_STRING);
-            fprintf(log_file, "Loading comskip csv file - %s\n", in->filename[0]);
-            fprintf(log_file, "Time at start of run:\n%s", ctime(&ltime));
-            fprintf(log_file, "################################################################\n");
-            fclose(log_file);
+            if (log_file) {
+                fprintf(log_file, "################################################################\n");
+                fprintf(log_file, "Generated using %s %s\n", COMSKIPPUBLIC, PACKAGE_STRING);
+                fprintf(log_file, "Loading comskip csv file - %s\n", in->filename[0]);
+                fprintf(log_file, "Time at start of run:\n%s", ctime(&ltime));
+                fprintf(log_file, "################################################################\n");
+                fclose(log_file);
+            }
             log_file = NULL;
         }
         else if (logo_file)
         {
             fclose(logo_file);
             log_file = myfopen(logfilename, "a+");
-            fprintf(log_file, "################################################################\n");
-            fprintf(log_file, "Starting second pass using %s\n", logofilename);
-            fprintf(log_file, "Time at start of second run:\n%s", ctime(&ltime));
-            fprintf(log_file, "################################################################\n");
-            fclose(log_file);
+            if (log_file) {
+                fprintf(log_file, "################################################################\n");
+                fprintf(log_file, "Starting second pass using %s\n", logofilename);
+                fprintf(log_file, "Time at start of second run:\n%s", ctime(&ltime));
+                fprintf(log_file, "################################################################\n");
+                fclose(log_file);
+            }
             log_file = NULL;
         }
         else
         {
             log_file = myfopen(logfilename, "w");
-            fprintf(log_file, "################################################################\n");
-            fprintf(log_file, "Generated using %s %s\n", COMSKIPPUBLIC, PACKAGE_STRING);
-            fprintf(log_file, "Time at start of run:\n%s", ctime(&ltime));
-            fprintf(log_file, "################################################################\n");
-            fclose(log_file);
+            if (log_file) {
+                fprintf(log_file, "################################################################\n");
+                fprintf(log_file, "Generated using %s %s\n", COMSKIPPUBLIC, PACKAGE_STRING);
+                fprintf(log_file, "Time at start of run:\n%s", ctime(&ltime));
+                fprintf(log_file, "################################################################\n");
+                fclose(log_file);
+            }
             log_file = NULL;
         }
     }
