@@ -10,7 +10,7 @@ before_script:
   - sudo dpkg -i libfdk-aac0_0.1.1+20130514-2_amd64.deb
   - sudo dpkg -i libopus0_1.0.1-0ubuntu2_amd64.deb
   - sudo dpkg -i libwebp5_0.4.1-1.2pmo1~precise_amd64.deb
-  - sudo apt-get install -y libargtable2-dev ffmpeg-opti libavformat-ffmpeg-opti-dev libsdl1.2-dev
+  - sudo apt-get install -y --allow-unauthenticated libargtable2-dev ffmpeg-opti libavformat-ffmpeg-opti-dev libsdl1.2-dev
 script:
   - ./autogen.sh
   - ./configure
