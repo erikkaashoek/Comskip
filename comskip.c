@@ -9364,8 +9364,8 @@ FILE* LoadSettings(int argc, char ** argv)
     if (!loadingTXT && (output_srt || output_smi ))
     {
 #ifdef PROCESS_CC
-        char filename[MAX_PATH];
-        char *CEW_argv[10];
+static        char filename[MAX_PATH];
+static        char *CEW_argv[10];
         i = 0;
         CEW_argv[i++] = "comskip.exe";
         if (output_smi)
