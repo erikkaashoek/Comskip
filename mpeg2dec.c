@@ -1481,6 +1481,7 @@ static int    prev_strange_framenum = 0;
                         Debug( 1,"\nSelftest %d FAILED\n", selftest);
                         exit(1);
                     }
+                    goto quit;          //Temporary till the seek error is fixed.
                     retries = 0;
                     exit(-1);
                 }
