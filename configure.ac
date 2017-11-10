@@ -51,6 +51,7 @@ PKG_CHECK_MODULES(sdl, [sdl >= 1.2.0], has_sdl=yes, has_sdl=no)
 AC_MSG_CHECKING([whether to build the graphical user interface])
 AC_MSG_RESULT([$has_sdl])
 AM_CONDITIONAL([BUILD_GUI], [test "x${has_sdl}" = "xyes"])
+AM_PROG_CC_C_O
 
 AC_CONFIG_FILES(Makefile)
 AC_OUTPUT
