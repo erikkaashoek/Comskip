@@ -1,9 +1,9 @@
 language: c
 os: linux
 before_script:
-  - sudo add-apt-repository -y ppa:kirillshkrogalev/ffmpeg-next
+  - sudo add-apt-repository -y ppa:jonathonf/ffmpeg-3
   - sudo apt-get update -q
-  - sudo apt-get install -y --allow-unauthenticated libargtable2-dev libsdl1.2-dev ffmpeg libavcodec-ffmpeg-dev libavformat-ffmpeg-dev
+  - sudo apt-get install -y --allow-unauthenticated libargtable2-dev libsdl1.2-dev ffmpeg libavcodec-dev libavformat-dev
 script:
   - ./autogen.sh
   - ./configure
