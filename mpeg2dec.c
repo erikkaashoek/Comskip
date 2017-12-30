@@ -1199,7 +1199,7 @@ static int    prev_strange_framenum = 0;
     real_pts = 0.0;
     pts = 0;
     //is->video_st->codec.thread_type
-    if (!hardware_decode) is->video_st->codec->flags |= CODEC_FLAG_GRAY;
+    if (!hardware_decode) is->video_st->codec->flags |= AV_CODEC_FLAG_GRAY;
     // Decode video frame
     len1 = avcodec_decode_video2(is->video_st->codec, is->pFrame, &frameFinished,
                                  packet);
@@ -1608,7 +1608,7 @@ int stream_component_open(VideoState *is, int stream_index)
 
     if (codecCtx->codec_type == AVMEDIA_TYPE_VIDEO)
     {
-        if (!hardware_decode) codecCtx->flags |= CODEC_FLAG_GRAY;
+        if (!hardware_decode) codecCtx->flags |= AV_CODEC_FLAG_GRAY;
         is->dec_ctx = codecCtx;
 #ifdef HARDWARE_DECODE
         ist->dec_ctx = codecCtx;
@@ -1732,7 +1732,7 @@ int stream_component_open(VideoState *is, int stream_index)
 //          is->video_current_pts_time = av_gettime();
 
         is->pFrame = av_frame_alloc();
-        if (!hardware_decode) codecCtx->flags |= CODEC_FLAG_GRAY;
+        if (!hardware_decode) codecCtx->flags |= AV_CODEC_FLAG_GRAY;
 //       codecCtx->thread_type = 1; // Frame based threading
         codecCtx->lowres = min(av_codec_get_max_lowres(codecCtx->codec),lowres);
         if (codecCtx->codec_id == AV_CODEC_ID_H264)
@@ -1848,7 +1848,7 @@ void file_open()
 
 //        av_dict_set_int(&opts, "lowres", stream_lowres, 0);
         if (!hardware_decode) {
-//            codecCtx->flags |= CODEC_FLAG_GRAY;
+//            codecCtx->flags |= AV_CODEC_FLAG_GRAY;
             av_dict_set_int(&myoptions, "gray", 1, 0);
         }
 #ifdef DONATOR
