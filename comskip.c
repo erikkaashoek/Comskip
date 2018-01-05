@@ -128,6 +128,7 @@ int audio_channels;
 extern int xPos,yPos,lMouseDown;
 
 extern int framenum_infer;
+extern void list_codes;
 
 extern int64_t headerpos;
 int				vo_init_done = 0;
@@ -448,6 +449,8 @@ int	dominant_ac;
 
 int                     thread_count = 2;
 int                     hardware_decode = 0;
+int                     use_cuvid = 0;
+int                     use_vdpau = 0;
 int						skip_B_frames = 0;
 int						lowres = 0;
 bool					live_tv = false;
@@ -8659,6 +8662,9 @@ FILE* LoadSettings(int argc, char ** argv)
     struct arg_lit*		cl_quiet				= arg_lit0("q", "quiet", "Not output logging to the console window");
     struct arg_lit*		cl_demux				= arg_lit0("m", "demux", "Demux the input into elementary streams");
     struct arg_lit*		cl_hwassist				= arg_lit0(NULL, "hwassist", "Activate Hardware Assisted video decoding");
+    struct arg_lit*		cl_use_cuvid			= arg_lit0(NULL, "cuvid", "Use NVIDIA Video Decoder (CUVID), if available");
+    struct arg_lit*		cl_use_vdpau			= arg_lit0(NULL, "vdpau", "Use NVIDIA Video Decode and Presentation API (VDPAU), if available");
+    struct arg_lit*		cl_list_decoders		= arg_lit0(NULL, "decoders", "List all decoders and exit");
     struct arg_int*		cl_threads				= arg_int0(NULL, "threads", "<int>", "The number of threads to use");
     struct arg_int*		cl_verbose				= arg_intn("v", "verbose", NULL, 0, 1, "Verbose level");
     struct arg_file*	cl_ini					= arg_filen(NULL, "ini", NULL, 0, 1, "Ini file to use");
@@ -8685,6 +8691,9 @@ FILE* LoadSettings(int argc, char ** argv)
         cl_output_plist,
         cl_demux,
         cl_hwassist,
+        cl_use_cuvid,
+        cl_use_vdpau,
+        cl_list_decoders,
         cl_threads,
         cl_pid,
         cl_ts,
@@ -8768,6 +8777,11 @@ FILE* LoadSettings(int argc, char ** argv)
     }
 
     nerrors = arg_parse(argc, argv, argtable);
+    if (cl_list_decoders->count) 
+    {
+        list_codecs();
+        exit(2);
+    }    
     if (cl_help->count)
     {
         printf("Usage:\n  comskip ");
@@ -9132,6 +9146,16 @@ FILE* LoadSettings(int argc, char ** argv)
     {
         hardware_decode = 1;
     }
+    if (cl_use_cuvid->count)
+    {
+        printf("Enabling use_cuvid\n");        
+        use_cuvid = 1;
+    }
+    if (cl_use_vdpau->count)
+    {
+        printf("Enabling use_vdpau\n");        
+        use_vdpau = 1;
+    }    
 
     if (cl_threads->count)
     {
