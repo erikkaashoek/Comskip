@@ -65,6 +65,12 @@ $ sudo port install ffmpeg coreutils argtable
 
 #### Linux
 
+##### Ubuntu Xenial (16.04)
+
+```
+$ apt-get install -y autoconf libtool git build-essential libargtable2-dev libavformat-dev libsdl1.2-dev
+```
+
 ##### Ubuntu Vivid (15.04)
 
 ```
