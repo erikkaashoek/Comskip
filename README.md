@@ -19,7 +19,7 @@ http://www.kaashoek.com/comskip/
 Building directly from GitHub also requires GNU autotools (autoconf, automake, and libtool).
 
 ```
-$ git clone git://github.com/erikkaashoek/Comskip
+$ git clone git://github.com/rboy1/Comskip.git
 $ cd Comskip
 $ ./autogen.sh
 $ ./configure
