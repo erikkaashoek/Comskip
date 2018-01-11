@@ -39,7 +39,20 @@ $ make
 
 #### Windows
 
-There are many ways to setup a build system on Windows. These instructions use MSYS2 and MinGW-w64, but other environments should also work:
+There are many ways to setup a build system on Windows.
+
+##### Cross Compile with Ubuntu Bionic (18.04) with MinGW-w64
+
+```
+$ sudo apt-get install -y subversion curl texinfo g++ bison flex cvs yasm automake libtool autoconf gcc cmake git make pkg-config zlib1g-dev mercurial unzip pax nasm gperf autogen bzip2
+$ git clone https://github.com/erikkaashoek/Comskip.git
+$ cd Comskip
+$ ./cross_compile_comskip.sh
+```
+
+##### MSYS2 and MinGW-w64
+
+These instructions use MSYS2 and MinGW-w64, but other environments should also work:
 
 - Install MSYS2 by following the instructions at https://msys2.github.io/
 - Install the essential build tools: `pacman -S mingw-w64-i686-gcc autoconf automake libtool pkgconfig yasm`
