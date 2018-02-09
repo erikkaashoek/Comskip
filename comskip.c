@@ -902,6 +902,7 @@ char *				FindString(char* str1, char* str2, char *v);
 void				AddIniString( char *s);
 char*				intSecondsToStrMinutes(int seconds);
 char*				dblSecondsToStrMinutes(double seconds);
+char*				dblSecondsToStrMinutesFrames(double seconds);
 FILE*				LoadSettings(int argc, char ** argv);
 int					GetAvgBrightness(void);
 bool				CheckFrameIsBlack(void);
@@ -6113,7 +6114,7 @@ void OpenOutputFiles()
 //			fclose(zoomplayer_chapter_file);
         }
     }
-    
+
     if (output_scf)
     {
         sprintf(filename, "%s.scf", outbasename);
@@ -6786,7 +6787,7 @@ void OutputCommercialBlock(int i, long prev, long start, long end, bool last)
       fprintf(scf_file, "CHAPTER%02iNAME=%s\n", i * 2 + 2, "Commercial ends");
     }
     CLOSEOUTFILE(scf_file);
-    
+
     if (ffmeta_file) {
         if (prev != -1 && prev < start) {
             fprintf(ffmeta_file, "[CHAPTER]\nTIMEBASE=1/100\nSTART=%" PRIu64 "\nEND=%" PRIu64 "\ntitle=Show Segment\n", (uint64_t)(get_frame_pts(prev+1) * 100), (uint64_t)(get_frame_pts(start) * 100));
@@ -6819,8 +6820,8 @@ void OutputCommercialBlock(int i, long prev, long start, long end, bool last)
     {
         if (start < 5)
             start = 0;
-        fprintf(vdr_file, "%s start\n",	dblSecondsToStrMinutes(get_frame_pts(start)));
-        fprintf(vdr_file, "%s end\n", dblSecondsToStrMinutes(get_frame_pts(end)));
+        fprintf(vdr_file, "%s start\n",	dblSecondsToStrMinutesFrames(get_frame_pts(start)));
+        fprintf(vdr_file, "%s end\n", dblSecondsToStrMinutesFrames(get_frame_pts(end)));
     }
     CLOSEOUTFILE(vdr_file);
 
@@ -8334,6 +8335,18 @@ char* dblSecondsToStrMinutes(double seconds)
     minutes = (int)(seconds / 60);
     seconds -= minutes * 60;
     sprintf(tempString, "%0i:%.2i:%.2d.%.2d", hours, minutes, (int)seconds, (int)((seconds - (int)(seconds))*100) );
+
+    return (tempString);
+}
+
+char* dblSecondsToStrMinutesFrames(double seconds)
+{
+    int minutes, hours;
+    hours = (int)(seconds / 3600);
+    seconds -= hours * 60 * 60;
+    minutes = (int)(seconds / 60);
+    seconds -= minutes * 60;
+    sprintf(tempString, "%0i:%.2i:%.2d.%.2d", hours, minutes, (int)seconds, (int)(((int)((seconds - (int)(seconds))*100.0)) * fps / 100.0));
 
     return (tempString);
 }
