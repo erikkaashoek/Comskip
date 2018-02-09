@@ -9969,7 +9969,10 @@ void LoadCutScene(const char *filename)
                 b += cutscene[i][j];
             // csbrightness[i] = b/c;
             cutscenes++;
-            fclose(cutscene_file);
+        }
+        else
+        {
+            Debug(1, "ERROR: Loading from cutfile \"%s\" failed\n", c, filename);
         }
         fclose(cutscene_file);
     } else
