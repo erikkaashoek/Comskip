@@ -1,4 +1,4 @@
-AC_INIT([Comskip], m4_esyscmd_s([ sed -nre 's/.*PACKAGE_STRING[^0-9.]*([0-9.]*).*/\1/p' comskip.h ]), [https://github.com/erikkaashoek/Comskip/issues])
+AC_INIT([Comskip], m4_esyscmd_s([ sed -nEe 's/.*PACKAGE_STRING[^0-9.]*([0-9.]*).*/\1/p' comskip.h ]), [https://github.com/erikkaashoek/Comskip/issues])
 AM_INIT_AUTOMAKE([-Wall -Werror foreign])
 
 : ${CFLAGS=""}
