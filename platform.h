@@ -72,9 +72,11 @@ typedef unsigned short uint16_t;
 typedef unsigned int uint32_t;
 typedef unsigned __int64 uint64_t;
 #include "win32_pthread.h"
+#include <time.h>
 #else
 #include <stdint.h>
 #include <pthread.h>
+#include <time.h>
 #endif
 
 #ifdef _WIN32

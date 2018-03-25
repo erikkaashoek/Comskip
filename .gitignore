@@ -24,3 +24,4 @@ configure
 depcomp
 install-sh
 missing
+comskip.c.save-failed

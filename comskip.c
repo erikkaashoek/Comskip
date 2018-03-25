@@ -176,7 +176,7 @@ int debug_cur_segment;
 frame_info*			frame = NULL;
 long				frame_count = 0;
 long				max_frame_count;
-double				fps = 22.0;						// frames per second (NTSC=29.970, PAL=25)
+double				fps = 1.0;						// frames per second (NTSC=29.970, PAL=25)
 
 double get_frame_pts(int f) {
     if (!frame) {
@@ -15596,7 +15596,7 @@ int DetermineCCTypeForBlock(long start, long end)
             {
                 if ((cc_block[i - 1].type == PAINTON) && (cc_block[i].type == POPON))
                 {
-                    type = COMMERCIAL;
+ //                   type = COMMERCIAL;
                     break;
                 }
             }
@@ -15608,7 +15608,7 @@ int DetermineCCTypeForBlock(long start, long end)
                         (F2L(cc_block[i - 1].end_frame, cc_block[i - 1].start_frame) <= 1.5) &&
                         (cc_block[i].type == POPON))
                 {
-                    type = COMMERCIAL;
+ //                   type = COMMERCIAL;
                     break;
                 }
             }
@@ -16157,29 +16157,37 @@ void set_fps(double fp,double dfps, int ticks, double rfps, double afps)
 {
     double old_fps = fps;
     static int showed_fps=0;
+    static int fps_correction_count = 0;
     fps = (double)1.0 / fp;
     if (fps != old_fps)
         showed_fps=0.0;
     if (fabs(old_fps-fps) > 0.01 /* && showed_fps++ < 4 */ ) {
-        Debug(1, "Frame Rate set to %5.3f f/s\n", fps);
-        if (ticks > 1)
-            Debug(1, "Ticks per frame = %d\n", ticks);
-        if ((fabs(fps - dfps) > 0.1)) {
-            Debug(1, "DFps[%d]= %5.3f f/s\n", ticks, dfps);
+        if (fps_correction_count++ > 4) {
+            Debug(1, "Frame Rate set to %5.3f f/s\n", fps);
+            if (ticks > 1)
+                Debug(1, "Ticks per frame = %d\n", ticks);
+            if ((fabs(fps - dfps) > 0.1)) {
+                Debug(1, "DFps[%d]= %5.3f f/s\n", ticks, dfps);
+            }
+            if (fabs(fps - rfps) > 0.1) {
+                Debug(1, "RFps[%d]= %5.3f f/s\n", ticks, rfps);
+            }
+            if (fabs(fps - afps) > 0.1) {
+                Debug(1, "AFps[%d]= %5.3f f/s\n", ticks, afps);
+            }
+            if ( fps < 9.0 || fps > 100 )
+            {
+                fps = dfps;
+                if (/* old_fps != fps && */ showed_fps < 4)
+                    Debug(1, "Frame Rate corrected to %5.3f f/s\n", fps);
+            }
+
         }
-        if (fabs(fps - rfps) > 0.1) {
-            Debug(1, "RFps[%d]= %5.3f f/s\n", ticks, rfps);
-        }
-        if (fabs(fps - afps) > 0.1) {
-            Debug(1, "AFps[%d]= %5.3f f/s\n", ticks, afps);
-        }
+
     }
-    if ( fps < 9.0 || fps > 100 )
-    {
-        fps = dfps;
-        if (/* old_fps != fps && */ showed_fps < 4)
-        Debug(1, "Frame Rate corrected to %5.3f f/s\n", fps);
-    }
+    else
+        fps_correction_count = 0;
+
 
 }
 /* no longer used

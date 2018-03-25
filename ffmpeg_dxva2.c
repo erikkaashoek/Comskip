@@ -26,13 +26,13 @@
 #define COBJMACROS
 
 #include <stdint.h>
-
 #include <d3d9.h>
 #include <dxva2api.h>
-
-#include "ffmpeg.h"
+#include <config.h>
+#include <fftools/ffmpeg.h>
 
 #include "libavcodec/dxva2.h"
+#include "libavcodec/avcodec.h"
 
 #include "libavutil/avassert.h"
 #include "libavutil/buffer.h"
