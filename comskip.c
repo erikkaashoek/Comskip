@@ -865,6 +865,11 @@ char *helptext[]=
     "d              Delete the commercial at current location",
     "s              Jump to Start of the recording",
     "f              Jump to Finish of the recording",
+     "",
+    "Devide and conquer commercial break review",
+    "j              Set the before marker frame",
+    "k              Set the end marker frame",
+    "l              Clear the marker frames",
     0
 };
 
@@ -2016,8 +2021,10 @@ int zstart = 0;
 int zfactor = 1;
 int show_XDS=0;
 int show_silence=0;
+int preMarkerFrame = 0;
+int postMarkerFrame = 0;
 
-void OutputDebugWindow(bool showVideo, int frm, int grf)
+void OutputDebugWindow(bool showVideo, int frm, int grf, bool forceRefresh)
 {
 #if defined(_WIN32) || defined(HAVE_SDL)
     int i,j,x,y,a=0,c=0,r,s=0,g,gc,lb=0,e=0,n=0,bl,xd;
@@ -2037,7 +2044,7 @@ void OutputDebugWindow(bool showVideo, int frm, int grf)
     bool	blackframe, bothtrue, haslogo, uniformframe;
     int silence=0;
 //	frm++;
-    if (oldfrm == frm)
+    if (!forceRefresh && oldfrm == frm)
         return;
     oldfrm = frm;
     if (output_debugwindow && frame_count )
@@ -2564,6 +2571,19 @@ void OutputDebugWindow(bool showVideo, int frm, int grf)
             }
             if (w < owidth)									// Progress indicator
                 for (y = bartop; y < bartop+30 ; y++) SETPIXEL(w,y,255,0,0);
+
+            if (preMarkerFrame > 0)
+            {
+                int showMkrX = ((preMarkerFrame - zstart)* owidth / v);
+                for (y = bartop; y < bartop+30 ; y++) SETPIXEL(showMkrX,y,0,255,0);
+            }
+
+            if (postMarkerFrame > 0)
+            {
+                int comMkrX = ((postMarkerFrame - zstart)* owidth / v);
+                for (y = bartop; y < bartop+30 ; y++) SETPIXEL(comMkrX,y,0,0,255);
+            }    
+                
             for (y = bartop; y < bartop+(loadingTXT?20:5) ; y++)
             {
                 // Reference bar
@@ -2780,6 +2800,9 @@ bool ReviewResult()
     }
     while(true)
     {
+        // Indicates whether to force the debug window to refresh even if the current frame does not change.
+        bool forceRefresh = false;
+
         if (key != 0)
         {
             if (key == 27) if (!helpflag) exit(0);
@@ -3104,6 +3127,41 @@ bool ReviewResult()
             {
                 oldfrm = -1;
             }
+            
+            if (key == 'J')
+            {
+                // Handle the uesr setting the show marker frame.
+                preMarkerFrame = curframe;                
+                if(postMarkerFrame > 0 && preMarkerFrame > 0)
+                {
+                    long midpoint = ((long)postMarkerFrame + (long)preMarkerFrame) / 2l;
+                    curframe = (int)midpoint;
+                }
+
+                forceRefresh = true;
+            }
+
+            if (key == 'K')
+            {
+                // Handle the user setting the commercial marker frame.
+                postMarkerFrame = curframe;
+
+                if(postMarkerFrame > 0 && preMarkerFrame > 0)
+                {
+                    long midpoint = ((long)postMarkerFrame + (long)preMarkerFrame) / 2l;
+                    curframe = (int)midpoint;
+                }
+                forceRefresh = true;
+            }
+
+            if (key == 'L')
+            {
+                // Hanle the user accepting the commercial location.
+                preMarkerFrame = 0;
+                postMarkerFrame = 0;
+                forceRefresh = true;
+            }
+
             if (key == 82) return(true);
             if (key != 16) shift = 0;
             key = 0;
@@ -3125,7 +3183,7 @@ bool ReviewResult()
                 DecodeOnePicture(review_file, (framearray ? F2T(curframe) : (double)curframe / fps));
                 lastcurframe = curframe;
             }
-        OutputDebugWindow((review_file ? true : false),curframe, grf);
+        OutputDebugWindow((review_file ? true : false),curframe, grf, forceRefresh);
 #if defined(_WIN32) || defined(HAVE_SDL)
         vo_wait();
 #endif
@@ -3309,7 +3367,7 @@ int DetectCommercials(int f, double pts)
     if (framearray) frame[frame_count].currentGoodEdge = currentGoodEdge;
 
     if (((frame_count) & subsample_video) == 0)
-        OutputDebugWindow(true,frame_count,true);
+        OutputDebugWindow(true,frame_count,true, false);
 //	key = 0;
 //	while (key==0)
 //		vo_wait();
