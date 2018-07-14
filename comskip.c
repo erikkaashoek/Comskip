@@ -866,7 +866,7 @@ char *helptext[]=
     "s              Jump to Start of the recording",
     "f              Jump to Finish of the recording",
      "",
-    "Devide and conquer commercial break review",
+    "Divide and conquer commercial break review",
     "j              Set the before marker frame",
     "k              Set the end marker frame",
     "l              Clear the marker frames",
@@ -3130,9 +3130,9 @@ bool ReviewResult()
             
             if (key == 'J')
             {
-                // Handle the uesr setting the show marker frame.
+                // Handle the uesr setting the before marker frame.
                 preMarkerFrame = curframe;                
-                if(postMarkerFrame > 0 && preMarkerFrame > 0)
+                if (postMarkerFrame > 0 && preMarkerFrame > 0)
                 {
                     long midpoint = ((long)postMarkerFrame + (long)preMarkerFrame) / 2l;
                     curframe = (int)midpoint;
@@ -3143,20 +3143,21 @@ bool ReviewResult()
 
             if (key == 'K')
             {
-                // Handle the user setting the commercial marker frame.
+                // Handle the user setting the after marker frame.
                 postMarkerFrame = curframe;
 
-                if(postMarkerFrame > 0 && preMarkerFrame > 0)
+                if (postMarkerFrame > 0 && preMarkerFrame > 0)
                 {
                     long midpoint = ((long)postMarkerFrame + (long)preMarkerFrame) / 2l;
                     curframe = (int)midpoint;
                 }
+		
                 forceRefresh = true;
             }
 
             if (key == 'L')
             {
-                // Hanle the user accepting the commercial location.
+                // Handle the user clearing the markers.
                 preMarkerFrame = 0;
                 postMarkerFrame = 0;
                 forceRefresh = true;
