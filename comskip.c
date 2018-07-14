@@ -3130,7 +3130,7 @@ bool ReviewResult()
             
             if (key == 'J')
             {
-                // Handle the uesr setting the before marker frame.
+                // Handle the user setting the before marker frame.
                 preMarkerFrame = curframe;                
                 if (postMarkerFrame > 0 && preMarkerFrame > 0)
                 {
