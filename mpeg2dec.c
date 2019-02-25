@@ -41,9 +41,8 @@ double test_pts = 0.0;
 #include <libavutil/pixdesc.h>
 #include <libavutil/samplefmt.h>
 
-#undef HARDWARE_DECODE
 #ifdef HARDWARE_DECODE
-#include <ffmpeg.h>
+#include <fftools/ffmpeg.h>
 const HWAccel hwaccels[] = {
 #if HAVE_VDPAU_X11
     { "vdpau", vdpau_init, HWACCEL_VDPAU, AV_PIX_FMT_VDPAU },
@@ -65,6 +64,7 @@ static InputStream *ist = &inputs;
 extern int      hardware_decode;
 extern int      use_cuvid;
 extern int      use_vdpau;
+extern int      use_dxva2;
 int av_log_level=AV_LOG_INFO;
 
 
@@ -317,7 +317,8 @@ extern int live_tv_retries;
 extern int dvrms_live_tv_retries;
 int retries;
 
-extern void set_fps(double frame_delay, double dfps, int ticks, double rfps, double afps);
+//extern void set_fps(double frame_delay, double dfps, int ticks, double rfps, double afps);
+extern void set_fps(double frame_delay);
 extern void dump_video (char *start, char *end);
 extern void dump_audio (char *start, char *end);
 extern void	Debug(int level, char* fmt, ...);
@@ -349,7 +350,7 @@ static short *audio_buffer_ptr = audio_buffer;
 static int audio_samples = 0;
 #define ISSAME(T1,T2) (fabs((T1) - (T2)) < 0.001)
 
-extern double fps;
+//extern double fps;
 static int sound_frame_counter = 0;
 extern double get_fps();
 extern int get_samplerate();
@@ -372,10 +373,10 @@ int frames_with_loud_sound = 0;
 
 void list_codecs()
 {
-        AVCodec *p;        
+        AVCodec *p;
         int i = 0;
-        avcodec_register_all();        
-        p = av_codec_next(NULL);   
+        avcodec_register_all();
+        p = av_codec_next(NULL);
         printf("Decoders:\n");
         printf("---------\n");
         while (p != NULL) {
@@ -1255,8 +1256,16 @@ static int    prev_strange_framenum = 0;
     if(frameFinished)
     {
 
+        if(is->video_st->codec->framerate.den && is->video_st->codec->framerate.num)
+        {
+            frame_delay = (1/ av_q2d(is->video_st->codec->framerate) ) /* * is->video_st->codec->ticks_per_frame */ ;
+        }
+        else
+        {
+           frame_delay = av_q2d(is->video_st->codec->time_base) * is->video_st->codec->ticks_per_frame ;
+        }
 
-        frame_delay = av_q2d(is->video_st->codec->time_base) * is->video_st->codec->ticks_per_frame ;
+//        frame_delay = av_q2d(is->video_st->codec->time_base) * is->video_st->codec->ticks_per_frame ;
         repeat = av_stream_get_parser(is->video_st) ? av_stream_get_parser(is->video_st)->repeat_pict: 4;
 
  //       if (prev_frame_delay != 0.0 && frame_delay != prev_frame_delay)
@@ -1308,7 +1317,6 @@ static int    prev_strange_framenum = 0;
                 force_29fps = 1;
                 force_25fps = 0;
                 force_24fps = 0;
-                Debug(1 ,"Framerate forced to 29.97fps at frame %d\n", frame_count);
             }
 
             if ( (!(fabs(frame_delay - 0.040) < 0.001 )) &&
@@ -1323,7 +1331,6 @@ static int    prev_strange_framenum = 0;
                 force_29fps = 0;
                 force_25fps = 1;
                 force_24fps = 0;
-                Debug(1 ,"Framerate forced to 25.00fps at frame %d\n", frame_count);
             }
 
             if ( ((find_24fps & 1 ) == 0 && (fabs(calculated_delay - 0.050) < 0.001 )) ||
@@ -1339,21 +1346,26 @@ static int    prev_strange_framenum = 0;
                 force_29fps = 0;
                 force_25fps = 0;
                 force_24fps = 1;
-                Debug(1 ,"Framerate forced to 24.00fps at frame %d\n", frame_count);
             }
         }
 
-        if (force_29fps)
+        if (force_29fps && find_29fps == 5)
         {
             frame_delay=0.033366666666666669;
+            Debug(1 ,"Framerate forced %6.3f fps at frame %d\n", 1.0/frame_delay, frame_count);
+            set_fps(frame_delay);
         }
-        if (force_25fps)
+        if (force_25fps && find_25fps == 5)
         {
             frame_delay=0.04;
+            Debug(1 ,"Framerate forced %6.3f fps at frame %d\n", 1.0/frame_delay, frame_count);
+            set_fps(frame_delay);
         }
-        if (force_24fps)
+        if (force_24fps && find_24fps == 5)
         {
             frame_delay=0.0416666666666667;
+            Debug(1 ,"Framerate forced %6.3f fps at frame %d\n", 1.0/frame_delay, frame_count);
+            set_fps(frame_delay);
         }
 
 //#define SHOW_VIDEO_TIMING
@@ -1385,10 +1397,11 @@ static int    prev_strange_framenum = 0;
         if (!reviewing
             && framenum > 1 && fabs(calculated_delay - frame_delay) > 0.01
             && !ISSAME(3*frame_delay/ is->video_st->codec->ticks_per_frame, calculated_delay)
+            && !ISSAME(2*frame_delay/ is->video_st->codec->ticks_per_frame, calculated_delay)
             && !ISSAME(1*frame_delay/ is->video_st->codec->ticks_per_frame, calculated_delay)
             ){
             if ( (prev_strange_framenum + 1 != framenum) &&( prev_strange_step < fabs(calculated_delay - frame_delay))) {
-                Debug(8 ,"Strange video pts step of %6.5f instead of %6.5f at frame %d\n", calculated_delay+0.0005, frame_delay+0.0005, framenum); // Unknown strange step
+                Debug(8 ,"Strange video pts step of %6.5f instead of %6.5f at frame %d\n", calculated_delay+0.0000005, frame_delay+0.0000005, framenum); // Unknown strange step
                 if (calculated_delay < -0.5)
                     do_audio_repair = 0;        // Disable audio repair with messed up video timeline
             }
@@ -1396,7 +1409,7 @@ static int    prev_strange_framenum = 0;
             prev_strange_step = fabs(calculated_delay - frame_delay);
         }
 
-        set_fps(frame_delay, is->fps, repeat, av_q2d(is->video_st->r_frame_rate),  av_q2d(is->video_st->avg_frame_rate));
+        // set_fps(calculated_delay, is->fps, repeat, av_q2d(is->video_st->r_frame_rate),  av_q2d(is->video_st->avg_frame_rate));
 
         if(pts != 0)
         {
@@ -1620,8 +1633,8 @@ int stream_component_open(VideoState *is, int stream_index)
     AVCodecContext *codecCtx;
     AVCodec *codec;
     AVCodec *codec_hw = NULL;
-    
-   
+
+
 
     if(stream_index < 0 || (unsigned int)stream_index >= pFormatCtx->nb_streams)
     {
@@ -1703,7 +1716,7 @@ int stream_component_open(VideoState *is, int stream_index)
 #endif
         }
     }
-    
+
 
 	codec = avcodec_find_decoder(codecCtx->codec_id);
 
@@ -1714,19 +1727,25 @@ int stream_component_open(VideoState *is, int stream_index)
 		if (codecCtx->codec_id == AV_CODEC_ID_MPEG4 && avcodec_find_decoder_by_name("mpeg4_mmal") != NULL) codec_hw = avcodec_find_decoder_by_name("mpeg4_mmal");
 		if (codecCtx->codec_id == AV_CODEC_ID_VC1 && avcodec_find_decoder_by_name("vc1_mmal") != NULL) codec_hw = avcodec_find_decoder_by_name("vc1_mmal");
     }
-    
-    if (use_cuvid) {        
+
+    if (use_cuvid) {
 		if (codecCtx->codec_id == AV_CODEC_ID_MPEG2VIDEO && avcodec_find_decoder_by_name("mpeg2_cuvid") != NULL) codec_hw = avcodec_find_decoder_by_name("mpeg2_cuvid");
 		if (codecCtx->codec_id == AV_CODEC_ID_H264 && avcodec_find_decoder_by_name("h264_cuvid") != NULL) codec_hw = avcodec_find_decoder_by_name("h264_cuvid");
 		if (codecCtx->codec_id == AV_CODEC_ID_MPEG4 && avcodec_find_decoder_by_name("mpeg4_cuvid") != NULL) codec_hw = avcodec_find_decoder_by_name("mpeg4_cuvid");
-		if (codecCtx->codec_id == AV_CODEC_ID_VC1 && avcodec_find_decoder_by_name("vc1_cuvidl") != NULL) codec_hw = avcodec_find_decoder_by_name("vc1_cuvidl");        
+		if (codecCtx->codec_id == AV_CODEC_ID_VC1 && avcodec_find_decoder_by_name("vc1_cuvidl") != NULL) codec_hw = avcodec_find_decoder_by_name("vc1_cuvidl");
     }
-    
-    if (use_vdpau) {        
+
+    if (use_vdpau) {
 		if (codecCtx->codec_id == AV_CODEC_ID_MPEG2VIDEO && avcodec_find_decoder_by_name("mpeg2_vdpau") != NULL) codec_hw = avcodec_find_decoder_by_name("mpeg2_vdpau");
 		if (codecCtx->codec_id == AV_CODEC_ID_H264 && avcodec_find_decoder_by_name("h264_vdpau") != NULL) codec_hw = avcodec_find_decoder_by_name("h264_vdpau");
 		if (codecCtx->codec_id == AV_CODEC_ID_MPEG4 && avcodec_find_decoder_by_name("mpeg4_vdpau") != NULL) codec_hw = avcodec_find_decoder_by_name("mpeg4_vdpau");
-		if (codecCtx->codec_id == AV_CODEC_ID_VC1 && avcodec_find_decoder_by_name("vc1_vdpau") != NULL) codec_hw = avcodec_find_decoder_by_name("vc1_vdpau");                  
+		if (codecCtx->codec_id == AV_CODEC_ID_VC1 && avcodec_find_decoder_by_name("vc1_vdpau") != NULL) codec_hw = avcodec_find_decoder_by_name("vc1_vdpau");
+    }
+    if (use_dxva2) {
+		if (codecCtx->codec_id == AV_CODEC_ID_MPEG2VIDEO && avcodec_find_decoder_by_name("mpeg2_dxva2") != NULL) codec_hw = avcodec_find_decoder_by_name("mpeg2_dxva2");
+		if (codecCtx->codec_id == AV_CODEC_ID_H264 && avcodec_find_decoder_by_name("h264_dxva2") != NULL) codec_hw = avcodec_find_decoder_by_name("h264_dxva2");
+		if (codecCtx->codec_id == AV_CODEC_ID_MPEG4 && avcodec_find_decoder_by_name("mpeg4_dxva2") != NULL) codec_hw = avcodec_find_decoder_by_name("mpeg4_dxva2");
+		if (codecCtx->codec_id == AV_CODEC_ID_VC1 && avcodec_find_decoder_by_name("vc1_dxva2") != NULL) codec_hw = avcodec_find_decoder_by_name("vc1_dxva2");
     }
 
     if (!hardware_decode) av_dict_set_int(&myoptions, "gray", 1, 0);
@@ -1735,9 +1754,9 @@ int stream_component_open(VideoState *is, int stream_index)
  //       av_dict_set_int(&myoptions, "fastint", 1, 0);
  //       av_dict_set_int(&myoptions, "skip_alpha", 1, 0);
 //        av_dict_set(&myoptions, "threads", "auto", 0);
-    
-    if (codec_hw != NULL && codec_hw != codec) {        
-        fprintf(stderr, "Using Codec: %s instead of %s\n", codec_hw->name, codec->name);       
+
+    if (codec_hw != NULL && codec_hw != codec) {
+        fprintf(stderr, "Using Codec: %s instead of %s\n", codec_hw->name, codec->name);
         codec = codec_hw;
     }
 
@@ -1986,9 +2005,10 @@ again:
         }
         else
         {
-            is->fps = 1/av_q2d(is->video_st->codec->time_base);
+            Debug(10, "Warning, no stream frame rate, deriving from codec\n");
+            is->fps = 1/(av_q2d(is->video_st->codec->time_base) * is->video_st->codec->ticks_per_frame );
         }
-        fps = is->fps;
+        set_fps( 1.0 / is->fps);
 //        Debug(1, "Stream frame rate is %5.3f f/s\n", is->fps);
 
 

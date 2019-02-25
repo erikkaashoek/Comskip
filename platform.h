@@ -71,7 +71,7 @@ typedef unsigned char uint8_t;
 typedef unsigned short uint16_t;
 typedef unsigned int uint32_t;
 typedef unsigned __int64 uint64_t;
-#include "win32_pthread.h"
+#include <compat/w32pthreads.h>
 #include <time.h>
 #else
 #include <stdint.h>
