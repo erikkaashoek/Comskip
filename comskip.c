@@ -16,7 +16,23 @@
 #include "platform.h"
 #include "vo.h"
 #include <argtable2.h>
+
+
+#include <libavformat/avformat.h>
+#include <libavcodec/avcodec.h>
+
+//#define restrict
+//#include <libavcodec/ac3dec.h>
+#include <libavutil/avutil.h>
+#include <libavutil/pixdesc.h>
+#include <libavutil/samplefmt.h>
+
+#ifdef HARDWARE_DECODE
+#include <fftools/ffmpeg.h>
+#endif
+
 #include "comskip.h"
+
 
 // Define detection methods
 #define BLACK_FRAME		1
@@ -2583,8 +2599,8 @@ void OutputDebugWindow(bool showVideo, int frm, int grf, bool forceRefresh)
             {
                 int comMkrX = ((postMarkerFrame - zstart)* owidth / v);
                 for (y = bartop; y < bartop+30 ; y++) SETPIXEL(comMkrX,y,0,0,255);
-            }    
-                
+            }
+
             for (y = bartop; y < bartop+(loadingTXT?20:5) ; y++)
             {
                 // Reference bar
@@ -3128,11 +3144,11 @@ bool ReviewResult()
             {
                 oldfrm = -1;
             }
-            
+
             if (key == 'J')
             {
                 // Handle the user setting the before marker frame.
-                preMarkerFrame = curframe;                
+                preMarkerFrame = curframe;
                 if (postMarkerFrame > 0 && preMarkerFrame > 0)
                 {
                     long midpoint = ((long)postMarkerFrame + (long)preMarkerFrame) / 2l;
@@ -3152,7 +3168,7 @@ bool ReviewResult()
                     long midpoint = ((long)postMarkerFrame + (long)preMarkerFrame) / 2l;
                     curframe = (int)midpoint;
                 }
-		
+
                 forceRefresh = true;
             }
 

@@ -1592,7 +1592,7 @@ static enum AVPixelFormat get_format(AVCodecContext *s, const enum AVPixelFormat
 
         hwaccel = get_hwaccel(*p);
         if (!hwaccel ||
-            (ist->active_hwaccel_id && ist->active_hwaccel_id != hwaccel->id) ||
+  //          (ist->active_hwaccel_id && ist->active_hwaccel_id != hwaccel->id) ||
             (ist->hwaccel_id != HWACCEL_AUTO && ist->hwaccel_id != hwaccel->id))
             continue;
 
@@ -1607,7 +1607,7 @@ static enum AVPixelFormat get_format(AVCodecContext *s, const enum AVPixelFormat
             }
             continue;
         }
-        ist->active_hwaccel_id = hwaccel->id;
+//        ist->active_hwaccel_id = hwaccel->id;
         ist->hwaccel_pix_fmt   = *p;
         break;
     }
