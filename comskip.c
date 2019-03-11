@@ -16,7 +16,23 @@
 #include "platform.h"
 #include "vo.h"
 #include <argtable2.h>
+
+
+#include <libavformat/avformat.h>
+#include <libavcodec/avcodec.h>
+
+//#define restrict
+//#include <libavcodec/ac3dec.h>
+#include <libavutil/avutil.h>
+#include <libavutil/pixdesc.h>
+#include <libavutil/samplefmt.h>
+
+#ifdef HARDWARE_DECODE
+#include <fftools/ffmpeg.h>
+#endif
+
 #include "comskip.h"
+
 
 // Define detection methods
 #define BLACK_FRAME		1
@@ -128,6 +144,7 @@ int audio_channels;
 extern int xPos,yPos,lMouseDown;
 
 extern int framenum_infer;
+extern void list_codes;
 
 extern int64_t headerpos;
 int				vo_init_done = 0;
@@ -175,7 +192,7 @@ int debug_cur_segment;
 frame_info*			frame = NULL;
 long				frame_count = 0;
 long				max_frame_count;
-double				fps = 22.0;						// frames per second (NTSC=29.970, PAL=25)
+double				fps = 1.0;						// frames per second (NTSC=29.970, PAL=25)
 
 double get_frame_pts(int f) {
     if (!frame) {
@@ -448,6 +465,9 @@ int	dominant_ac;
 
 int                     thread_count = 2;
 int                     hardware_decode = 0;
+int                     use_cuvid = 0;
+int                     use_vdpau = 0;
+int                     use_dxva2 = 0;
 int						skip_B_frames = 0;
 int						lowres = 0;
 bool					live_tv = false;
@@ -862,6 +882,11 @@ char *helptext[]=
     "d              Delete the commercial at current location",
     "s              Jump to Start of the recording",
     "f              Jump to Finish of the recording",
+     "",
+    "Divide and conquer commercial break review",
+    "j              Set the before marker frame",
+    "k              Set the end marker frame",
+    "l              Clear the marker frames",
     0
 };
 
@@ -902,6 +927,7 @@ char *				FindString(char* str1, char* str2, char *v);
 void				AddIniString( char *s);
 char*				intSecondsToStrMinutes(int seconds);
 char*				dblSecondsToStrMinutes(double seconds);
+char*				dblSecondsToStrMinutesFrames(double seconds);
 FILE*				LoadSettings(int argc, char ** argv);
 int					GetAvgBrightness(void);
 bool				CheckFrameIsBlack(void);
@@ -2012,8 +2038,10 @@ int zstart = 0;
 int zfactor = 1;
 int show_XDS=0;
 int show_silence=0;
+int preMarkerFrame = 0;
+int postMarkerFrame = 0;
 
-void OutputDebugWindow(bool showVideo, int frm, int grf)
+void OutputDebugWindow(bool showVideo, int frm, int grf, bool forceRefresh)
 {
 #if defined(_WIN32) || defined(HAVE_SDL)
     int i,j,x,y,a=0,c=0,r,s=0,g,gc,lb=0,e=0,n=0,bl,xd;
@@ -2033,7 +2061,7 @@ void OutputDebugWindow(bool showVideo, int frm, int grf)
     bool	blackframe, bothtrue, haslogo, uniformframe;
     int silence=0;
 //	frm++;
-    if (oldfrm == frm)
+    if (!forceRefresh && oldfrm == frm)
         return;
     oldfrm = frm;
     if (output_debugwindow && frame_count )
@@ -2560,6 +2588,19 @@ void OutputDebugWindow(bool showVideo, int frm, int grf)
             }
             if (w < owidth)									// Progress indicator
                 for (y = bartop; y < bartop+30 ; y++) SETPIXEL(w,y,255,0,0);
+
+            if (preMarkerFrame > 0)
+            {
+                int showMkrX = ((preMarkerFrame - zstart)* owidth / v);
+                for (y = bartop; y < bartop+30 ; y++) SETPIXEL(showMkrX,y,0,255,0);
+            }
+
+            if (postMarkerFrame > 0)
+            {
+                int comMkrX = ((postMarkerFrame - zstart)* owidth / v);
+                for (y = bartop; y < bartop+30 ; y++) SETPIXEL(comMkrX,y,0,0,255);
+            }
+
             for (y = bartop; y < bartop+(loadingTXT?20:5) ; y++)
             {
                 // Reference bar
@@ -2776,6 +2817,9 @@ bool ReviewResult()
     }
     while(true)
     {
+        // Indicates whether to force the debug window to refresh even if the current frame does not change.
+        bool forceRefresh = false;
+
         if (key != 0)
         {
             if (key == 27) if (!helpflag) exit(0);
@@ -3100,6 +3144,42 @@ bool ReviewResult()
             {
                 oldfrm = -1;
             }
+
+            if (key == 'J')
+            {
+                // Handle the user setting the before marker frame.
+                preMarkerFrame = curframe;
+                if (postMarkerFrame > 0 && preMarkerFrame > 0)
+                {
+                    long midpoint = ((long)postMarkerFrame + (long)preMarkerFrame) / 2l;
+                    curframe = (int)midpoint;
+                }
+
+                forceRefresh = true;
+            }
+
+            if (key == 'K')
+            {
+                // Handle the user setting the after marker frame.
+                postMarkerFrame = curframe;
+
+                if (postMarkerFrame > 0 && preMarkerFrame > 0)
+                {
+                    long midpoint = ((long)postMarkerFrame + (long)preMarkerFrame) / 2l;
+                    curframe = (int)midpoint;
+                }
+
+                forceRefresh = true;
+            }
+
+            if (key == 'L')
+            {
+                // Handle the user clearing the markers.
+                preMarkerFrame = 0;
+                postMarkerFrame = 0;
+                forceRefresh = true;
+            }
+
             if (key == 82) return(true);
             if (key != 16) shift = 0;
             key = 0;
@@ -3121,7 +3201,7 @@ bool ReviewResult()
                 DecodeOnePicture(review_file, (framearray ? F2T(curframe) : (double)curframe / fps));
                 lastcurframe = curframe;
             }
-        OutputDebugWindow((review_file ? true : false),curframe, grf);
+        OutputDebugWindow((review_file ? true : false),curframe, grf, forceRefresh);
 #if defined(_WIN32) || defined(HAVE_SDL)
         vo_wait();
 #endif
@@ -3305,7 +3385,7 @@ int DetectCommercials(int f, double pts)
     if (framearray) frame[frame_count].currentGoodEdge = currentGoodEdge;
 
     if (((frame_count) & subsample_video) == 0)
-        OutputDebugWindow(true,frame_count,true);
+        OutputDebugWindow(true,frame_count,true, false);
 //	key = 0;
 //	while (key==0)
 //		vo_wait();
@@ -6113,7 +6193,7 @@ void OpenOutputFiles()
 //			fclose(zoomplayer_chapter_file);
         }
     }
-    
+
     if (output_scf)
     {
         sprintf(filename, "%s.scf", outbasename);
@@ -6786,7 +6866,7 @@ void OutputCommercialBlock(int i, long prev, long start, long end, bool last)
       fprintf(scf_file, "CHAPTER%02iNAME=%s\n", i * 2 + 2, "Commercial ends");
     }
     CLOSEOUTFILE(scf_file);
-    
+
     if (ffmeta_file) {
         if (prev != -1 && prev < start) {
             fprintf(ffmeta_file, "[CHAPTER]\nTIMEBASE=1/100\nSTART=%" PRIu64 "\nEND=%" PRIu64 "\ntitle=Show Segment\n", (uint64_t)(get_frame_pts(prev+1) * 100), (uint64_t)(get_frame_pts(start) * 100));
@@ -6819,8 +6899,8 @@ void OutputCommercialBlock(int i, long prev, long start, long end, bool last)
     {
         if (start < 5)
             start = 0;
-        fprintf(vdr_file, "%s start\n",	dblSecondsToStrMinutes(get_frame_pts(start)));
-        fprintf(vdr_file, "%s end\n", dblSecondsToStrMinutes(get_frame_pts(end)));
+        fprintf(vdr_file, "%s start\n",	dblSecondsToStrMinutesFrames(get_frame_pts(start)));
+        fprintf(vdr_file, "%s end\n", dblSecondsToStrMinutesFrames(get_frame_pts(end)));
     }
     CLOSEOUTFILE(vdr_file);
 
@@ -8338,6 +8418,18 @@ char* dblSecondsToStrMinutes(double seconds)
     return (tempString);
 }
 
+char* dblSecondsToStrMinutesFrames(double seconds)
+{
+    int minutes, hours;
+    hours = (int)(seconds / 3600);
+    seconds -= hours * 60 * 60;
+    minutes = (int)(seconds / 60);
+    seconds -= minutes * 60;
+    sprintf(tempString, "%0i:%.2i:%.2d.%.2d", hours, minutes, (int)seconds, (int)(((int)((seconds - (int)(seconds))*100.0)) * fps / 100.0));
+
+    return (tempString);
+}
+
 
 
 void LoadIniFile()
@@ -8659,6 +8751,10 @@ FILE* LoadSettings(int argc, char ** argv)
     struct arg_lit*		cl_quiet				= arg_lit0("q", "quiet", "Not output logging to the console window");
     struct arg_lit*		cl_demux				= arg_lit0("m", "demux", "Demux the input into elementary streams");
     struct arg_lit*		cl_hwassist				= arg_lit0(NULL, "hwassist", "Activate Hardware Assisted video decoding");
+    struct arg_lit*		cl_use_cuvid			= arg_lit0(NULL, "cuvid", "Use NVIDIA Video Decoder (CUVID), if available");
+    struct arg_lit*		cl_use_vdpau			= arg_lit0(NULL, "vdpau", "Use NVIDIA Video Decode and Presentation API (VDPAU), if available");
+    struct arg_lit*		cl_use_dxva2			= arg_lit0(NULL, "dxva2", "Use DXVA2 Video Decode and Presentation API (DXVA2), if available");
+    struct arg_lit*		cl_list_decoders		= arg_lit0(NULL, "decoders", "List all decoders and exit");
     struct arg_int*		cl_threads				= arg_int0(NULL, "threads", "<int>", "The number of threads to use");
     struct arg_int*		cl_verbose				= arg_intn("v", "verbose", NULL, 0, 1, "Verbose level");
     struct arg_file*	cl_ini					= arg_filen(NULL, "ini", NULL, 0, 1, "Ini file to use");
@@ -8685,6 +8781,10 @@ FILE* LoadSettings(int argc, char ** argv)
         cl_output_plist,
         cl_demux,
         cl_hwassist,
+        cl_use_cuvid,
+        cl_use_vdpau,
+        cl_use_dxva2,
+        cl_list_decoders,
         cl_threads,
         cl_pid,
         cl_ts,
@@ -8768,6 +8868,11 @@ FILE* LoadSettings(int argc, char ** argv)
     }
 
     nerrors = arg_parse(argc, argv, argtable);
+    if (cl_list_decoders->count)
+    {
+        list_codecs();
+        exit(2);
+    }
     if (cl_help->count)
     {
         printf("Usage:\n  comskip ");
@@ -9131,6 +9236,22 @@ FILE* LoadSettings(int argc, char ** argv)
     if (cl_hwassist->count)
     {
         hardware_decode = 1;
+    }
+    if (cl_use_cuvid->count)
+    {
+        printf("Enabling use_cuvid\n");
+        use_cuvid = 1;
+    }
+    if (cl_use_vdpau->count)
+    {
+        printf("Enabling use_vdpau\n");
+        use_vdpau = 1;
+    }
+
+    if (cl_use_dxva2->count)
+    {
+        printf("Enabling use_dxva2\n");
+        use_dxva2 = 1;
     }
 
     if (cl_threads->count)
@@ -9956,7 +10077,10 @@ void LoadCutScene(const char *filename)
                 b += cutscene[i][j];
             // csbrightness[i] = b/c;
             cutscenes++;
-            fclose(cutscene_file);
+        }
+        else
+        {
+            Debug(1, "ERROR: Loading from cutfile \"%s\" failed\n", c, filename);
         }
         fclose(cutscene_file);
     } else
@@ -11517,7 +11641,7 @@ bool ProcessLogoTest(int framenum_real, int curLogoTest, int close)
                 logoTrendCounter = 0;
                 InitializeLogoBlockArray(logo_block_count + 2);
                 logo_block[logo_block_count + 1].start = -1;
-                logo_block[logo_block_count].start = framenum_real - ((int)(fps * logoFreq) * (minHitsForTrend - 1));
+                logo_block[logo_block_count].start = max(framenum_real - ((int)(fps * logoFreq) * (minHitsForTrend - 1)),0);
                 frames_with_logo +=((int)(fps * logoFreq) * (minHitsForTrend - 1));
                 if (framearray)
                 {
@@ -15556,7 +15680,7 @@ int DetermineCCTypeForBlock(long start, long end)
             {
                 if ((cc_block[i - 1].type == PAINTON) && (cc_block[i].type == POPON))
                 {
-                    type = COMMERCIAL;
+ //                   type = COMMERCIAL;
                     break;
                 }
             }
@@ -15568,7 +15692,7 @@ int DetermineCCTypeForBlock(long start, long end)
                         (F2L(cc_block[i - 1].end_frame, cc_block[i - 1].start_frame) <= 1.5) &&
                         (cc_block[i].type == POPON))
                 {
-                    type = COMMERCIAL;
+ //                   type = COMMERCIAL;
                     break;
                 }
             }
@@ -16113,33 +16237,46 @@ double get_fps()
 }
 
 
-void set_fps(double fp,double dfps, int ticks, double rfps, double afps)
+void set_fps(double fp)
 {
     double old_fps = fps;
-    static int showed_fps=0;
-    fps = (double)1.0 / fp;
-    if (fps != old_fps)
-        showed_fps=0.0;
-    if (fabs(old_fps-fps) > 0.01 /* && showed_fps++ < 4 */ ) {
-        Debug(1, "Frame Rate set to %5.3f f/s\n", fps);
-        if (ticks > 1)
-            Debug(1, "Ticks per frame = %d\n", ticks);
-        if ((fabs(fps - dfps) > 0.1)) {
-            Debug(1, "DFps[%d]= %5.3f f/s\n", ticks, dfps);
+    double new_fps = (double)1.0 / fp;
+//    static int showed_fps=0;
+ #ifdef notused
+
+    static int fps_correction_count = 0;
+    if (fabs(old_fps-new_fps) > 0.01 /* && showed_fps++ < 4 */ ) {
+        if (fps_correction_count++ > 4 || old_fps == 1) {
+            fps = new_fps;
+            if (fps != old_fps)
+                showed_fps=0.0;
+            Debug(1, "Frame Rate set to %5.3f f/s\n", fps);
+            if (ticks > 1)
+                Debug(1, "Repeats per frame = %d\n", ticks);
+            if ((fabs(fps - dfps) > 0.1)) {
+                Debug(1, "DFps[%d]= %5.3f f/s\n", ticks, dfps);
+            }
+            if (fabs(fps - rfps) > 0.1) {
+                Debug(1, "RFps[%d]= %5.3f f/s\n", ticks, rfps);
+            }
+            if (fabs(fps - afps) > 0.1) {
+                Debug(1, "AFps[%d]= %5.3f f/s\n", ticks, afps);
+            }
+#endif
+            if ( new_fps > 9.0 && new_fps < 150 && fabs(new_fps - fps) > 1. )
+            {
+                fps = new_fps;
+                Debug(1, "Frame Rate set to %5.3f f/s\n", fps);
+ //               if (/* old_fps != fps && */ showed_fps < 4)
+//                    Debug(1, "Frame Rate corrected to %5.3f f/s\n", fps);
+            }
+/*
         }
-        if (fabs(fps - rfps) > 0.1) {
-            Debug(1, "RFps[%d]= %5.3f f/s\n", ticks, rfps);
-        }
-        if (fabs(fps - afps) > 0.1) {
-            Debug(1, "AFps[%d]= %5.3f f/s\n", ticks, afps);
-        }
+
     }
-    if ( fps < 9.0 || fps > 100 )
-    {
-        fps = dfps;
-        if (/* old_fps != fps && */ showed_fps < 4)
-        Debug(1, "Frame Rate corrected to %5.3f f/s\n", fps);
-    }
+    else
+        fps_correction_count = 0;
+*/
 
 }
 /* no longer used

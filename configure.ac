@@ -1,4 +1,4 @@
-AC_INIT([Comskip], [0.81.098], [https://github.com/erikkaashoek/Comskip/issues])
+AC_INIT([Comskip], m4_esyscmd_s([ sed -nEe 's/.*PACKAGE_STRING[^0-9.]*([0-9.]*).*/\1/p' comskip.h ]), [https://github.com/erikkaashoek/Comskip/issues])
 AM_INIT_AUTOMAKE([-Wall -Werror foreign])
 
 : ${CFLAGS=""}
@@ -30,6 +30,10 @@ AC_MSG_CHECKING([whether to enable donator features])
 AS_IF([test "x${enable_donator}" = "xno"], AC_MSG_RESULT([no]), AC_MSG_RESULT([yes]))
 AM_CONDITIONAL([ENABLE_DONATOR], [test "x${enable_donator}" != "xno"])
 
+AC_ARG_ENABLE([gui], AS_HELP_STRING([--disable-gui], [build without the graphical user interface]))
+AC_MSG_CHECKING([whether to enable the graphical user interface])
+AS_CASE([x${enable_gui}], [xno], [AC_MSG_RESULT([no])], [x?*], [AC_MSG_RESULT([yes])], [AC_MSG_RESULT([if possible])])
+
 AC_ARG_ENABLE([static], [AS_HELP_STRING([--enable-static], [build a statically linked binary])])
 AC_MSG_CHECKING([whether to build a statically linked binary])
 AS_IF([test "x${enable_static}" = "xyes"], AC_MSG_RESULT([yes]), AC_MSG_RESULT([no]))
@@ -47,9 +51,19 @@ AS_IF([test "x${enable_static}" = "xyes"], PKG_CONFIG="$PKG_CONFIG --static")
 PKG_CHECK_MODULES(argtable2, [argtable2 >= 2.12])
 PKG_CHECK_MODULES(ffmpeg, [libavutil >= 54.7 libavformat >= 56.4 libavcodec >= 56.1])
 
-PKG_CHECK_MODULES(sdl, [sdl >= 1.2.0], has_sdl=yes, has_sdl=no)
-AC_MSG_CHECKING([whether to build the graphical user interface])
-AC_MSG_RESULT([$has_sdl])
+AS_IF([test "x${enable_gui}" = "xno"], [
+    has_sdl=no
+], [
+    AS_IF([test "x${enable_gui}" != "x"], [
+        PKG_CHECK_MODULES(sdl, [sdl >= 1.2.0], has_sdl=yes)
+    ], [
+        PKG_CHECK_MODULES(sdl, [sdl >= 1.2.0], has_sdl=yes, has_sdl=no)
+    ])
+
+    AC_MSG_CHECKING([whether we can build the graphical user interface])
+    AC_MSG_RESULT([$has_sdl])
+])
+
 AM_CONDITIONAL([BUILD_GUI], [test "x${has_sdl}" = "xyes"])
 AM_PROG_CC_C_O
 

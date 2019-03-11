@@ -10,6 +10,7 @@
 /votest
 /votest.exe
 /*.dSYM
+/ccextratorwin/.dirstamp
 
 # Autotools stuff
 .deps
@@ -23,3 +24,4 @@ configure
 depcomp
 install-sh
 missing
+comskip.c.save-failed
