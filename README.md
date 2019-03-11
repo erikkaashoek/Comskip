@@ -44,7 +44,7 @@ There are many ways to setup a build system on Windows.
 ##### Cross Compile with Ubuntu Bionic (18.04) with MinGW-w64
 
 ```
-$ sudo apt-get install -y subversion curl texinfo g++ bison flex cvs yasm automake libtool autoconf gcc cmake git make pkg-config zlib1g-dev mercurial unzip pax nasm gperf autogen bzip2
+$ sudo apt-get install -y subversion curl texinfo g++ bison flex cvs yasm automake libtool autoconf gcc cmake git make pkg-config zlib1g-dev mercurial unzip pax nasm gperf autogen bzip2 autoconf-archive
 $ git clone https://github.com/erikkaashoek/Comskip.git
 $ cd Comskip
 $ ./cross_compile_comskip.sh
