@@ -553,6 +553,7 @@ double              avg_fps = 22;
 
 int					border = 10;						// border around edge of video to ignore
 int					ticker_tape=0, ticker_tape_percentage=0;						// border from bottom to ignore
+int					top_ticker_tape=0, top_ticker_tape_percentage=0;						// border from bottom to ignore
 int					ignore_side=0;
 int					ignore_left_side=0;
 int					ignore_right_side=0;
@@ -3262,11 +3263,17 @@ int DetectCommercials(int f, double pts)
     {
         volumeHistogram[(curvolume/volumeScale < 255 ? curvolume/volumeScale : 255)]++;
     }
-    if (ticker_tape_percentage>0)
+    if (ticker_tape_percentage > 0)
         ticker_tape = ticker_tape_percentage * height / 100;
-    if (ticker_tape)
+    if (ticker_tape > 0 )
     {
         memset(&frame_ptr[width*(height - ticker_tape)], 0, width*ticker_tape);
+    }
+    if (top_ticker_tape_percentage > 0)
+        top_ticker_tape = top_ticker_tape_percentage * height / 100;
+    if (top_ticker_tape > 0 )
+    {
+        memset(&frame_ptr[0], 0, width*top_ticker_tape);
     }
     if (ignore_side)
     {
@@ -8575,6 +8582,8 @@ void LoadIniFile()
         if ((tmp = FindNumber(data, "logo_max_percentage_of_screen=", (double) logo_max_percentage_of_screen)) > -1) logo_max_percentage_of_screen = (double)tmp;
         if ((tmp = FindNumber(data, "ticker_tape=", (double) ticker_tape)) > -1) ticker_tape = (int)tmp;
         if ((tmp = FindNumber(data, "ticker_tape_percentage=", (double) ticker_tape_percentage)) > -1) ticker_tape_percentage = (int)tmp;
+        if ((tmp = FindNumber(data, "top_ticker_tape=", (double) top_ticker_tape)) > -1) top_ticker_tape = (int)tmp;
+        if ((tmp = FindNumber(data, "top_ticker_tape_percentage=", (double) top_ticker_tape_percentage)) > -1) top_ticker_tape_percentage = (int)tmp;
         if ((tmp = FindNumber(data, "ignore_side=", (double) ignore_side)) > -1) ignore_side = (int)tmp;
         if ((tmp = FindNumber(data, "ignore_left_side=", (double) ignore_left_side)) > -1) ignore_left_side = (int)tmp;
         if ((tmp = FindNumber(data, "ignore_right_side=", (double) ignore_right_side)) > -1) ignore_right_side = (int)tmp;
@@ -9838,7 +9847,9 @@ void ProcessARInfo(int minY, int maxY, int minX, int maxX)
 
     if (ticker_tape_percentage>0)
         ticker_tape = ticker_tape_percentage * height / 100;
-    if (ticker_tape > 0 || (
+    if (top_ticker_tape_percentage>0)
+        top_ticker_tape = top_ticker_tape_percentage * height / 100;
+    if (ticker_tape != 0 || top_ticker_tape != 0 || (
                 abs((height - maxY) - (minY)) < 13 + (minY )/15  &&  // discard for no simetrical check
                 abs((videowidth  - maxX) - (minX)) < 13 + (minX )/15  &&  // discard for no simetrical check
                 minY < height / 4 &&
