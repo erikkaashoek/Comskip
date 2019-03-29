@@ -1271,6 +1271,8 @@ static int    prev_strange_framenum = 0;
  //       if (prev_frame_delay != 0.0 && frame_delay != prev_frame_delay)
  //           Debug(1, "Changing fps from %6.3f to %6.3f", 1.0/prev_frame_delay, 1.0/frame_delay);
         pev_best_effort_timestamp = best_effort_timestamp;
+        if (use_cuvid)
+        	av_frame_set_best_effort_timestamp(is->pFrame, is->pFrame->pkt_pts);
         best_effort_timestamp = av_frame_get_best_effort_timestamp(is->pFrame);
         calculated_delay = (best_effort_timestamp - pev_best_effort_timestamp) * av_q2d(is->video_st->time_base);
 
@@ -1731,6 +1733,7 @@ int stream_component_open(VideoState *is, int stream_index)
     if (use_cuvid) {
 		if (codecCtx->codec_id == AV_CODEC_ID_MPEG2VIDEO && avcodec_find_decoder_by_name("mpeg2_cuvid") != NULL) codec_hw = avcodec_find_decoder_by_name("mpeg2_cuvid");
 		if (codecCtx->codec_id == AV_CODEC_ID_H264 && avcodec_find_decoder_by_name("h264_cuvid") != NULL) codec_hw = avcodec_find_decoder_by_name("h264_cuvid");
+		if (codecCtx->codec_id == AV_CODEC_ID_HEVC && avcodec_find_decoder_by_name("hevc_cuvid") != NULL) codec_hw = avcodec_find_decoder_by_name("hevc_cuvid");
 		if (codecCtx->codec_id == AV_CODEC_ID_MPEG4 && avcodec_find_decoder_by_name("mpeg4_cuvid") != NULL) codec_hw = avcodec_find_decoder_by_name("mpeg4_cuvid");
 		if (codecCtx->codec_id == AV_CODEC_ID_VC1 && avcodec_find_decoder_by_name("vc1_cuvidl") != NULL) codec_hw = avcodec_find_decoder_by_name("vc1_cuvidl");
     }
