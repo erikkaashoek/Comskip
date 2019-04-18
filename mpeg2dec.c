@@ -1635,7 +1635,7 @@ int stream_component_open(VideoState *is, int stream_index)
     AVCodecContext *codecCtx;
     AVCodec *codec;
     AVCodec *codec_hw = NULL;
-
+	char strResize[11];
 
 
     if(stream_index < 0 || (unsigned int)stream_index >= pFormatCtx->nb_streams)
@@ -1685,25 +1685,19 @@ int stream_component_open(VideoState *is, int stream_index)
 #endif
         }
 
-        if (codecCtx->codec_id == AV_CODEC_ID_H264) {
+        if ((!use_cuvid) && (codecCtx->codec_id == AV_CODEC_ID_H264)) {
+        	// SW decoder for h264, cannot resize to lower resolution
             is_h264 = 1;
 #ifdef DONATOR
 #else
-            Debug(0, "h.264 video can only be processed at full speed by the Donator version\n");
+            Debug(0, "h.264 video can only be processed at full resolution by the Donator version\n");
 #endif
         }
         else
         {
 #ifdef DONATOR
-            int w;
-            if (lowres == 10) {
-                w = codecCtx->width;
-                lowres = 0;
-                while (w > 600) {
-                    w = w >> 1;
-                    lowres++;
-                }
-            }
+            if ((lowres == 10) && (stream_index == 0))
+                lowres = (int)ceil(log2(codecCtx->width / 600.0));
  //           codecCtx->lowres = lowres;
 #endif
 //            /* if(lowres) */ codecCtx->flags |= CODEC_FLAG_EMU_EDGE;
@@ -1752,7 +1746,10 @@ int stream_component_open(VideoState *is, int stream_index)
     }
 
     if (!hardware_decode) av_dict_set_int(&myoptions, "gray", 1, 0);
-
+    if ((use_cuvid) && (stream_index == 0)) {
+    	sprintf(strResize, "%dx%d", codecCtx->width >> lowres, codecCtx->height >> lowres);
+    	av_dict_set(&myoptions, "resize", strResize, 0);
+    }
 
  //       av_dict_set_int(&myoptions, "fastint", 1, 0);
  //       av_dict_set_int(&myoptions, "skip_alpha", 1, 0);
