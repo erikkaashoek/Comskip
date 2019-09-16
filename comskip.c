@@ -537,10 +537,8 @@ int						width, old_width, videowidth;
 int						height, old_height;
 int						ar_width = 0;
 int						subsample_video = 0x1ff;
-//#define MAXWIDTH	800
-//#define MAXHEIGHT	600
-#define MAXWIDTH	2000
-#define MAXHEIGHT	1200
+//#define MAXWIDTH	2000
+//#define MAXHEIGHT	1200
 
 char haslogo[MAXWIDTH*MAXHEIGHT];
 

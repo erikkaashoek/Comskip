@@ -23,6 +23,8 @@
 
 #include "platform.h"
 #include "vo.h"
+#include "comskip.h"
+
 #ifdef HAVE_SDL
 #include <SDL.h>
 #endif
@@ -900,23 +902,23 @@ int SubmitFrame(AVStream        *video_st, AVFrame         *pFrame , double pts)
     int changed = 0;
 
 //	bitrate = pFrame->bit_rate;
-    if (pFrame->linesize[0] > 2000 || pFrame->height > 1200 || pFrame->linesize[0] < 100 || pFrame->height < 100)
+    if (pFrame->linesize[0] > MAXWIDTH || pFrame->height > MAXHEIGHT || pFrame->linesize[0] < 100 || pFrame->height < 100)
     {
         //				printf("Panic: illegal height, width or frame period\n");
         frame_ptr = NULL;
         return(0);
     }
-    if (height != pFrame->height && pFrame->height > 100 && pFrame->height < 2000)
+    if (height != pFrame->height && pFrame->height > 100 && pFrame->height < MAXHEIGHT)
     {
         height= pFrame->height;
         changed = 1;
     }
-    if (width != pFrame->linesize[0] && pFrame->linesize[0] > 100 && pFrame->linesize[0]  < 2000)
+    if (width != pFrame->linesize[0] && pFrame->linesize[0] > 100 && pFrame->linesize[0]  < MAXWIDTH)
     {
         width= pFrame->linesize[0];
         changed = 1;
     }
-    if (videowidth != pFrame->width && pFrame->width > 100 && pFrame->width < 2000)
+    if (videowidth != pFrame->width && pFrame->width > 100 && pFrame->width < MAXWIDTH)
     {
         videowidth= pFrame->width;
         changed = 1;
