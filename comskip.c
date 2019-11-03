@@ -861,6 +861,7 @@ char *helptext[]=
     "Key          Action",
     "Arrows	        Reposition current location",
     "PgUp/PgDn      Reposition current location",
+    "Alt+PgUp/PgDn  Reposition current location by 1/2 second",
     "n/p            Jump to next/previous cutpoint",
     "e/b            Jump to next/previous end of cblock",
     "z/u            Zoom in/out on the timeline",
@@ -2844,7 +2845,9 @@ bool ReviewResult()
             if (key == 38) curframe -= (int)fps;
             if (key == 40) curframe += (int)fps;
             if (key == 33) curframe -= (int)(20*fps);
+            if (key == 133) curframe -= (int)(.5*fps);
             if (key == 34) curframe += (int)(20*fps);
+            if (key == 134) curframe += (int)(.5*fps);
 
             if (key == 78 || (key == 39 && shift))   // Next key
             {

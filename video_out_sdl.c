@@ -283,10 +283,18 @@ void handle_event(SDL_Event event) {
           key = 40;
           break;
         case SDLK_PAGEUP:
-          key = 33;
+          if (ks.mod & KMOD_RALT || ks.mod & KMOD_LALT) {
+            key = 133;
+          } else {
+            key = 33;
+          }
           break;
         case SDLK_PAGEDOWN:
-          key = 34;
+          if (ks.mod & KMOD_RALT || ks.mod & KMOD_LALT) {
+            key = 134;
+          } else {
+            key = 34;
+          }
           break;
         default:
           if (ks.sym >= SDLK_a && ks.sym <= SDLK_z) {
