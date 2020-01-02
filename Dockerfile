@@ -12,6 +12,5 @@ RUN apk --no-cache add python ffmpeg tzdata bash \
 && apk del builddeps \
 && rm -rf /var/cache/apk/* /tmp/* /tmp/.[!.]*
 
-COPY --from=plexinc/pms-docker /usr/lib/plexmediaserver/Resources/comskip.ini /opt/comskip.ini
-
-ENTRYPOINT [ "comskip", "comskip" ]
+ENTRYPOINT [ "comskip"]
+CMD [comskip]
