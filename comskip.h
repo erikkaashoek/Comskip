@@ -2,7 +2,7 @@
 #define COMSKIP
 #endif
 #ifdef _WIN32
-#define PACKAGE_STRING " Comskip 0.82.009"
+#define PACKAGE_STRING " Comskip 0.82.010"
 #endif
 #define _UNICODE
 

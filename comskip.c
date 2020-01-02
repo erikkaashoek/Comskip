@@ -7597,7 +7597,7 @@ bool OutputBlocks(void)
     if (always_keep_last_seconds && commercial_count >= 0)
     {
         k = commercial_count;
-        while (F2L(cblock[block_count-1].f_end, commercial[k].start_frame) < always_keep_last_seconds)
+        while (commercial_count >= 0 && F2L(cblock[block_count-1].f_end, commercial[k].start_frame) < always_keep_last_seconds)
         {
             Debug(3, "Deleting commercial block %i because the last %d seconds should always be kept.\n",
                   k, always_keep_last_seconds);
@@ -7605,7 +7605,7 @@ bool OutputBlocks(void)
             k = commercial_count;
             deleted = true;
         }
-        if (F2L(cblock[block_count-1].f_end, commercial[k].end_frame) < always_keep_last_seconds)
+        if (commercial_count >= 0 && F2L(cblock[block_count-1].f_end, commercial[k].end_frame) < always_keep_last_seconds)
         {
             Debug(3, "Shortening commercial block %i because the last %d seconds should always be kept.\n",
                   k, always_keep_last_seconds);
