@@ -2540,7 +2540,7 @@ nextpacket:
                     output_timing = 0;
                 }
 
-#ifdef _WIN32
+#if defined(_WIN32) || defined(HAVE_SDL)
                 while(1)
                 {
                     ReviewResult();
