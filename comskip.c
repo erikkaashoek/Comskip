@@ -13880,10 +13880,12 @@ void OutputFrameArray(bool screenOnly)
         }
         else
         {
-            fprintf(raw, "%i,%i,%i,%i,%i,%i,%i,%i,%i,%i,%i,%i,%i,%i,%i,%i,%f,%i,%i",
+            fprintf(raw, "%i,%i,%i,%i,%i,%i,%i,%i,%f,%f,%i,%i,%i,%i,%i,%i,%f,%i,%i",
                     i, frame[i].brightness, frame[i].schange_percent*5, frame[i].logo_present,
-                    frame[i].uniform, frame[i].volume,  frame[i].minY,frame[i].maxY,(int)((frame[i].ar_ratio)*100),
-                    (int)(frame[i].currentGoodEdge * 500), frame[i].isblack,(int)frame[i].cutscenematch,  frame[i].minX,frame[i].maxX,frame[i].hasBright,frame[i].dimCount, frame[i].pts, frame[i].cur_segment, frame[i].audio_channels
+                    frame[i].uniform, frame[i].volume,  frame[i].minY,frame[i].maxY,frame[i].ar_ratio,
+                    frame[i].currentGoodEdge, frame[i].isblack,frame[i].cutscenematch, 
+                    frame[i].minX, frame[i].maxX, frame[i].hasBright, frame[i].dimCount, frame[i].pts, 
+                    frame[i].cur_segment, frame[i].audio_channels
                    );
 #ifdef FRAME_WITH_HISTOGRAM
             for (k = 0; k < 32; k++)
@@ -14198,10 +14200,18 @@ again:
                     if (maxmaxY < frame[frame_count].maxY) maxmaxY = frame[frame_count].maxY;
                     break;
                 case 8:
-                    frame[frame_count].ar_ratio = ((double)strtol(split, NULL, 10))/100;
+                    frame[frame_count].ar_ratio = strtod(split, NULL);
+                    // Handle files that are before the values was written as a double
+                    if (strchr(split, '.') == NULL) {
+                        frame[frame_count].ar_ratio /= 100;
+                    }
                     break;
                 case 9:
-                    frame[frame_count].currentGoodEdge = ((double)strtol(split, NULL, 10))/500;
+                    frame[frame_count].currentGoodEdge = strtod(split, NULL);
+                    // Handle files that are before the values was written as a double
+                    if (strchr(split, '.') == NULL) {
+                        frame[frame_count].currentGoodEdge /= 500;
+                    }
                     break;
                 case 10:
                     frame[frame_count].isblack = strtol(split, NULL, 10);
