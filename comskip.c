@@ -14319,7 +14319,7 @@ ccagain:
                 cont = fread(ccData,ccDataLen,1, dump_data_file);
                 if (!cont)
                     break;
-                framenum = ccDataFrame-2;
+                framenum = ccDataFrame;
 #ifdef PROCESS_CC
                 if (processCC) ProcessCCData();
                 if (output_srt || output_smi) process_block(ccData, (int)ccDataLen);
