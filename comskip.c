@@ -13862,7 +13862,7 @@ void OutputFrameArray(bool screenOnly)
         Debug(1, "Could not open raw output file.\n");
         return;
     }
-    fprintf(raw, "sep=,\nframe,brightness,scene_change,logo,uniform,sound,minY,MaxY,ar_ratio,goodEdge,isblack,cutscene, MinX, MaxX, hasBright, Dimcount,PTS,%d",(int)(fps*100+0.5));
+    fprintf(raw, "sep=,\nframe,brightness,scene_change,logo,uniform,sound,minY,MaxY,ar_ratio,goodEdge,isblack,cutscene, MinX, MaxX, hasBright, Dimcount,PTS,%f",fps);
 //	for (k = 0; k < 32; k++) {
 //		fprintf(raw, ",b%3i", k);
 //	}
@@ -14125,12 +14125,24 @@ again:
         fps = t  * 1.00000000000001;
     if (strlen(line) > 131)
     {
-        t = ((double)strtol(&line[131], NULL, 10))/100;
-        if (t > 99)
-            t = t / 10.0;
+        t = strtod(&line[131], NULL);
+
+        // Handle backward compatibility
+        if (strchr(&line[131], '.') == NULL) {
+            t /= 100.0;
+            if (t > 99) {
+                t /= 10.0;
+            }
+
+            if (t>0) {
+                fps = t  * 1.00000000000001;
+            }
+        } else {
+            if (t > 0) {
+                fps = t;
+            }
+        }
     }
-    if (t>0)
-        fps = t  * 1.00000000000001;
     InitComSkip();
     frame_count = 1;
     while (fgets(line, sizeof(line), in_file) != NULL)
