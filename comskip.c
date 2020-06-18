@@ -537,10 +537,8 @@ int						width, old_width, videowidth;
 int						height, old_height;
 int						ar_width = 0;
 int						subsample_video = 0x1ff;
-//#define MAXWIDTH	800
-//#define MAXHEIGHT	600
-#define MAXWIDTH	2000
-#define MAXHEIGHT	1200
+//#define MAXWIDTH	2000
+//#define MAXHEIGHT	1200
 
 char haslogo[MAXWIDTH*MAXHEIGHT];
 
@@ -863,6 +861,7 @@ char *helptext[]=
     "Key          Action",
     "Arrows	        Reposition current location",
     "PgUp/PgDn      Reposition current location",
+    "Alt+PgUp/PgDn  Reposition current location by 1/2 second",
     "n/p            Jump to next/previous cutpoint",
     "e/b            Jump to next/previous end of cblock",
     "z/u            Zoom in/out on the timeline",
@@ -1038,12 +1037,12 @@ char *CauseString(int i)
     *c++ = (i & C_COMBINED ? 'C' : ' ');
     *c++ = (i & C_NONSTRICT? 'N' : ' ');
     *c++ = (i & C_STRICT	? 'S' : ' ');
-    *c++ = (i & 2			? 'c' : (i & C_t			? 't': ' '));
-    *c++ = (i & 1			? 'l' : (i & C_v			? 'v': ' '));
-    *c++ = (i & 4			? 's' : ' ');
-    *c++ = (i & 32			? 'a' : ' ');
-    *c++ = (i & 8			? 'u' : ' ');
-    *c++ = (i & 16			? 'b' : ' ');
+    *c++ = (i & C_c			? 'c' : (i & C_t			? 't': ' '));
+    *c++ = (i & C_l			? 'l' : (i & C_v			? 'v': ' '));
+    *c++ = (i & C_s			? 's' : ' ');
+    *c++ = (i & C_a			? 'a' : ' ');
+    *c++ = (i & C_u			? 'u' : ' ');
+    *c++ = (i & C_b			? 'b' : ' ');
     *c++ = (i & C_r			? 'r' : ' ');
     *c++ = 0;
 
@@ -2846,7 +2845,9 @@ bool ReviewResult()
             if (key == 38) curframe -= (int)fps;
             if (key == 40) curframe += (int)fps;
             if (key == 33) curframe -= (int)(20*fps);
+            if (key == 133) curframe -= (int)(.5*fps);
             if (key == 34) curframe += (int)(20*fps);
+            if (key == 134) curframe += (int)(.5*fps);
 
             if (key == 78 || (key == 39 && shift))   // Next key
             {
@@ -7596,7 +7597,7 @@ bool OutputBlocks(void)
     if (always_keep_last_seconds && commercial_count >= 0)
     {
         k = commercial_count;
-        while (F2L(cblock[block_count-1].f_end, commercial[k].start_frame) < always_keep_last_seconds)
+        while (commercial_count >= 0 && F2L(cblock[block_count-1].f_end, commercial[k].start_frame) < always_keep_last_seconds)
         {
             Debug(3, "Deleting commercial block %i because the last %d seconds should always be kept.\n",
                   k, always_keep_last_seconds);
@@ -7604,7 +7605,7 @@ bool OutputBlocks(void)
             k = commercial_count;
             deleted = true;
         }
-        if (F2L(cblock[block_count-1].f_end, commercial[k].end_frame) < always_keep_last_seconds)
+        if (commercial_count >= 0 && F2L(cblock[block_count-1].f_end, commercial[k].end_frame) < always_keep_last_seconds)
         {
             Debug(3, "Shortening commercial block %i because the last %d seconds should always be kept.\n",
                   k, always_keep_last_seconds);
@@ -7796,7 +7797,7 @@ bool OutputBlocks(void)
 
     if (output_tuning)
     {
-        sprintf(filename, "%s.tun", inbasename);
+        sprintf(filename, "%s.tun", workbasename);
         tuning_file = myfopen(filename, "w");
         fprintf(tuning_file,"max_volume=%6i\n", min_volume+200);
         fprintf(tuning_file,"max_avg_brightness=%6i\n", min_brightness_found+5);
@@ -13861,7 +13862,7 @@ void OutputFrameArray(bool screenOnly)
         Debug(1, "Could not open raw output file.\n");
         return;
     }
-    fprintf(raw, "sep=,\nframe,brightness,scene_change,logo,uniform,sound,minY,MaxY,ar_ratio,goodEdge,isblack,cutscene, MinX, MaxX, hasBright, Dimcount,PTS,%d",(int)(fps*100+0.5));
+    fprintf(raw, "sep=,\nframe,brightness,scene_change,logo,uniform,sound,minY,MaxY,ar_ratio,goodEdge,isblack,cutscene, MinX, MaxX, hasBright, Dimcount,PTS,%f",fps);
 //	for (k = 0; k < 32; k++) {
 //		fprintf(raw, ",b%3i", k);
 //	}
@@ -13879,10 +13880,12 @@ void OutputFrameArray(bool screenOnly)
         }
         else
         {
-            fprintf(raw, "%i,%i,%i,%i,%i,%i,%i,%i,%i,%i,%i,%i,%i,%i,%i,%i,%f,%i,%i",
+            fprintf(raw, "%i,%i,%i,%i,%i,%i,%i,%i,%f,%f,%i,%i,%i,%i,%i,%i,%f,%i,%i",
                     i, frame[i].brightness, frame[i].schange_percent*5, frame[i].logo_present,
-                    frame[i].uniform, frame[i].volume,  frame[i].minY,frame[i].maxY,(int)((frame[i].ar_ratio)*100),
-                    (int)(frame[i].currentGoodEdge * 500), frame[i].isblack,(int)frame[i].cutscenematch,  frame[i].minX,frame[i].maxX,frame[i].hasBright,frame[i].dimCount, frame[i].pts, frame[i].cur_segment, frame[i].audio_channels
+                    frame[i].uniform, frame[i].volume,  frame[i].minY,frame[i].maxY,frame[i].ar_ratio,
+                    frame[i].currentGoodEdge, frame[i].isblack,frame[i].cutscenematch, 
+                    frame[i].minX, frame[i].maxX, frame[i].hasBright, frame[i].dimCount, frame[i].pts, 
+                    frame[i].cur_segment, frame[i].audio_channels
                    );
 #ifdef FRAME_WITH_HISTOGRAM
             for (k = 0; k < 32; k++)
@@ -14122,14 +14125,27 @@ again:
         fps = t  * 1.00000000000001;
     if (strlen(line) > 131)
     {
-        t = ((double)strtol(&line[131], NULL, 10))/100;
-        if (t > 99)
-            t = t / 10.0;
+        t = strtod(&line[131], NULL);
+
+        // Handle backward compatibility
+        if (strchr(&line[131], '.') == NULL) {
+            t /= 100.0;
+            if (t > 99) {
+                t /= 10.0;
+            }
+
+            if (t>0) {
+                fps = t  * 1.00000000000001;
+            }
+        } else {
+            if (t > 0) {
+                fps = t;
+            }
+        }
     }
-    if (t>0)
-        fps = t  * 1.00000000000001;
     InitComSkip();
     frame_count = 1;
+    pict_type = '?';
     while (fgets(line, sizeof(line), in_file) != NULL)
     {
         i = 0;
@@ -14197,10 +14213,18 @@ again:
                     if (maxmaxY < frame[frame_count].maxY) maxmaxY = frame[frame_count].maxY;
                     break;
                 case 8:
-                    frame[frame_count].ar_ratio = ((double)strtol(split, NULL, 10))/100;
+                    frame[frame_count].ar_ratio = strtod(split, NULL);
+                    // Handle files that are before the values was written as a double
+                    if (strchr(split, '.') == NULL) {
+                        frame[frame_count].ar_ratio /= 100;
+                    }
                     break;
                 case 9:
-                    frame[frame_count].currentGoodEdge = ((double)strtol(split, NULL, 10))/500;
+                    frame[frame_count].currentGoodEdge = strtod(split, NULL);
+                    // Handle files that are before the values was written as a double
+                    if (strchr(split, '.') == NULL) {
+                        frame[frame_count].currentGoodEdge /= 500;
+                    }
                     break;
                 case 10:
                     frame[frame_count].isblack = strtol(split, NULL, 10);
@@ -14279,8 +14303,6 @@ again:
     }
 
 
-    FindLogoThreshold();
-
     height = maxmaxY + minminY;
     videowidth = width = maxmaxX + minminX;
 
@@ -14295,6 +14317,7 @@ again:
     min_brightness_found = 255;
     for (i = 1; i < frame_count; i++)
     {
+        framenum_real = i;
 ccagain:
         if (dump_data_file && ccDataFrame == 0)
         {
@@ -14318,7 +14341,7 @@ ccagain:
                 cont = fread(ccData,ccDataLen,1, dump_data_file);
                 if (!cont)
                     break;
-                framenum = ccDataFrame-2;
+                framenum = ccDataFrame;
 #ifdef PROCESS_CC
                 if (processCC) ProcessCCData();
                 if (output_srt || output_smi) process_block(ccData, (int)ccDataLen);
@@ -14372,9 +14395,6 @@ ccagain:
             silenceHistogram[(frame[i].volume < 255 ? frame[i].volume : 255)]++;
         }
 
-
-
-        framenum_real = i;
 
         if (frame[i].maxX == 0)
         {
@@ -15353,6 +15373,15 @@ void ProcessCCData(void)
     unsigned char	packetCount;
 
     if (!initialized) return;
+
+    // Reset state on the first frame
+    if (framenum == 0) {
+        last_cc_type = NONE;
+        current_cc_type = NONE;
+        cc_on_screen = false;
+        cc_in_memory = false;
+    }
+
     if (verbose >= 12)
     {
         p = (unsigned char *)temp;

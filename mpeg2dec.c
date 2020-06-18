@@ -23,6 +23,8 @@
 
 #include "platform.h"
 #include "vo.h"
+#include "comskip.h"
+
 #ifdef HAVE_SDL
 #include <SDL.h>
 #endif
@@ -900,23 +902,23 @@ int SubmitFrame(AVStream        *video_st, AVFrame         *pFrame , double pts)
     int changed = 0;
 
 //	bitrate = pFrame->bit_rate;
-    if (pFrame->linesize[0] > 2000 || pFrame->height > 1200 || pFrame->linesize[0] < 100 || pFrame->height < 100)
+    if (pFrame->linesize[0] > MAXWIDTH || pFrame->height > MAXHEIGHT || pFrame->linesize[0] < 100 || pFrame->height < 100)
     {
         //				printf("Panic: illegal height, width or frame period\n");
         frame_ptr = NULL;
         return(0);
     }
-    if (height != pFrame->height && pFrame->height > 100 && pFrame->height < 2000)
+    if (height != pFrame->height && pFrame->height > 100 && pFrame->height < MAXHEIGHT)
     {
         height= pFrame->height;
         changed = 1;
     }
-    if (width != pFrame->linesize[0] && pFrame->linesize[0] > 100 && pFrame->linesize[0]  < 2000)
+    if (width != pFrame->linesize[0] && pFrame->linesize[0] > 100 && pFrame->linesize[0]  < MAXWIDTH)
     {
         width= pFrame->linesize[0];
         changed = 1;
     }
-    if (videowidth != pFrame->width && pFrame->width > 100 && pFrame->width < 2000)
+    if (videowidth != pFrame->width && pFrame->width > 100 && pFrame->width < MAXWIDTH)
     {
         videowidth= pFrame->width;
         changed = 1;
@@ -1635,7 +1637,7 @@ int stream_component_open(VideoState *is, int stream_index)
     AVCodecContext *codecCtx;
     AVCodec *codec;
     AVCodec *codec_hw = NULL;
-	char strResize[11];
+
 
 
     if(stream_index < 0 || (unsigned int)stream_index >= pFormatCtx->nb_streams)
@@ -1685,19 +1687,25 @@ int stream_component_open(VideoState *is, int stream_index)
 #endif
         }
 
-        if ((!use_cuvid) && (codecCtx->codec_id == AV_CODEC_ID_H264)) {
-        	// SW decoder for h264, cannot resize to lower resolution
+        if (codecCtx->codec_id == AV_CODEC_ID_H264) {
             is_h264 = 1;
 #ifdef DONATOR
 #else
-            Debug(0, "h.264 video can only be processed at full resolution by the Donator version\n");
+            Debug(0, "h.264 video can only be processed at full speed by the Donator version\n");
 #endif
         }
         else
         {
 #ifdef DONATOR
-            if ((lowres == 10) && (stream_index == 0))
-                lowres = (int)ceil(log2(codecCtx->width / 600.0));
+            int w;
+            if (lowres == 10) {
+                w = codecCtx->width;
+                lowres = 0;
+                while (w > 600) {
+                    w = w >> 1;
+                    lowres++;
+                }
+            }
  //           codecCtx->lowres = lowres;
 #endif
 //            /* if(lowres) */ codecCtx->flags |= CODEC_FLAG_EMU_EDGE;
@@ -1746,10 +1754,7 @@ int stream_component_open(VideoState *is, int stream_index)
     }
 
     if (!hardware_decode) av_dict_set_int(&myoptions, "gray", 1, 0);
-    if ((use_cuvid) && (stream_index == 0)) {
-    	sprintf(strResize, "%dx%d", codecCtx->width >> lowres, codecCtx->height >> lowres);
-    	av_dict_set(&myoptions, "resize", strResize, 0);
-    }
+
 
  //       av_dict_set_int(&myoptions, "fastint", 1, 0);
  //       av_dict_set_int(&myoptions, "skip_alpha", 1, 0);
@@ -2535,7 +2540,7 @@ nextpacket:
                     output_timing = 0;
                 }
 
-#ifdef _WIN32
+#if defined(_WIN32) || defined(HAVE_SDL)
                 while(1)
                 {
                     ReviewResult();

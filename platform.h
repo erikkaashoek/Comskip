@@ -7,6 +7,9 @@
 #include <limits.h>
 #include <stdarg.h>
 #include <ctype.h>
+#else
+#undef WINVER
+#define WINVER _WIN32_WINNT_WIN7
 #endif
 
 #include <stdio.h>
