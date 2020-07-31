@@ -314,10 +314,10 @@ void handle_event(SDL_Event event) {
 unsigned char buf0[MAXWIDTH*MAXHEIGHT*3];
 
 vo_instance_t * instance;
-vo_setup_result_t result;
 
 void vo_init(int width, int height, char *title)
 {
+  vo_setup_result_t result;
   instance = vo_sdl_open();
   SDL_WM_SetCaption(title, "comskip");
   sdl_setup(instance, width, height, width, height, &result);
