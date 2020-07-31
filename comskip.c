@@ -868,7 +868,7 @@ char *helptext[]=
     "g              Graph on/off",
     "x              XDS info on/off",
     "t              Toggle current cblock between show and commercial",
-    "w              Write the new cutpoints to the ouput files",
+    "w              Write the new cutpoints to the output files",
     "c              Dump this frame as CutScene"
     "F2             Reduce the max_volume detection level",
     "F3             Reduce the non_uniformity detection level",
@@ -3652,7 +3652,7 @@ void InsertBlackFrame(int f, int b, int u, int v, int c)
         {
             max_black_count += 500;
             black = realloc(black, (max_black_count + 1) * sizeof(black_frame_info));
-            Debug(9, "Resizing black frame array to accomodate %i frames.\n", max_black_count);
+            Debug(9, "Resizing black frame array to accommodate %i frames.\n", max_black_count);
         }
 
 
@@ -13906,7 +13906,7 @@ void InitializeFrameArray(long i)
     {
         max_frame_count += (int)(60 * 60 * 25);
         frame = realloc(frame, max_frame_count * sizeof(frame_info));
-        Debug(9, "Resizing frame array to accomodate %i frames.\n", max_frame_count);
+        Debug(9, "Resizing frame array to accommodate %i frames.\n", max_frame_count);
         if (frame == NULL)
         {
             Debug(0, "Failed to allocated space for the frame array, quitting \n");
@@ -13942,7 +13942,7 @@ void InitializeBlackArray(long i)
     {
         max_black_count += 500;
         black = realloc(black, (max_black_count + 1) * sizeof(black_frame_info));
-        Debug(9, "Resizing black frame array to accomodate %i frames.\n", max_black_count);
+        Debug(9, "Resizing black frame array to accommodate %i frames.\n", max_black_count);
     }
 
     black[i].brightness = 255;
@@ -13962,7 +13962,7 @@ void InitializeSchangeArray(long i)
             exit(12);
         }
         schange = ptr;
-        Debug(9, "Resizing scene change array to accomodate %i frames.\n", max_schange_count);
+        Debug(9, "Resizing scene change array to accommodate %i frames.\n", max_schange_count);
     }
 
     schange[i].frame = i;
@@ -13975,7 +13975,7 @@ void InitializeLogoBlockArray(long i)
     {
         max_logo_block_count += 20;
         logo_block = realloc(logo_block, (max_logo_block_count + 2) * sizeof(logo_block_info));
-        Debug(9, "Resizing logo cblock array to accomodate %i logo groups.\n", max_logo_block_count);
+        Debug(9, "Resizing logo cblock array to accommodate %i logo groups.\n", max_logo_block_count);
     }
 }
 
@@ -13985,7 +13985,7 @@ void InitializeARBlockArray(long i)
     {
         max_ar_block_count += 20;
         ar_block = realloc(ar_block, (max_ar_block_count + 2) * sizeof(ar_block_info));
-        Debug(9, "Resizing aspect ratio cblock array to accomodate %i AR groups.\n", max_ar_block_count);
+        Debug(9, "Resizing aspect ratio cblock array to accommodate %i AR groups.\n", max_ar_block_count);
     }
 }
 
@@ -13995,7 +13995,7 @@ void InitializeACBlockArray(long i)
     {
         max_ac_block_count += 20;
         ac_block = realloc(ac_block, (max_ac_block_count + 2) * sizeof(ac_block_info));
-        Debug(9, "Resizing audio channel block array to accomodate %i AC groups.\n", max_ac_block_count);
+        Debug(9, "Resizing audio channel block array to accommodate %i AC groups.\n", max_ac_block_count);
     }
 }
 
@@ -14007,7 +14007,7 @@ void InitializeBlockArray(long i)
         exit(102);
 //		max_block_count += 100;
 //		cblock = realloc(cblock, (max_block_count + 1) * sizeof(block_info));
-//		Debug(9, "Resizing cblock array to accomodate %i blocks.\n", max_block_count);
+//		Debug(9, "Resizing cblock array to accommodate %i blocks.\n", max_block_count);
     }
 
     cblock[i].f_start = 0;
@@ -14038,7 +14038,7 @@ void InitializeCCBlockArray(long i)
     {
         max_cc_block_count += 100;
         cc_block = realloc(cc_block, (max_cc_block_count + 2) * sizeof(cc_block_info));
-        Debug(9, "Resizing cc cblock array to accomodate %i cc blocks.\n", max_cc_block_count);
+        Debug(9, "Resizing cc cblock array to accommodate %i cc blocks.\n", max_cc_block_count);
     }
 
     cc_block[i].start_frame = -1;
@@ -14052,7 +14052,7 @@ void InitializeCCTextArray(long i)
     {
         max_cc_text_count += 100;
         cc_text = realloc(cc_text, (max_cc_text_count + 1) * sizeof(cc_text_info));
-        Debug(9, "Resizing cc text array to accomodate %i cc text groups.\n", max_cc_text_count);
+        Debug(9, "Resizing cc text array to accommodate %i cc text groups.\n", max_cc_text_count);
     }
 
     cc_text[i].text[0] = '\0';
