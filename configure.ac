@@ -55,9 +55,9 @@ AS_IF([test "x${enable_gui}" = "xno"], [
     has_sdl=no
 ], [
     AS_IF([test "x${enable_gui}" != "x"], [
-        PKG_CHECK_MODULES(sdl, [sdl >= 1.2.0], has_sdl=yes)
+        PKG_CHECK_MODULES(sdl, [sdl2 >= 2.0.0], has_sdl=yes)
     ], [
-        PKG_CHECK_MODULES(sdl, [sdl >= 1.2.0], has_sdl=yes, has_sdl=no)
+        PKG_CHECK_MODULES(sdl, [sdl2 >= 2.0.0], has_sdl=yes, has_sdl=no)
     ])
 
     AC_MSG_CHECKING([whether we can build the graphical user interface])
