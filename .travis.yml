@@ -1,4 +1,3 @@
-
 language: c
 os: linux
 before_script:
