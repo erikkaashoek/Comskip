@@ -1,3 +1,7 @@
+arch:
+ - amd64
+ - ppc64le
+
 language: c
 os: linux
 before_script:
