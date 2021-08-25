@@ -8729,7 +8729,6 @@ void LoadIniFile()
 
 FILE* LoadSettings(int argc, char ** argv)
 {
-    char				tempstr[MAX_ARG];
 //	FILE*				ini_file = NULL;
     FILE*				logo_file = NULL;
     FILE*				log_file = NULL;
@@ -8815,30 +8814,22 @@ FILE* LoadSettings(int argc, char ** argv)
         end
     };
     int					nerrors;
-    incomingCommandLine[0]=0; // was:	sprintf(incomingCommandLine, "");
-    if (strchr(argv[0], ' '))
-    {
-        sprintf(incomingCommandLine, "\"%s\"", argv[0]);
-    }
-    else
-    {
-        sprintf(incomingCommandLine, "%s", argv[0]);
-    }
 
-    for (i = 1; i < argc; i++)
+    // Print out the command line parameters
+    printf("The commandline used was:\n");
+    for (i = 0; i < argc; i++)
     {
-        sprintf(tempstr, "%s", incomingCommandLine);
         if (strchr(argv[i], ' '))
         {
-            sprintf(incomingCommandLine, "%s \"%s\"", tempstr, argv[i]);
+            printf("\t\"%s\"\n", argv[i]);
         }
         else
         {
-            sprintf(incomingCommandLine, "%s %s", tempstr, argv[i]);
+            printf("\t%s\n", argv[i]);
         }
     }
+    printf("\n\n");
 
-    printf("The commandline used was:\n%s\n\n", incomingCommandLine);
     argument = malloc(sizeof(char *) * argc);
     argument_count = argc;
     for (i = 0; i < argc; i++)
