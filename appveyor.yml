@@ -12,8 +12,8 @@ artifacts:
 before_build:
   - git log -1
   - cd C:\projects\comskip
-  - appveyor DownloadFile https://ffmpeg.zeranoe.com/builds/win64/shared/ffmpeg-3.3.1-win64-shared.zip
-  - appveyor DownloadFile https://ffmpeg.zeranoe.com/builds/win64/dev/ffmpeg-3.3.1-win64-dev.zip
+  - appveyor DownloadFile https://github.com/AhiyaHiya/ffmpeg_releases/raw/795b83550a3bc4a42a60c761b1d0fc3900642ec4/ffmpeg-3.3.1-win64-shared.zip
+  - appveyor DownloadFile https://github.com/AhiyaHiya/ffmpeg_releases/raw/795b83550a3bc4a42a60c761b1d0fc3900642ec4/ffmpeg-3.3.1-win64-dev.zip
   - appveyor DownloadFile https://downloads.sourceforge.net/project/argtable/argtable/argtable-2.13/argtable2-13.tar.gz
 
 build_script:
