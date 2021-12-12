@@ -51,73 +51,12 @@ typedef struct {
     vo_instance_t vo;
     int width;
     int height;
-    SDL_Surface * surface;
-    SDL_Surface * rgb;
+    SDL_Window *window;
+    SDL_Renderer *renderer;
+    SDL_Texture *texture;
     Uint32 sdlflags;
     Uint8 bpp;
 } sdl_instance_t;
-
-#if 0
-static void sdl_setup_fbuf (vo_instance_t * _instance,
-          uint8_t ** buf, void ** id)
-{
-    sdl_instance_t * instance = (sdl_instance_t *) _instance;
-    SDL_Overlay * overlay;
-
-    *id = overlay = SDL_CreateYUVOverlay (instance->width, instance->height,
-            SDL_YV12_OVERLAY, instance->surface);
-
-    if (!buf) return;
-/*
-    buf[0] = overlay->pixels[0];
-    buf[1] = overlay->pixels[2];
-    buf[2] = overlay->pixels[1];
-    if (((long)buf[0] & 15) || ((long)buf[1] & 15) || ((long)buf[2] & 15)) {
-  fprintf (stderr, "Unaligned buffers. Anyone know how to fix this ?\n");
-  exit (1);
-    }
-*/
-}
-
-static void sdl_start_fbuf (vo_instance_t * instance,
-          uint8_t * const * buf, void * id)
-{
-    SDL_LockYUVOverlay ((SDL_Overlay *) id);
-}
-
-static void sdl_draw_frame (vo_instance_t * _instance,
-          uint8_t * const * buf, void * id)
-{
-    sdl_instance_t * instance = (sdl_instance_t *) _instance;
-    SDL_Overlay * overlay = (SDL_Overlay *) id;
-    SDL_Event event;
-
-    while (SDL_PollEvent (&event))
-  if (event.type == SDL_VIDEORESIZE)
-      instance->surface =
-    SDL_SetVideoMode (event.resize.w, event.resize.h,
-          instance->bpp, instance->sdlflags);
-    SDL_DisplayYUVOverlay (overlay, &(instance->surface->clip_rect));
-}
-
-static void sdl_discard (vo_instance_t * _instance,
-       uint8_t * const * buf, void * id)
-{
-    SDL_UnlockYUVOverlay ((SDL_Overlay *) id);
-}
-
-static void sdl_close (vo_instance_t * _instance)
-{
-    sdl_instance_t * instance;
-    int i;
-
-    instance = (sdl_instance_t *) _instance;
-    for (i = 0; i < 3; i++)
-  SDL_FreeYUVOverlay (instance->frame[i].overlay);
-    SDL_FreeSurface (instance->surface);
-    SDL_QuitSubSystem (SDL_INIT_VIDEO);
-}
-#endif
 
 static int sdl_setup (vo_instance_t * _instance, unsigned int width,
           unsigned int height, unsigned int chroma_width,
@@ -127,17 +66,35 @@ static int sdl_setup (vo_instance_t * _instance, unsigned int width,
 
     instance->width = width;
     instance->height = height;
-    instance->surface = SDL_SetVideoMode (width, height, instance->bpp,
-            instance->sdlflags);
-    if (! (instance->surface)) {
-  fprintf (stderr, "sdl could not set the desired video mode\n");
-  return 1;
+
+    instance->window = SDL_CreateWindow("comskip",
+      SDL_WINDOWPOS_UNDEFINED,
+      SDL_WINDOWPOS_UNDEFINED,
+      width, height,
+      SDL_WINDOW_RESIZABLE);
+    if (! (instance->window)) {
+      fprintf(stderr, "sdl could not setup a window\n");
+      return 1;
     }
-    instance->rgb = SDL_CreateRGBSurface(SDL_SRCCOLORKEY, width, height, 24, 0x0000FF, 0x00FF00, 0xFF0000, 0);
-    if (! (instance->rgb)) {
-  fprintf (stderr, "sdl could not create RGB surface\n");
-  return 1;
+
+    instance->renderer = SDL_CreateRenderer(instance->window, -1, 0);
+    if (! (instance->renderer)) {
+      fprintf(stderr, "sdl could not create renderer\n");
+      return 1;
     }
+
+    instance->texture = SDL_CreateTexture(instance->renderer,
+      SDL_PIXELFORMAT_RGB24,
+      SDL_TEXTUREACCESS_STREAMING,
+      width, height);
+    if (! (instance->texture)) {
+      fprintf(stderr, "sdl could not create texture\n");
+      return 1;
+    }
+
+    SDL_SetRenderDrawColor(instance->renderer, 0, 0, 0, 255);
+    SDL_RenderClear(instance->renderer);
+    SDL_RenderPresent(instance->renderer);
 
     //result->convert = NULL;
     return 0;
@@ -146,43 +103,16 @@ static int sdl_setup (vo_instance_t * _instance, unsigned int width,
 vo_instance_t * vo_sdl_open (void)
 {
     sdl_instance_t * instance;
-    const SDL_VideoInfo * vidInfo;
 
     instance = (sdl_instance_t *) malloc (sizeof (sdl_instance_t));
     if (instance == NULL)
-  return NULL;
+      return NULL;
 
     memset (instance, 0, sizeof (sdl_instance_t));
-    //instance->vo.setup = sdl_setup;
-    //instance->vo.setup_fbuf = sdl_setup_fbuf;
-    //instance->vo.set_fbuf = NULL;
-    //instance->vo.start_fbuf = sdl_start_fbuf;
-    //instance->vo.discard = sdl_discard;
-    //instance->vo.draw = sdl_draw_frame;
-    //instance->vo.close = NULL; /* sdl_close; */
-    instance->sdlflags = SDL_HWSURFACE | SDL_ASYNCBLIT | SDL_HWACCEL;
-
-    //putenv("SDL_VIDEO_YUV_HWACCEL=1");
-    //putenv("SDL_VIDEO_X11_NODIRECTCOLOR=1");
 
     if (SDL_Init (SDL_INIT_VIDEO)) {
-  fprintf (stderr, "sdl video initialization failed.\n");
-  return NULL;
-    }
-
-    vidInfo = SDL_GetVideoInfo ();
-    if (!SDL_ListModes (vidInfo->vfmt, SDL_HWSURFACE | SDL_RESIZABLE)) {
-  instance->sdlflags |= SDL_RESIZABLE;
-  if (!SDL_ListModes (vidInfo->vfmt, SDL_RESIZABLE)) {
-      fprintf (stderr, "sdl couldn't get any acceptable video mode\n");
+      fprintf(stderr, "sdl video initialization failed.\n");
       return NULL;
-  }
-    }
-    instance->bpp = vidInfo->vfmt->BitsPerPixel;
-    if (instance->bpp < 16) {
-  fprintf(stderr, "sdl has to emulate a 16 bit surfaces, "
-    "that will slow things down.\n");
-  instance->bpp = 16;
     }
 
     return (vo_instance_t *) instance;
@@ -208,6 +138,7 @@ void handle_event(SDL_Event event) {
 
   switch (event.type) {
     case SDL_QUIT:
+      //printf("quit!\n");
       exit(0);
       break;
 
@@ -233,7 +164,7 @@ void handle_event(SDL_Event event) {
       break;
 
     case SDL_KEYDOWN: {
-      SDL_keysym ks = event.key.keysym;
+      SDL_Keysym ks = event.key.keysym;
       //printf("key: %d (%c) [scan: %d (%c)]\n", ks.sym, ks.sym, ks.scancode, ks.scancode);
       switch (ks.sym) {
         case SDLK_ESCAPE:
@@ -319,27 +250,21 @@ void vo_init(int width, int height, char *title)
 {
   vo_setup_result_t result;
   instance = vo_sdl_open();
-  SDL_WM_SetCaption(title, "comskip");
   sdl_setup(instance, width, height, width, height, &result);
-  SDL_EnableKeyRepeat(50, SDL_DEFAULT_REPEAT_INTERVAL);
 }
 
 void vo_draw(unsigned char * buf)
 {
-  sdl_instance_t *sdl_instance = (sdl_instance_t *) instance;
+  sdl_instance_t *sdl = (sdl_instance_t *) instance;
   SDL_Event event;
   while (SDL_PollEvent (&event)) {
     handle_event(event);
   }
 
-  SDL_Surface *rgb = sdl_instance->rgb;
-  SDL_LockSurface( rgb );
-  memcpy(rgb->pixels, buf, rgb->w * rgb->h * rgb->format->BytesPerPixel);
-  SDL_UnlockSurface( rgb );
-
-  SDL_Surface *screen = sdl_instance->surface;
-  SDL_BlitSurface(rgb, NULL, screen, NULL);
-  SDL_Flip(screen);
+  SDL_UpdateTexture(sdl->texture, NULL, buf, sdl->width * 3);
+  SDL_RenderClear(sdl->renderer);
+  SDL_RenderCopy(sdl->renderer, sdl->texture, NULL, NULL);
+  SDL_RenderPresent(sdl->renderer);
 }
 
 void vo_refresh()
@@ -362,7 +287,7 @@ void vo_wait()
 
 void vo_close()
 {
-     //if (instance) sdl_close(instance);
+  SDL_Quit();
 }
 #endif
 
@@ -412,6 +337,8 @@ int main(int argc, char **argv)
           }
           vo_draw(buf0);
      }
+
+     while (1) vo_wait();
 
      return 0;
 }
