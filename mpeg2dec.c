@@ -244,8 +244,8 @@ int muxrate,byterate=10000;
 #define   FTELL    _ftelli64
 // The following two functions are undocumented and not included in any public header,
 // so we need to declare them ourselves
-extern int  _fseeki64(FILE *, int64_t, int);
-extern int64_t _ftelli64(FILE *);
+//extern int  _fseeki64(FILE *, int64_t, int);
+//extern int64_t _ftelli64(FILE *);
 
 int soft_seeking=0;
 extern char	inbasename[];

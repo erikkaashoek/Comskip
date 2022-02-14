@@ -329,7 +329,7 @@ static long FAR PASCAL event_procedure (HWND hwnd, UINT message,
      switch (message) {
      case WM_COMMAND:
           wmId    = LOWORD(wParam);
-          wmEvent = HIWORD(wParam);
+          //wmEvent = HIWORD(wParam);
           // Parse the menu selections:
           switch (wmId) {
           case IDM_ABOUT:
@@ -541,7 +541,7 @@ static int create_window (dx_instance_t * instance)
      /* store a directx_instance pointer into the window local storage
       * (for later use in event_handler).
       * We need to use SetWindowLongPtr when it is available in mingw */
-     SetWindowLongPtr (instance->window, GWLP_USERDATA, (LONG) instance);
+     SetWindowLongPtr (instance->window, GWLP_USERDATA, instance);
      SetWindowPos(instance->window, HWND_TOP, 100, 0, 0, 0, SWP_SHOWWINDOW|SWP_NOSIZE);
 
      ShowWindow (instance->window, SW_SHOW);

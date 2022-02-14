@@ -10,7 +10,7 @@ int     rowdata[] = {11,-1,1,2,3,4,12,13,14,15,5,6,7,8,9,10};
 
 const unsigned char pac2_attribs[][3]= // Color, font, ident
 {
-    {COL_WHITE,     FONT_REGULAR,               0},  // 0x40 || 0x60 
+    {COL_WHITE,     FONT_REGULAR,               0},  // 0x40 || 0x60
     {COL_WHITE,     FONT_UNDERLINED,            0},  // 0x41 || 0x61
     {COL_GREEN,     FONT_REGULAR,               0},  // 0x42 || 0x62
     {COL_GREEN,     FONT_UNDERLINED,            0},  // 0x43 || 0x63
@@ -56,7 +56,7 @@ unsigned char str[2048]; // Another generic general purpose buffer
 unsigned enc_buffer_used;
 
 // Preencoded strings
-unsigned char encoded_crlf[16]; 
+unsigned char encoded_crlf[16];
 unsigned int encoded_crlf_length;
 unsigned char encoded_br[16];
 unsigned int encoded_br_length;
@@ -113,12 +113,12 @@ const char *color_text[][2]=
 
 // Encodes a generic string. Note that since we use the encoders for closed caption
 // data, text would have to be encoded as CCs... so using special characters here
-// it's a bad idea. 
+// it's a bad idea.
 unsigned encode_line (unsigned char *buffer, unsigned char *text)
-{ 
+{
     unsigned bytes=0;
     while (*text)
-    {		
+    {
         switch (encoding)
         {
             case ENC_UTF_8:
@@ -127,13 +127,13 @@ unsigned encode_line (unsigned char *buffer, unsigned char *text)
                 bytes++;
                 buffer++;
                 break;
-            case ENC_UNICODE:				
-                *buffer=*text;				
+            case ENC_UNICODE:
+                *buffer=*text;
                 *(buffer+1)=0;
-                bytes+=2;				
+                bytes+=2;
                 buffer+=2;
                 break;
-        }		
+        }
         text++;
     }
     return bytes;
@@ -154,8 +154,8 @@ void correct_case (int line_num, struct eia608_screen *data)
 			// preceded by space, and end of line or followed by
 			// space)
 			unsigned char prev= (c==(char *) data->characters[line_num])?' ':*(c-1);
-			unsigned char next=*(c+len);			
-			if ( ISSEPARATOR(prev) && ISSEPARATOR(next))				
+			unsigned char next=*(c+len);
+			if ( ISSEPARATOR(prev) && ISSEPARATOR(next))
 			{
 				memcpy (c,spell_correct[i],len);
 			}
@@ -171,16 +171,16 @@ void capitalize (int line_num, struct eia608_screen *data)
 	{
 		switch (data->characters[line_num][i])
 		{
-			case ' ': 
+			case ' ':
 			case 0x89: // This is a transparent space
-				break; 
+				break;
 			case '.': // Fallthrough
 			case '?': // Fallthrough
 			case '!':
 				new_sentence=1;
 				break;
 			default:
-				if (new_sentence)			
+				if (new_sentence)
 					data->characters[line_num][i]=cctoupper (data->characters[line_num][i]);
 				else
 					data->characters[line_num][i]=cctolower (data->characters[line_num][i]);
@@ -195,14 +195,14 @@ unsigned get_decoder_line_encoded (unsigned char *buffer, int line_num, struct e
 	int is_underlined;
     int col = COL_WHITE;
     int underlined = 0;
-    int italics = 0;	
+    int italics = 0;
 	int i;
     int bytes=0;
  	int has_ita;
-    unsigned char *line = data->characters[line_num];	
+    unsigned char *line = data->characters[line_num];
     unsigned char *orig=buffer; // Keep for debugging
     for (i=0;i<32;i++)
-    {	
+    {
         // Handle color
         int its_col = data->colors[line_num][i];
         if (its_col != col  && !nofontcolor)
@@ -215,12 +215,12 @@ unsigned get_decoder_line_encoded (unsigned char *buffer, int line_num, struct e
 			buffer+=encode_line (buffer, (unsigned char*) color_text[its_col][1]);
 			if (its_col==COL_USERDEFINED)
 			{
-				// The previous sentence doesn't copy the whole 
+				// The previous sentence doesn't copy the whole
 				// <font> tag, just up to the quote before the color
 				buffer+=encode_line (buffer, (unsigned char*) usercolor_rgb);
 				buffer+=encode_line (buffer, (unsigned char*) "\">");
-			}			
-				
+			}
+
             col = its_col;
         }
         // Handle underlined
@@ -232,10 +232,10 @@ unsigned get_decoder_line_encoded (unsigned char *buffer, int line_num, struct e
         if (is_underlined==0 && underlined) // Close underline
         {
             buffer+=encode_line (buffer, (unsigned char *) "</u>");
-        } 
+        }
         underlined=is_underlined;
         // Handle italics
-        has_ita = data->fonts[line_num][i] & FONT_ITALICS;		
+        has_ita = data->fonts[line_num][i] & FONT_ITALICS;
         if (has_ita && italics==0) // Open italics
         {
             buffer+=encode_line (buffer, (unsigned char *) "<i>");
@@ -243,7 +243,7 @@ unsigned get_decoder_line_encoded (unsigned char *buffer, int line_num, struct e
         if (has_ita==0 && italics) // Close italics
         {
             buffer+=encode_line (buffer, (unsigned char *) "</i>");
-        } 
+        }
         italics=has_ita;
         bytes=0;
         switch (encoding)
@@ -257,7 +257,7 @@ unsigned get_decoder_line_encoded (unsigned char *buffer, int line_num, struct e
                 break;
             case ENC_UNICODE:
                 get_char_in_unicode (buffer,line[i]);
-                bytes=2;				
+                bytes=2;
                 break;
         }
         buffer+=bytes;
@@ -285,9 +285,9 @@ void clear_eia608_cc_buffer (struct eia608_screen *data)
     for (i=0;i<15;i++)
     {
         memset(data->characters[i],' ',32);
-        data->characters[i][32]=0;		
-		memset (data->colors[i],default_color,33); 
-        memset (data->fonts[i],FONT_REGULAR,33); 
+        data->characters[i][32]=0;
+		memset (data->colors[i],default_color,33);
+        memset (data->fonts[i],FONT_REGULAR,33);
         data->row_used[i]=0;
         data->empty=1;
     }
@@ -306,7 +306,7 @@ void init_eia608 (struct eia608 *data)
     data->current_visible_start_cc=0;
     data->srt_counter=0;
 	data->screenfuls_counter=0;
-    data->channel=1;	
+    data->channel=1;
 	data->color=default_color;
     data->font=FONT_REGULAR;
     data->rollup_base_row=14;
@@ -348,7 +348,7 @@ void write_char (const unsigned char c, struct s_write *wb)
 		wb->data608->cursor_row,wb->data608->cursor_column); */
 		use_buffer->characters[wb->data608->cursor_row][wb->data608->cursor_column]=c;
 		use_buffer->colors[wb->data608->cursor_row][wb->data608->cursor_column]=wb->data608->color;
-		use_buffer->fonts[wb->data608->cursor_row][wb->data608->cursor_column]=wb->data608->font;	
+		use_buffer->fonts[wb->data608->cursor_row][wb->data608->cursor_column]=wb->data608->font;
 		use_buffer->row_used[wb->data608->cursor_row]=1;
 		use_buffer->empty=0;
 		if (wb->data608->cursor_column<31)
@@ -421,8 +421,8 @@ void write_subtitle_file_header (struct s_write *wb)
     switch (write_format)
     {
         case OF_SRT: // Subrip subtitles have no header
-            break; 
-        case OF_SAMI: // This header brought to you by McPoodle's CCASDI  
+            break;
+        case OF_SAMI: // This header brought to you by McPoodle's CCASDI
             fprintf_encoded (wb->fh, "<SAMI>\n");
             fprintf_encoded (wb->fh, "<HEAD>\n");
             fprintf_encoded (wb->fh, "<STYLE TYPE=\"text/css\">\n");
@@ -447,21 +447,21 @@ int write_cc_buffer_as_srt (struct eia608_screen *data, struct s_write *wb)
     // This is the only place we take the number of blocks written in other files,
     // we don't want the times to reset in the middle of our file.
     unsigned pg = c1global? c1global:c2global; // Any non-zero global will do
-    char timeline[128];   
+    char timeline[128];
 	long ms_end;
-	LONG ms_start= (LONG) (((wb->data608->current_visible_start_cc+pg)*1000)/29.97);	
-	if (extraction_start.set && extraction_start.time_in_ms>ms_start) 
+	LONG ms_start= (LONG) (((wb->data608->current_visible_start_cc+pg)*1000)/29.97);
+	if (extraction_start.set && extraction_start.time_in_ms>ms_start)
 		return 0;
 	ms_start+=subs_delay;
 	if (ms_start<0) // Drop screens that because of subs_delay start too early
 		return 0;
-	ms_end = (long) (((totalblockswritten_thisfile()+pg)*1000)/29.97)+subs_delay;		
+	ms_end = (long) (((totalblockswritten_thisfile()+pg)*1000)/29.97)+subs_delay;
     mstotime (ms_start,&h1,&m1,&s1,&ms1);
     mstotime (ms_end-1,&h2,&m2,&s2,&ms2); // -1 To prevent overlapping with next line.
 	wb->data608->srt_counter++;
     sprintf (timeline,"%u\r\n",wb->data608->srt_counter);
     enc_buffer_used=encode_line (enc_buffer,(unsigned char *) timeline);
-    fwrite (enc_buffer,enc_buffer_used,1,wb->fh);		
+    fwrite (enc_buffer,enc_buffer_used,1,wb->fh);
     sprintf (timeline, "%02u:%02u:%02u,%03u --> %02u:%02u:%02u,%03u\r\n",
         h1,m1,s1,ms1, h2,m2,s2,ms2);
     enc_buffer_used=encode_line (enc_buffer,(unsigned char *) timeline);
@@ -470,12 +470,12 @@ int write_cc_buffer_as_srt (struct eia608_screen *data, struct s_write *wb)
         printf ("\r");
         printf ("%s", timeline);
     }
-    fwrite (enc_buffer,enc_buffer_used,1,wb->fh);		
-    
+    fwrite (enc_buffer,enc_buffer_used,1,wb->fh);
+
     for (i=0;i<15;i++)
     {
         if (data->row_used[i])
-        {	
+        {
 			int length;
 			if (sentence_cap)
 			{
@@ -510,11 +510,11 @@ int write_cc_buffer_as_sami (struct eia608_screen *data, struct s_write *wb)
     unsigned pg = c1global? c1global:c2global; // Any non-zero global will do
     LONG startms = (LONG) (((wb->data608->current_visible_start_cc+pg)*1000)/29.97);
     LONG endms;
-	if (extraction_start.set && extraction_start.time_in_ms>startms) 
+	if (extraction_start.set && extraction_start.time_in_ms>startms)
 		return 0;
 	startms+=subs_delay;
 	if (startms<0) // Drop screens that because of subs_delay start too early
-		return 0; 
+		return 0;
 	endms = (LONG) (((totalblockswritten_thisfile()+pg)*1000)/29.97)+subs_delay;
     endms--; // To prevent overlapping with next line.
     sprintf ((char *) str,"<SYNC start=\"%ld\"><P class=\"UNKNOWNCC\">\r\n",startms);
@@ -523,11 +523,11 @@ int write_cc_buffer_as_sami (struct eia608_screen *data, struct s_write *wb)
         printf ("\r%s\n", str);
     }
     enc_buffer_used=encode_line (enc_buffer,(unsigned char *) str);
-    fwrite (enc_buffer,enc_buffer_used,1,wb->fh);		
+    fwrite (enc_buffer,enc_buffer_used,1,wb->fh);
     for (i=0;i<15;i++)
     {
         if (data->row_used[i])
-        {				
+        {
             int length = get_decoder_line_encoded (subline, i, data);
             if (debug_608 && encoding!=ENC_UNICODE)
             {
@@ -537,7 +537,7 @@ int write_cc_buffer_as_sami (struct eia608_screen *data, struct s_write *wb)
             fwrite (subline, 1, length, wb->fh);
 			wrote_something=1;
             if (i!=14)
-                fwrite (encoded_br, 1, encoded_br_length,wb->fh);			
+                fwrite (encoded_br, 1, encoded_br_length,wb->fh);
             fwrite (encoded_crlf, 1, encoded_crlf_length,wb->fh);
         }
     }
@@ -564,7 +564,7 @@ int write_cc_buffer (struct s_write *wb)
 	int wrote_something=0;
 	if (screens_to_process!=-1 && wb->data608->screenfuls_counter>=screens_to_process)
 	{
-		// We are done. 
+		// We are done.
 		processed_enough=1;
 		return 0;
 	}
@@ -641,7 +641,7 @@ void roll_up(struct s_write *wb)
         }
         for (j=0;j<(1+wb->data608->cursor_row-keep_lines);j++)
         {
-            memset(use_buffer->characters[j],' ',32);			
+            memset(use_buffer->characters[j],' ',32);
             memset(use_buffer->colors[j],COL_WHITE,32);
             memset(use_buffer->fonts[j],FONT_REGULAR,32);
             use_buffer->characters[j][32]=0;
@@ -752,7 +752,7 @@ void handle_command (/*const */ unsigned char c1, const unsigned char c2, struct
 		{
 			if (write_cc_buffer (wb))
 				wb->data608->screenfuls_counter++;
-            erase_memory (wb, true);			
+            erase_memory (wb, true);
 		}
         erase_memory (wb, false);
         wb->data608->cursor_column=0;
@@ -764,7 +764,7 @@ void handle_command (/*const */ unsigned char c1, const unsigned char c2, struct
 			if (write_cc_buffer (wb))
 				wb->data608->screenfuls_counter++;
             erase_memory (wb, true);
-			
+
 		}
         wb->data608->mode=MODE_ROLLUP_3;
         erase_memory (wb, false);
@@ -776,7 +776,7 @@ void handle_command (/*const */ unsigned char c1, const unsigned char c2, struct
 		{
 			if (write_cc_buffer (wb))
 				wb->data608->screenfuls_counter++;
-            erase_memory (wb, true);			
+            erase_memory (wb, true);
 		}
         wb->data608->mode=MODE_ROLLUP_4;
         wb->data608->cursor_column=0;
@@ -786,7 +786,7 @@ void handle_command (/*const */ unsigned char c1, const unsigned char c2, struct
     case COM_CARRIAGERETURN:
         if (write_cc_buffer(wb))
 			wb->data608->screenfuls_counter++;
-        roll_up(wb);		
+        roll_up(wb);
         wb->data608->current_visible_start_cc=totalblockswritten_thisfile();
         wb->data608->cursor_column=0;
         break;
@@ -855,12 +855,12 @@ unsigned char handle_extended (unsigned char hi, unsigned char lo, struct s_writ
             c=lo+0x90; // So if c>=0xb0 && c<=0xcf it comes from here
             break;
         }
-		// This column change is because extended characters replace 
+		// This column change is because extended characters replace
 		// the previous character (which is sent for basic decoders
 		// to show something similar to the real char)
-		if (wb->data608->cursor_column>0)        
-            wb->data608->cursor_column--;        
-        
+		if (wb->data608->cursor_column>0)
+            wb->data608->cursor_column--;
+
 
         write_char (c,wb);
     }
@@ -904,8 +904,7 @@ void handle_pac (unsigned char c1, unsigned char c2, struct s_write *wb)
     font=pac2_attribs[c2][1];
     indent=pac2_attribs[c2][2];
     if (debug_608)
-        printf ("\rPosition: %d:%d, color: %s,  font: %s\n",row,
-        indent,color_text[color][0],font_text[font]);
+        printf ("\rPosition: %d:%d, color: %s,  font: %s\n",row, indent,color_text[color][0],font_text[font]);
 	if (wb->data608->mode!=MODE_TEXT)
 	{
 		// According to Robson, row info is discarded in text mode
@@ -913,12 +912,12 @@ void handle_pac (unsigned char c1, unsigned char c2, struct s_write *wb)
 		wb->data608->cursor_row=row-1 ; // Since the array is 0 based
 	}
     wb->data608->rollup_base_row=row-1;
-    wb->data608->cursor_column=indent;	
+    wb->data608->cursor_column=indent;
 }
 
 
 void handle_single (const unsigned char c1, struct s_write *wb)
-{	
+{
     if (c1<0x20 || wb->data608->channel!=cc_channel)
         return; // We don't allow special stuff here
      /*if (debug_608)
@@ -1023,7 +1022,7 @@ void process608 (const unsigned char *data, int length, struct s_write *wb)
         for (i=0;i<length;i=i+2)
         {
             unsigned char hi, lo;
-			int wrote_to_screen=0; 
+			int wrote_to_screen=0;
             hi = data[i] & 0x7F; // Get rid of parity bit
             lo = data[i+1] & 0x7F; // Get rid of parity bit
 
@@ -1065,7 +1064,7 @@ void process608 (const unsigned char *data, int length, struct s_write *wb)
                 wb->data608->last_c1=0;
                 wb->data608->last_c2=0;
             }
-			if (wrote_to_screen && direct_rollup && 
+			if (wrote_to_screen && direct_rollup &&
 				(wb->data608->mode==MODE_ROLLUP_2 ||
 				wb->data608->mode==MODE_ROLLUP_3 ||
 				wb->data608->mode==MODE_ROLLUP_4))

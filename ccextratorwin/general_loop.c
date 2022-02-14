@@ -17,7 +17,7 @@ unsigned current_frame_rate = 0;
 unsigned current_bit_rate = 0;
 LONG current_pts = 0;
 int ts_headers_total=0;
-LONG result; // Number of bytes read/skipped in last read operation
+static LONG result; // Number of bytes read/skipped in last read operation
 LONG net_fields=20; // 0.333 to sync with video, not sure of this.
 
 extern int cc608_parity_table[256]; // From myth
@@ -348,7 +348,7 @@ long ts_getmoredata(void)
 					if (ts_adaptation)
 					{
 						// printf ("Packet with adaptation data.\n");
-						unsigned char adlength;
+						unsigned char adlength=0;
 						buffered_read (&adlength, 1);
 						past=past + result;
 						payload_length=payload_length - adlength -1;

@@ -16,7 +16,7 @@
 //extern int  _fseeki64(FILE *, __int64, int);
 //extern __int64 _ftelli64(FILE *);
 // Don't bug me with strcpy() deprecation warnings
-#pragma warning(disable : 4996)
+//#pragma warning(disable : 4996)
 #define FSEEK _fseeki64
 #define FTELL _ftelli64
 #define TELL _telli64

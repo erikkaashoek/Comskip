@@ -13874,8 +13874,8 @@ void OutputFrameArray(bool screenOnly)
             fprintf(raw, "%i,%i,%i,%i,%i,%i,%i,%i,%f,%f,%i,%i,%i,%i,%i,%i,%f,%i,%i",
                     i, frame[i].brightness, frame[i].schange_percent*5, frame[i].logo_present,
                     frame[i].uniform, frame[i].volume,  frame[i].minY,frame[i].maxY,frame[i].ar_ratio,
-                    frame[i].currentGoodEdge, frame[i].isblack,frame[i].cutscenematch, 
-                    frame[i].minX, frame[i].maxX, frame[i].hasBright, frame[i].dimCount, frame[i].pts, 
+                    frame[i].currentGoodEdge, frame[i].isblack,frame[i].cutscenematch,
+                    frame[i].minX, frame[i].maxX, frame[i].hasBright, frame[i].dimCount, frame[i].pts,
                     frame[i].cur_segment, frame[i].audio_channels
                    );
 #ifdef FRAME_WITH_HISTOGRAM
@@ -16270,7 +16270,7 @@ double get_fps()
 
 void set_fps(double fp)
 {
-    double old_fps = fps;
+//    double old_fps = fps;
     double new_fps = (double)1.0 / fp;
 //    static int showed_fps=0;
  #ifdef notused

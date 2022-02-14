@@ -5,7 +5,7 @@ BOOL AnsiToUnicode16(const char *in_Src, WCHAR *out_Dst, INT in_MaxLen)
 {
     /* locals */
     INT lv_Len;
-    int i;
+//    int i;
     // do NOT decrease maxlen for the eos
     if (in_MaxLen <= 0)
         return FALSE;
@@ -40,8 +40,7 @@ BOOL AnsiToUnicode16(const char *in_Src, WCHAR *out_Dst, INT in_MaxLen)
 int mystat(char * f, stath s)
 {
     wchar_t wf[2000];
-    int n;
-    n= AnsiToUnicode16(f, wf, 2000);
+    AnsiToUnicode16(f, wf, 2000);
     return(_wstati64(wf,s));
 }
 
@@ -58,8 +57,7 @@ fileh myfopen(const char * f, char * m)
 int myremove(char * f)
 {
     wchar_t wf[2000];
-    int n;
-    n= AnsiToUnicode16(f, wf, 2000);
+    AnsiToUnicode16(f, wf, 2000);
     return(_wremove(wf));
 }
 #endif
