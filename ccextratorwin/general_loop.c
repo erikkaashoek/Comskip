@@ -17,7 +17,7 @@ unsigned current_frame_rate = 0;
 unsigned current_bit_rate = 0;
 LONG current_pts = 0;
 int ts_headers_total=0;
-static LONG result; // Number of bytes read/skipped in last read operation
+LONG _result; // Number of bytes read/skipped in last read operation
 LONG net_fields=20; // 0.333 to sync with video, not sure of this.
 
 extern int cc608_parity_table[256]; // From myth
@@ -287,19 +287,19 @@ long ts_getmoredata(void)
 			if (next_ts_header_read)
 			{
 				// We read it in the previous pass already
-				result=4;
+				_result=4;
 				next_ts_header_read=0;
 			}
 			else
 			{
 				buffered_read_4(tsheader);
-				if (result!=4)
+				if (_result!=4)
 				{
 					// Consider this the end of the show.
 					end_of_file=1;
 					break;
 				}
-				past+=result;
+				past+=_result;
 				ts_headers_total++;
 			}
 
@@ -350,7 +350,7 @@ long ts_getmoredata(void)
 						// printf ("Packet with adaptation data.\n");
 						unsigned char adlength=0;
 						buffered_read (&adlength, 1);
-						past=past + result;
+						past=past + _result;
 						payload_length=payload_length - adlength -1;
 						buffered_skip(adlength);
 						past=past+adlength;
@@ -358,7 +358,7 @@ long ts_getmoredata(void)
 					pes_start_in_this_pass=1;
 					// Get the f*****g PES header, NOT touching the buffer
 					buffered_read (pesheaderbuf,6);
-					past=past+result;
+					past=past+_result;
 					payload_length=payload_length-6;
 					if (pesheaderbuf[0]!=0x00 || pesheaderbuf[1]!=0x00 ||
 						pesheaderbuf[2]!=0x01)
@@ -376,7 +376,7 @@ long ts_getmoredata(void)
 						int need_to_skip;
 						// Extension present, get it
 						buffered_read (pesheaderbuf+6,3);
-						past=past+result;
+						past=past+_result;
 						payload_length=payload_length-3;
 						// unsigned pes_header10 = (pesheaderbuf[6] & 0xC0) >> 6; // Should always be 10
 						//unsigned flags = ((pesheaderbuf[6] & 0x3F)<<8) | buffer[7];
@@ -400,7 +400,7 @@ long ts_getmoredata(void)
 							// There is time info, read it
 							unsigned char pts_raw[5];
 							buffered_read (pts_raw,5);
-							past=past+result;
+							past=past+_result;
 							payload_length=payload_length-5;
 							need_to_skip=need_to_skip-5;
 							if ((pts_raw[0]&1) && (pts_raw[2]&1) && (pts_raw[4]&1))
@@ -446,22 +446,22 @@ long ts_getmoredata(void)
 
 			buffered_read (fbuffer+inbuf,want);
 
-			if (result>0)
-				payload_read+=(int) result;
-			past=past+result;
+			if (_result>0)
+				payload_read+=(int) _result;
+			past=past+_result;
 			if (dump_tspacket)
 			{
 				printf ("Payload dump:\n");
 				dump_tspacket=0;
 				dump (fbuffer+inbuf,TS_PACKET_PAYLOAD_LENGTH);
 			}
-			inbuf+=result;
+			inbuf+=_result;
 
 		}
 	}
-	while (result!=0 && !enough && BUFSIZE!=inbuf);
+	while (_result!=0 && !enough && BUFSIZE!=inbuf);
 
-	if ((pes_start_in_this_pass==0 || full_pes==0) && result) // result>0 means no EOF
+	if ((pes_start_in_this_pass==0 || full_pes==0) && _result) // _result>0 means no EOF
 	{
 		printf ("Warning: We don't have the complete PES in buffer.\n");
 		printf ("Things may start to go wrong from this point.\n");
@@ -478,11 +478,11 @@ LONG general_getmoredata(void)
 	{
 		int want = (int) (BUFSIZE-inbuf);
         buffered_read (fbuffer+inbuf,want);
-        //result=read (in,buffer+inbuf,want);
-		past=past+result;
-		inbuf+=result;
-	} while (result!=0 && BUFSIZE!=inbuf);
-	return result;
+        //_result=read (in,buffer+inbuf,want);
+		past=past+_result;
+		inbuf+=_result;
+	} while (_result!=0 && BUFSIZE!=inbuf);
+	return _result;
 }
 
 // Raw file process

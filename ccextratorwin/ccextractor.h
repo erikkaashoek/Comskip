@@ -136,14 +136,14 @@ extern int bytesinbuffer; // Number of bytes we actually have on buffer
 
 #define buffered_skip(bytes) if (bytes<=bytesinbuffer-filebuffer_pos) { \
     filebuffer_pos+=bytes; \
-    result=bytes; \
-} else result=buffered_read_opt (NULL,bytes);
+    _result=bytes; \
+} else _result=buffered_read_opt (NULL,bytes);
 
 #define buffered_read(buffer,bytes) if (bytes<=bytesinbuffer-filebuffer_pos) { \
     if (buffer!=NULL) memcpy (buffer,filebuffer+filebuffer_pos,bytes); \
     filebuffer_pos+=bytes; \
-    result=bytes; \
-} else result=buffered_read_opt (buffer,bytes);
+    _result=bytes; \
+} else _result=buffered_read_opt (buffer,bytes);
 
 #define buffered_read_4(buffer) if (4<=bytesinbuffer-filebuffer_pos) { \
     if (buffer) { buffer[0]=filebuffer[filebuffer_pos]; \
@@ -151,14 +151,14 @@ extern int bytesinbuffer; // Number of bytes we actually have on buffer
     buffer[2]=filebuffer[filebuffer_pos+2]; \
     buffer[3]=filebuffer[filebuffer_pos+3]; \
     filebuffer_pos+=4; \
-    result=4; } \
-} else result=buffered_read_opt (buffer,4);
+    _result=4; } \
+} else _result=buffered_read_opt (buffer,4);
 
 #define buffered_read_byte(buffer) if (bytesinbuffer-filebuffer_pos) { \
     if (buffer) { *buffer=filebuffer[filebuffer_pos]; \
     filebuffer_pos++; \
-    result=1; } \
-} else result=buffered_read_opt (buffer,1);
+    _result=1; } \
+} else _result=buffered_read_opt (buffer,1);
 
 // extern FILE *in, *clean;
 extern FILE *clean;
