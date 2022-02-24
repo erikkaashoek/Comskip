@@ -904,7 +904,8 @@ int SubmitFrame(AVStream        *video_st, AVFrame         *pFrame , double pts)
 //	bitrate = pFrame->bit_rate;
     if (pFrame->linesize[0] > MAXWIDTH || pFrame->height > MAXHEIGHT || pFrame->linesize[0] < 100 || pFrame->height < 100)
     {
-        //				printf("Panic: illegal height, width or frame period\n");
+        Debug(1, "Panic: illegal height (%d), width (%d) or frame period (%d)\n",
+              pFrame->height, pFrame->width, pFrame->linesize[0]);
         frame_ptr = NULL;
         return(0);
     }
