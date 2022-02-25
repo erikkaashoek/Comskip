@@ -375,10 +375,11 @@ int frames_with_loud_sound = 0;
 
 void list_codecs()
 {
-        AVCodec *p;
+        const AVCodec *p;
+        int * p_i = (int *)NULL;
         int i = 0;
-        avcodec_register_all();
-        p = av_codec_next(NULL);
+//        avcodec_register_all();
+        p = av_codec_iterate((void **)&p_i);
         printf("Decoders:\n");
         printf("---------\n");
         while (p != NULL) {
@@ -391,7 +392,7 @@ void list_codecs()
                 } else
                     printf(", ");
             }
-            p = av_codec_next(p);
+            p = av_codec_iterate((void **)&p_i);
         }
         printf("\n");
 }
