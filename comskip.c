@@ -795,6 +795,7 @@ unsigned char vert_count[MAXHEIGHT*MAXWIDTH];
 double				borderIgnore = .05;					// Percentage of each side to ignore for logo detection
 int					subtitles = 0;
 int					logo_at_bottom = 0;
+int					logo_at_side = 0;
 int					edge_radius = 2;
 int					int_edge_radius = 2;
 int					edge_step = 1;
@@ -2025,7 +2026,7 @@ void InitHasLogo()
                     int y_step_test = height/3; \
                     for (y = (logo_at_bottom ? height/2 : edge_radius + border + LOGOBORDER); y < y_max_test; y = (y==y_step_test ? 2*height/3 : y+edge_step))
 // #define LOGO_X_LOOP for (x = max(edge_radius + (int)(width * borderIgnore), minX+AR_DIST); x < min((width - edge_radius - (int)(width * borderIgnore)),maxX-AR_DIST); x += edge_step)
-#define LOGO_X_LOOP for (x = edge_radius + border + LOGOBORDER; x < (videowidth - edge_radius - border- LOGOBORDER); x = (x==videowidth/3 ? 2*videowidth/3 : x+edge_step))
+#define LOGO_X_LOOP for (x = (logo_at_side ? width/2 : edge_radius + border + LOGOBORDER); x < (videowidth - edge_radius - border- LOGOBORDER); x = (x==videowidth/3 ? 2*videowidth/3 : x+edge_step))
 
 
 
@@ -8590,6 +8591,7 @@ void LoadIniFile()
         if ((tmp = FindNumber(data, "ignore_right_side=", (double) ignore_right_side)) > -1) ignore_right_side = (int)tmp;
         if ((tmp = FindNumber(data, "subtitles=", (double) subtitles)) > -1) subtitles = (int)tmp;
         if ((tmp = FindNumber(data, "logo_at_bottom=", (double) logo_at_bottom)) > -1) logo_at_bottom = (int)tmp;
+        if ((tmp = FindNumber(data, "logo_at_side=", (double) logo_at_side)) > -1) logo_at_side = (int)tmp;
         if ((tmp = FindNumber(data, "logo_threshold=", (double) logo_threshold)) > -1) logo_threshold = (double)tmp;
         if ((tmp = FindNumber(data, "logo_percentage_threshold=", (double) logo_percentage_threshold)) > -1) logo_percentage_threshold = (double)tmp;
         if ((tmp = FindNumber(data, "logo_filter=", (double) logo_filter)) > -1) logo_filter = (int)tmp;
