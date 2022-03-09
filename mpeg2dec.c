@@ -476,7 +476,7 @@ void backfill_frame_volumes()
     if (framenum < 3)
         return;
     f = framenum-2;
-    if (abs(local_initial_pts) > 200)
+    if (fabs(local_initial_pts) > 200)
         local_initial_pts = 0;
     while (get_frame_pts(f) + local_initial_pts > base_apts && f > 1) // Find first frame with samples available, could be incomplete
         f--;
@@ -1049,12 +1049,12 @@ again:
             error_text = "Generic";
         }
 
-        fprintf(stderr, "%s error while seeking. target=%6.3f, \"%s\"\n", error_text,is->seek_pts, is->pFormatCtx->filename);
+        fprintf(stderr, "%s error while seeking. target=%6.3f, \"%s\"\n", error_text,is->seek_pts, is->pFormatCtx->url);
 
         if (selftest)
         {
             sample_file = fopen("seektest.log", "a+");
-            fprintf(sample_file, "%s error while seeking, target=%6.3f, \"%s\"\n", error_text,is->seek_pts, is->pFormatCtx->filename);
+            fprintf(sample_file, "%s error while seeking, target=%6.3f, \"%s\"\n", error_text,is->seek_pts, is->pFormatCtx->url);
             fclose(sample_file);
         }
 
@@ -1291,8 +1291,8 @@ static int    prev_strange_framenum = 0;
  //           Debug(1, "Changing fps from %6.3f to %6.3f", 1.0/prev_frame_delay, 1.0/frame_delay);
         pev_best_effort_timestamp = best_effort_timestamp;
         if (use_cuvid)
-        	av_frame_set_best_effort_timestamp(is->pFrame, is->pFrame->pkt_pts);
-        best_effort_timestamp = av_frame_get_best_effort_timestamp(is->pFrame);
+            is->pFrame->best_effort_timestamp = is->pFrame->pts;
+        best_effort_timestamp = is->pFrame->best_effort_timestamp;
         calculated_delay = (best_effort_timestamp - pev_best_effort_timestamp) * av_q2d(is->video_st->time_base);
 
         if (best_effort_timestamp == AV_NOPTS_VALUE)
@@ -1828,7 +1828,7 @@ int stream_component_open(VideoState *is, int stream_index)
         is->pFrame = av_frame_alloc();
         if (!hardware_decode) codecCtx->flags |= AV_CODEC_FLAG_GRAY;
 //       codecCtx->thread_type = 1; // Frame based threading
-        codecCtx->lowres = min(av_codec_get_max_lowres(codecCtx->codec),lowres);
+        codecCtx->lowres = min(codecCtx->codec->max_lowres, lowres);
         if (codecCtx->codec_id == AV_CODEC_ID_H264)
         {
             is_h264 = 1;
@@ -1930,9 +1930,6 @@ void file_open()
         av_log_set_callback(log_callback_report);
 
         av_log_set_flags(AV_LOG_SKIP_REPEATED);
-        avcodec_register_all();
-//    avfilter_register_all();
-        av_register_all();
         avformat_network_init();
         global_video_state = is;
         is->videoStream=-1;

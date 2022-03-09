@@ -169,7 +169,7 @@ typedef struct
     double	ar_ratio;
     bool	logo_present;
     bool	commercial;
-    bool	isblack;
+    int	isblack;
     int64_t		goppos;
     double	pts;
     char    pict_type;
@@ -8728,6 +8728,8 @@ void LoadIniFile()
     if (added_recording > 0 && giveUpOnLogoSearch < added_recording * 60)
         giveUpOnLogoSearch += added_recording * 60;
 }
+
+void list_codecs();
 
 FILE* LoadSettings(int argc, char ** argv)
 {
