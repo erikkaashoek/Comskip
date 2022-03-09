@@ -1828,7 +1828,7 @@ int stream_component_open(VideoState *is, int stream_index)
         is->pFrame = av_frame_alloc();
         if (!hardware_decode) codecCtx->flags |= AV_CODEC_FLAG_GRAY;
 //       codecCtx->thread_type = 1; // Frame based threading
-        codecCtx->lowres = min(av_codec_get_max_lowres(codecCtx->codec),lowres);
+        codecCtx->lowres = min(codecCtx->codec->max_lowres, lowres);
         if (codecCtx->codec_id == AV_CODEC_ID_H264)
         {
             is_h264 = 1;
