@@ -1049,12 +1049,12 @@ again:
             error_text = "Generic";
         }
 
-        fprintf(stderr, "%s error while seeking. target=%6.3f, \"%s\"\n", error_text,is->seek_pts, is->pFormatCtx->filename);
+        fprintf(stderr, "%s error while seeking. target=%6.3f, \"%s\"\n", error_text,is->seek_pts, is->pFormatCtx->url);
 
         if (selftest)
         {
             sample_file = fopen("seektest.log", "a+");
-            fprintf(sample_file, "%s error while seeking, target=%6.3f, \"%s\"\n", error_text,is->seek_pts, is->pFormatCtx->filename);
+            fprintf(sample_file, "%s error while seeking, target=%6.3f, \"%s\"\n", error_text,is->seek_pts, is->pFormatCtx->url);
             fclose(sample_file);
         }
 
