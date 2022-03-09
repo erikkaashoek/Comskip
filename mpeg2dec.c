@@ -1930,9 +1930,6 @@ void file_open()
         av_log_set_callback(log_callback_report);
 
         av_log_set_flags(AV_LOG_SKIP_REPEATED);
-        avcodec_register_all();
-//    avfilter_register_all();
-        av_register_all();
         avformat_network_init();
         global_video_state = is;
         is->videoStream=-1;
