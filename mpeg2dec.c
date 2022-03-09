@@ -407,7 +407,7 @@ int retreive_frame_volume(double from_pts, double to_pts)
     VideoState *is = global_video_state;
     int i;
     double calculated_delay;
-    int s_per_frame = (to_pts - from_pts) * (double)(is->audio_st->codec->sample_rate+1);
+    int s_per_frame = (to_pts - from_pts) * (double)(is->audio_st->codecpar->sample_rate+1);
 
 
     if (s_per_frame > 1 && base_apts <= from_pts && to_pts < top_apts )
@@ -416,7 +416,7 @@ int retreive_frame_volume(double from_pts, double to_pts)
 
 
  //       Debug(1,"fame=%d, =base=%6.3f, from=%6.3f, samples=%d, to=%6.3f, top==%6.3f\n", -1, base_apts, from_pts, s_per_frame, to_pts, top_apts);
-        buffer = & audio_buffer[(int)((from_pts - base_apts) * ((double)is->audio_st->codec->sample_rate+0.5) )];
+        buffer = & audio_buffer[(int)((from_pts - base_apts) * ((double)is->audio_st->codecpar->sample_rate+0.5) )];
 
         volume = 0;
         if (sample_file) fprintf(sample_file, "Frame %i\n", sound_frame_counter);
@@ -429,7 +429,7 @@ int retreive_frame_volume(double from_pts, double to_pts)
         volume = volume/s_per_frame;
         DUMP_TIMING("a  read", is->audio_clock, to_pts, from_pts, (double)volume, s_per_frame);
 
-        audio_samples -= (int)((from_pts - base_apts) * (is->audio_st->codec->sample_rate+0.5)); // incomplete frame before complete frame
+        audio_samples -= (int)((from_pts - base_apts) * (is->audio_st->codecpar->sample_rate+0.5)); // incomplete frame before complete frame
         audio_samples -= s_per_frame;
 
 
@@ -462,7 +462,7 @@ int retreive_frame_volume(double from_pts, double to_pts)
             }
         }
         base_apts = to_pts;
-        top_apts = base_apts + audio_samples / (double)(is->audio_st->codec->sample_rate);
+        top_apts = base_apts + audio_samples / (double)(is->audio_st->codecpar->sample_rate);
         sound_frame_counter++;
     }
     return(volume);
@@ -507,11 +507,11 @@ void sound_to_frames(VideoState *is, short **b, int s, int c, int format)
 
     audio_samples = (audio_buffer_ptr - audio_buffer);
 
-    if (old_sample_rate == is->audio_st->codec->sample_rate &&
+    if (old_sample_rate == is->audio_st->codecpar->sample_rate &&
         ((audio_buffer_ptr - audio_buffer) < 0 || (audio_buffer_ptr - audio_buffer) >= AUDIOBUFFER
-        || (top_apts - base_apts) * (is->audio_st->codec->sample_rate+0.5) > AUDIOBUFFER
+        || (top_apts - base_apts) * (is->audio_st->codecpar->sample_rate+0.5) > AUDIOBUFFER
         || (top_apts < base_apts)
-        || !ISSAME(((double)audio_samples /(double)(is->audio_st->codec->sample_rate+0.5))+ base_apts, top_apts)
+        || !ISSAME(((double)audio_samples /(double)(is->audio_st->codecpar->sample_rate+0.5))+ base_apts, top_apts)
         || audio_samples < 0
         || audio_samples >= AUDIOBUFFER)) {
        Debug(1, "Panic: Audio buffering corrupt\n");
@@ -527,15 +527,15 @@ void sound_to_frames(VideoState *is, short **b, int s, int c, int format)
     }
     audio_channels = c;
     old_c = c;
-    if (old_sample_rate != 0 && old_sample_rate != is->audio_st->codec->sample_rate) {
-         Debug(5, "Audio samplerate switched from %d to %d\n", old_sample_rate, is->audio_st->codec->sample_rate );
+    if (old_sample_rate != 0 && old_sample_rate != is->audio_st->codecpar->sample_rate) {
+         Debug(5, "Audio samplerate switched from %d to %d\n", old_sample_rate, is->audio_st->codecpar->sample_rate );
     }
-    old_sample_rate = is->audio_st->codec->sample_rate;
+    old_sample_rate = is->audio_st->codecpar->sample_rate;
 
     old_base_apts = base_apts;
-    if (fabs(base_apts - (is->audio_clock - ((double)audio_samples /(double)(is->audio_st->codec->sample_rate))))> 0.0001)
-        base_apts = (is->audio_clock - ((double)audio_samples /(double)(is->audio_st->codec->sample_rate)));
-        if (ALIGN_AC3_PACKETS && is->audio_st->codec->codec_id == AV_CODEC_ID_AC3) {
+    if (fabs(base_apts - (is->audio_clock - ((double)audio_samples /(double)(is->audio_st->codecpar->sample_rate))))> 0.0001)
+        base_apts = (is->audio_clock - ((double)audio_samples /(double)(is->audio_st->codecpar->sample_rate)));
+        if (ALIGN_AC3_PACKETS && is->audio_st->codecpar->codec_id == AV_CODEC_ID_AC3) {
                     if (   ISSAME(base_apts - old_base_apts, 0.032)
                         || ISSAME(base_apts - old_base_apts, -0.032)
                         || ISSAME(base_apts - old_base_apts, 0.064)
@@ -560,7 +560,7 @@ void sound_to_frames(VideoState *is, short **b, int s, int c, int format)
     {
         if (format == AV_SAMPLE_FMT_FLTP)
         {
-            for (l=0;l < is->audio_st->codec->channels;l++ )
+            for (l=0;l < is->audio_st->codecpar->channels;l++ )
             {
                 fb[l] = (float*)b[l];
             }
@@ -568,16 +568,16 @@ void sound_to_frames(VideoState *is, short **b, int s, int c, int format)
             {
                 volume = 0;
                 if (planar)
-                    for (l=0;l < is->audio_st->codec->channels;l++ ) volume += *((fb[l])++) * 64000;
+                    for (l=0;l < is->audio_st->codecpar->channels;l++ ) volume += *((fb[l])++) * 64000;
                 else
-                    for (l=0;l < is->audio_st->codec->channels;l++ ) volume += *((fb[0])++) * 64000;
-                *audio_buffer_ptr++ = volume / is->audio_st->codec->channels;
-                avg_volume += abs(volume / is->audio_st->codec->channels);
+                    for (l=0;l < is->audio_st->codecpar->channels;l++ ) volume += *((fb[0])++) * 64000;
+                *audio_buffer_ptr++ = volume / is->audio_st->codecpar->channels;
+                avg_volume += abs(volume / is->audio_st->codecpar->channels);
             }
         }
         else
         {
-            for (l=0;l < is->audio_st->codec->channels;l++ )
+            for (l=0;l < is->audio_st->codecpar->channels;l++ )
             {
                 sb[l] = (short*)b[l];
             }
@@ -585,17 +585,17 @@ void sound_to_frames(VideoState *is, short **b, int s, int c, int format)
             {
                 volume = 0;
                 if (planar)
-                    for (l=0;l < is->audio_st->codec->channels;l++ ) volume += *((sb[l])++);
+                    for (l=0;l < is->audio_st->codecpar->channels;l++ ) volume += *((sb[l])++);
                 else
-                    for (l=0;l < is->audio_st->codec->channels;l++ ) volume += *((sb[0])++);
-                *audio_buffer_ptr++ = volume / is->audio_st->codec->channels;
-                avg_volume += abs(volume / is->audio_st->codec->channels);
+                    for (l=0;l < is->audio_st->codecpar->channels;l++ ) volume += *((sb[0])++);
+                *audio_buffer_ptr++ = volume / is->audio_st->codecpar->channels;
+                avg_volume += abs(volume / is->audio_st->codecpar->channels);
             }
         }
     }
     avg_volume /= s;
     audio_samples = (audio_buffer_ptr - audio_buffer);
-    top_apts = base_apts + audio_samples / (double)(is->audio_st->codec->sample_rate);
+    top_apts = base_apts + audio_samples / (double)(is->audio_st->codecpar->sample_rate);
 
     calculated_delay = is->audio_clock - old_audio_clock;
     DUMP_TIMING("a frame", is->audio_clock, top_apts, base_apts, avg_volume,s);
@@ -618,7 +618,7 @@ void audio_packet_process(VideoState *is, AVPacket *pkt)
     int len1, data_size;
     uint8_t *pp;
     double prev_audio_clock;
-//    AC3DecodeContext *s = is->audio_st->codec->priv_data;
+//    AC3DecodeContext *s = is->audio_st->codecpar->priv_data;
     int      rps,ps;
     AVPacket *pkt_temp = &is->audio_pkt_temp;
 
@@ -633,7 +633,7 @@ void audio_packet_process(VideoState *is, AVPacket *pkt)
     pkt_temp->data = pkt->data;
     pkt_temp->size = pkt->size;
 
-    if ( !ALIGN_AC3_PACKETS && is->audio_st->codec->codec_id == AV_CODEC_ID_AC3
+    if ( !ALIGN_AC3_PACKETS && is->audio_st->codecpar->codec_id == AV_CODEC_ID_AC3
         && ((pkt_temp->data[0] != 0x0b || pkt_temp->data[1] != 0x77)))
     {
 //        Debug(1, "AC3 packet misaligned, audio decoding will fail\n");
@@ -646,7 +646,7 @@ void audio_packet_process(VideoState *is, AVPacket *pkt)
         ALIGN_AC3_PACKETS = 1;
     }
 
-    if (ALIGN_AC3_PACKETS && is->audio_st->codec->codec_id == AV_CODEC_ID_AC3) {
+    if (ALIGN_AC3_PACKETS && is->audio_st->codecpar->codec_id == AV_CODEC_ID_AC3) {
         if (ac3_packet_index + pkt_temp->size >= AC3_BUFFER_SIZE )
         {
             Debug(8,"AC3 sync error\n");
@@ -697,7 +697,7 @@ void audio_packet_process(VideoState *is, AVPacket *pkt)
     {
         prev_audio_clock = is->audio_clock;
         is->audio_clock = av_q2d(is->audio_st->time_base)*( pkt->pts -  (is->audio_st->start_time != AV_NOPTS_VALUE ? is->audio_st->start_time : 0)) - apts_offset;
-            if (ALIGN_AC3_PACKETS && is->audio_st->codec->codec_id == AV_CODEC_ID_AC3) {
+            if (ALIGN_AC3_PACKETS && is->audio_st->codecpar->codec_id == AV_CODEC_ID_AC3) {
                     if (   ISSAME(is->audio_clock - prev_audio_clock, 0.032)
                         || ISSAME(is->audio_clock - prev_audio_clock, -0.032)
                         || ISSAME(is->audio_clock - prev_audio_clock, 0.064)
@@ -743,16 +743,16 @@ void audio_packet_process(VideoState *is, AVPacket *pkt)
 
         len1 = avcodec_decode_audio4(is->audio_st->codec, is->frame, &got_frame, pkt_temp);
 
-        if (prev_codec_id != -1 && (unsigned int)prev_codec_id != is->audio_st->codec->codec_id)
+        if (prev_codec_id != -1 && (unsigned int)prev_codec_id != is->audio_st->codecpar->codec_id)
         {
             Debug(2 ,"Audio format change\n");
         }
-        prev_codec_id = is->audio_st->codec->codec_id;
+        prev_codec_id = is->audio_st->codecpar->codec_id;
         if (len1 < 0  && !ALIGN_AC3_PACKETS)
         {
             /* if error, we skip the frame */
             pkt_temp->size = 0;
-            if (is->audio_st->codec->codec_id == AV_CODEC_ID_AC3) ac3_packet_index = 0;
+            if (is->audio_st->codecpar->codec_id == AV_CODEC_ID_AC3) ac3_packet_index = 0;
 
             break;
         }
@@ -785,7 +785,7 @@ void audio_packet_process(VideoState *is, AVPacket *pkt)
         av_frame_free(&(is->frame));
     }
 
-    if (ALIGN_AC3_PACKETS && is->audio_st->codec->codec_id == AV_CODEC_ID_AC3) {
+    if (ALIGN_AC3_PACKETS && is->audio_st->codecpar->codec_id == AV_CODEC_ID_AC3) {
         ps = 0;
         rps = (pkt_temp->data - ac3_packet);
         while (0 < ac3_packet_index - rps)
@@ -1156,7 +1156,7 @@ nextpacket:
                     break;
                 }
 /*
-                double frame_delay = av_q2d(is->video_st->codec->time_base)* is->video_st->codec->ticks_per_frame;         // <------------------------ frame delay is the time in seconds till the next frame
+                double frame_delay = av_q2d(is->video_st->codecpar->time_base)* is->video_st->codecpar->ticks_per_frame;         // <------------------------ frame delay is the time in seconds till the next frame
                 if (is->video_clock - is->seek_pts > -frame_delay / 2.0)
                 {
                     av_packet_unref(packet);
@@ -1409,7 +1409,7 @@ static int    prev_strange_framenum = 0;
         else
             do_audio_repair = 0;
 
-//		Debug(0 ,"pst[%3d] = %12.3f, inter = %d, ticks = %d\n", framenum, pts/frame_delay, is->pFrame->interlaced_frame, is->video_st->codec->ticks_per_frame);
+//		Debug(0 ,"pst[%3d] = %12.3f, inter = %d, ticks = %d\n", framenum, pts/frame_delay, is->pFrame->interlaced_frame, is->video_st->codecpar->ticks_per_frame);
 
         pts = real_pts + pts_offset;
 
