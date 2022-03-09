@@ -169,7 +169,7 @@ typedef struct
     double	ar_ratio;
     bool	logo_present;
     bool	commercial;
-    bool	isblack;
+    int	isblack;
     int64_t		goppos;
     double	pts;
     char    pict_type;
