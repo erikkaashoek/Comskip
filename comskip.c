@@ -8729,6 +8729,8 @@ void LoadIniFile()
         giveUpOnLogoSearch += added_recording * 60;
 }
 
+void list_codecs();
+
 FILE* LoadSettings(int argc, char ** argv)
 {
 //	FILE*				ini_file = NULL;
