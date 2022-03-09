@@ -1291,8 +1291,8 @@ static int    prev_strange_framenum = 0;
  //           Debug(1, "Changing fps from %6.3f to %6.3f", 1.0/prev_frame_delay, 1.0/frame_delay);
         pev_best_effort_timestamp = best_effort_timestamp;
         if (use_cuvid)
-        	av_frame_set_best_effort_timestamp(is->pFrame, is->pFrame->pkt_pts);
-        best_effort_timestamp = av_frame_get_best_effort_timestamp(is->pFrame);
+            is->pFrame->best_effort_timestamp = is->pFrame->pts;
+        best_effort_timestamp = is->pFrame->best_effort_timestamp;
         calculated_delay = (best_effort_timestamp - pev_best_effort_timestamp) * av_q2d(is->video_st->time_base);
 
         if (best_effort_timestamp == AV_NOPTS_VALUE)
