@@ -476,7 +476,7 @@ void backfill_frame_volumes()
     if (framenum < 3)
         return;
     f = framenum-2;
-    if (abs(local_initial_pts) > 200)
+    if (fabs(local_initial_pts) > 200)
         local_initial_pts = 0;
     while (get_frame_pts(f) + local_initial_pts > base_apts && f > 1) // Find first frame with samples available, could be incomplete
         f--;
