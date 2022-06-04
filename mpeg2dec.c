@@ -1652,8 +1652,8 @@ int stream_component_open(VideoState *is, int stream_index)
 
     AVFormatContext *pFormatCtx = is->pFormatCtx;
     AVCodecContext *codecCtx;
-    AVCodec *codec;
-    AVCodec *codec_hw = NULL;
+    const AVCodec *codec;
+    const AVCodec *codec_hw = NULL;
 
 
 
