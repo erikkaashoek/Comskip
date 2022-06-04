@@ -94,7 +94,7 @@ typedef struct VideoPicture
 typedef struct VideoState
 {
     AVFormatContext *pFormatCtx;
-    AVCodecContext *dec_ctx;
+    AVCodecContext *dec_ctx, *audio_ctx, *subtitle_ctx;
     int             videoStream, audioStream, subtitleStream;
 
     int             av_sync_type;
@@ -1797,12 +1797,14 @@ int stream_component_open(VideoState *is, int stream_index)
     case AVMEDIA_TYPE_SUBTITLE:
         is->subtitleStream = stream_index;
         is->subtitle_st = pFormatCtx->streams[stream_index];
+        is->subtitle_ctx = codecCtx;
         if (demux_pid)
             selected_subtitle_pid = is->subtitle_st->id;
         break;
     case AVMEDIA_TYPE_AUDIO:
         is->audioStream = stream_index;
         is->audio_st = pFormatCtx->streams[stream_index];
+        is->audio_ctx = codecCtx;
 //          is->audio_buf_size = 0;
 //          is->audio_buf_index = 0;
 
