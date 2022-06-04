@@ -1822,6 +1822,7 @@ int stream_component_open(VideoState *is, int stream_index)
     case AVMEDIA_TYPE_VIDEO:
         is->videoStream = stream_index;
         is->video_st = pFormatCtx->streams[stream_index];
+        is->dec_ctx = codecCtx;
 
 //          is->frame_timer = (double)av_gettime() / 1000000.0;
 //          is->frame_last_delay = 40e-3;
