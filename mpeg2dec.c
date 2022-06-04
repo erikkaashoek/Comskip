@@ -741,7 +741,7 @@ void audio_packet_process(VideoState *is, AVPacket *pkt)
  //       else
  //           avcodec_get_frame_defaults(is->frame);
 
-        len1 = avcodec_decode_audio4(is->audio_st->codec, is->frame, &got_frame, pkt_temp);
+        len1 = avcodec_decode_audio4(is->audio_ctx, is->frame, &got_frame, pkt_temp);
 
         if (prev_codec_id != -1 && (unsigned int)prev_codec_id != is->audio_st->codecpar->codec_id)
         {
@@ -1069,7 +1069,7 @@ again:
     {
         if(is->audioStream >= 0)
         {
-            avcodec_flush_buffers(is->audio_st->codec);
+            avcodec_flush_buffers(is->audio_ctx);
         }
         if(is->videoStream >= 0)
         {
