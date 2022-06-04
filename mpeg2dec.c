@@ -728,20 +728,13 @@ void audio_packet_process(VideoState *is, AVPacket *pkt)
 
     initial_apts_set = 1;
 
+    len1 = avcodec_send_packet(is->audio_ctx, pkt_temp);
+
     //		fprintf(stderr, "sac = %f\n", is->audio_clock);
-    while(pkt_temp->size > 0)
+    while ((len1 = avcodec_receive_frame(is->audio_ctx, is->frame)) != AVERROR(EAGAIN))
     {
  //       data_size = STORAGE_SIZE;
-
-//        if (!is->frame)
-//        {
-            if (!(is->frame = av_frame_alloc()))
-                return;
- //       }
- //       else
- //           avcodec_get_frame_defaults(is->frame);
-
-        len1 = avcodec_decode_audio4(is->audio_ctx, is->frame, &got_frame, pkt_temp);
+        got_frame = len1 >= 0;
 
         if (prev_codec_id != -1 && (unsigned int)prev_codec_id != is->audio_st->codecpar->codec_id)
         {
@@ -782,7 +775,7 @@ void audio_packet_process(VideoState *is, AVPacket *pkt)
         }
         is->audio_clock += (double)data_size /
                            (is->frame->channels * is->frame->sample_rate * av_get_bytes_per_sample(is->frame->format));
-        av_frame_free(&(is->frame));
+        av_frame_unref(is->frame);
     }
 
     if (ALIGN_AC3_PACKETS && is->audio_st->codecpar->codec_id == AV_CODEC_ID_AC3) {
@@ -1999,6 +1992,11 @@ again:
         }
         // Dump information about file onto standard error
         if (retries == 0) av_dump_format(is->pFormatCtx, 0, is->filename, 0);
+    }
+
+    if (!is->frame) {
+        if (!(is->frame = av_frame_alloc()))
+            exit(-1);
     }
 
     if ( is->videoStream == -1)
