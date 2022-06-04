@@ -1670,6 +1670,46 @@ int stream_component_open(VideoState *is, int stream_index)
     codecCtx = pFormatCtx->streams[stream_index]->codec;
     avcodec_close(codecCtx);
 
+	codec = avcodec_find_decoder(codecCtx->codec_id);
+
+	// If decoding in hardware try if running on a Raspberry Pi and then use it's decoder instead.
+    if (hardware_decode) {
+		if (codecCtx->codec_id == AV_CODEC_ID_MPEG2VIDEO && avcodec_find_decoder_by_name("mpeg2_mmal") != NULL) codec_hw = avcodec_find_decoder_by_name("mpeg2_mmal");
+		if (codecCtx->codec_id == AV_CODEC_ID_H264 && avcodec_find_decoder_by_name("h264_mmal") != NULL) codec_hw = avcodec_find_decoder_by_name("h264_mmal");
+		if (codecCtx->codec_id == AV_CODEC_ID_MPEG4 && avcodec_find_decoder_by_name("mpeg4_mmal") != NULL) codec_hw = avcodec_find_decoder_by_name("mpeg4_mmal");
+		if (codecCtx->codec_id == AV_CODEC_ID_VC1 && avcodec_find_decoder_by_name("vc1_mmal") != NULL) codec_hw = avcodec_find_decoder_by_name("vc1_mmal");
+    }
+
+    if (use_cuvid) {
+		if (codecCtx->codec_id == AV_CODEC_ID_MPEG2VIDEO && avcodec_find_decoder_by_name("mpeg2_cuvid") != NULL) codec_hw = avcodec_find_decoder_by_name("mpeg2_cuvid");
+		if (codecCtx->codec_id == AV_CODEC_ID_H264 && avcodec_find_decoder_by_name("h264_cuvid") != NULL) codec_hw = avcodec_find_decoder_by_name("h264_cuvid");
+		if (codecCtx->codec_id == AV_CODEC_ID_HEVC && avcodec_find_decoder_by_name("hevc_cuvid") != NULL) codec_hw = avcodec_find_decoder_by_name("hevc_cuvid");
+		if (codecCtx->codec_id == AV_CODEC_ID_MPEG4 && avcodec_find_decoder_by_name("mpeg4_cuvid") != NULL) codec_hw = avcodec_find_decoder_by_name("mpeg4_cuvid");
+		if (codecCtx->codec_id == AV_CODEC_ID_VC1 && avcodec_find_decoder_by_name("vc1_cuvidl") != NULL) codec_hw = avcodec_find_decoder_by_name("vc1_cuvidl");
+    }
+
+    if (use_vdpau) {
+		if (codecCtx->codec_id == AV_CODEC_ID_MPEG2VIDEO && avcodec_find_decoder_by_name("mpeg2_vdpau") != NULL) codec_hw = avcodec_find_decoder_by_name("mpeg2_vdpau");
+		if (codecCtx->codec_id == AV_CODEC_ID_H264 && avcodec_find_decoder_by_name("h264_vdpau") != NULL) codec_hw = avcodec_find_decoder_by_name("h264_vdpau");
+		if (codecCtx->codec_id == AV_CODEC_ID_MPEG4 && avcodec_find_decoder_by_name("mpeg4_vdpau") != NULL) codec_hw = avcodec_find_decoder_by_name("mpeg4_vdpau");
+		if (codecCtx->codec_id == AV_CODEC_ID_VC1 && avcodec_find_decoder_by_name("vc1_vdpau") != NULL) codec_hw = avcodec_find_decoder_by_name("vc1_vdpau");
+		if (codecCtx->codec_id == AV_CODEC_ID_HEVC && avcodec_find_decoder_by_name("hevc_vdpau") != NULL) codec_hw = avcodec_find_decoder_by_name("vhevc_vdpau");
+    }
+    if (use_dxva2) {
+		if (codecCtx->codec_id == AV_CODEC_ID_MPEG2VIDEO &&
+            avcodec_find_decoder_by_name("mpeg2_dxva2") != NULL)
+                codec_hw = avcodec_find_decoder_by_name("mpeg2_dxva2");
+		if (codecCtx->codec_id == AV_CODEC_ID_H264 && avcodec_find_decoder_by_name("h264_dxva2") != NULL) codec_hw = avcodec_find_decoder_by_name("h264_dxva2");
+		if (codecCtx->codec_id == AV_CODEC_ID_MPEG4 && avcodec_find_decoder_by_name("mpeg4_dxva2") != NULL) codec_hw = avcodec_find_decoder_by_name("mpeg4_dxva2");
+		if (codecCtx->codec_id == AV_CODEC_ID_VC1 && avcodec_find_decoder_by_name("vc1_dxva2") != NULL) codec_hw = avcodec_find_decoder_by_name("vc1_dxva2");
+		if (codecCtx->codec_id == AV_CODEC_ID_HEVC && avcodec_find_decoder_by_name("hevc_dxva2") != NULL) codec_hw = avcodec_find_decoder_by_name("hevc_dxva2");
+    }
+
+    if (codec_hw != NULL && codec_hw != codec) {
+        fprintf(stderr, "Using Codec: %s instead of %s\n", codec_hw->name, codec->name);
+        codec = codec_hw;
+    }
+
     if (codecCtx->codec_type == AVMEDIA_TYPE_VIDEO)
     {
         if (!hardware_decode) codecCtx->flags |= AV_CODEC_FLAG_GRAY;
@@ -1738,53 +1778,12 @@ int stream_component_open(VideoState *is, int stream_index)
         }
     }
 
-
-	codec = avcodec_find_decoder(codecCtx->codec_id);
-
-	// If decoding in hardware try if running on a Raspberry Pi and then use it's decoder instead.
-    if (hardware_decode) {
-		if (codecCtx->codec_id == AV_CODEC_ID_MPEG2VIDEO && avcodec_find_decoder_by_name("mpeg2_mmal") != NULL) codec_hw = avcodec_find_decoder_by_name("mpeg2_mmal");
-		if (codecCtx->codec_id == AV_CODEC_ID_H264 && avcodec_find_decoder_by_name("h264_mmal") != NULL) codec_hw = avcodec_find_decoder_by_name("h264_mmal");
-		if (codecCtx->codec_id == AV_CODEC_ID_MPEG4 && avcodec_find_decoder_by_name("mpeg4_mmal") != NULL) codec_hw = avcodec_find_decoder_by_name("mpeg4_mmal");
-		if (codecCtx->codec_id == AV_CODEC_ID_VC1 && avcodec_find_decoder_by_name("vc1_mmal") != NULL) codec_hw = avcodec_find_decoder_by_name("vc1_mmal");
-    }
-
-    if (use_cuvid) {
-		if (codecCtx->codec_id == AV_CODEC_ID_MPEG2VIDEO && avcodec_find_decoder_by_name("mpeg2_cuvid") != NULL) codec_hw = avcodec_find_decoder_by_name("mpeg2_cuvid");
-		if (codecCtx->codec_id == AV_CODEC_ID_H264 && avcodec_find_decoder_by_name("h264_cuvid") != NULL) codec_hw = avcodec_find_decoder_by_name("h264_cuvid");
-		if (codecCtx->codec_id == AV_CODEC_ID_HEVC && avcodec_find_decoder_by_name("hevc_cuvid") != NULL) codec_hw = avcodec_find_decoder_by_name("hevc_cuvid");
-		if (codecCtx->codec_id == AV_CODEC_ID_MPEG4 && avcodec_find_decoder_by_name("mpeg4_cuvid") != NULL) codec_hw = avcodec_find_decoder_by_name("mpeg4_cuvid");
-		if (codecCtx->codec_id == AV_CODEC_ID_VC1 && avcodec_find_decoder_by_name("vc1_cuvidl") != NULL) codec_hw = avcodec_find_decoder_by_name("vc1_cuvidl");
-    }
-
-    if (use_vdpau) {
-		if (codecCtx->codec_id == AV_CODEC_ID_MPEG2VIDEO && avcodec_find_decoder_by_name("mpeg2_vdpau") != NULL) codec_hw = avcodec_find_decoder_by_name("mpeg2_vdpau");
-		if (codecCtx->codec_id == AV_CODEC_ID_H264 && avcodec_find_decoder_by_name("h264_vdpau") != NULL) codec_hw = avcodec_find_decoder_by_name("h264_vdpau");
-		if (codecCtx->codec_id == AV_CODEC_ID_MPEG4 && avcodec_find_decoder_by_name("mpeg4_vdpau") != NULL) codec_hw = avcodec_find_decoder_by_name("mpeg4_vdpau");
-		if (codecCtx->codec_id == AV_CODEC_ID_VC1 && avcodec_find_decoder_by_name("vc1_vdpau") != NULL) codec_hw = avcodec_find_decoder_by_name("vc1_vdpau");
-		if (codecCtx->codec_id == AV_CODEC_ID_HEVC && avcodec_find_decoder_by_name("hevc_vdpau") != NULL) codec_hw = avcodec_find_decoder_by_name("vhevc_vdpau");
-    }
-    if (use_dxva2) {
-		if (codecCtx->codec_id == AV_CODEC_ID_MPEG2VIDEO &&
-            avcodec_find_decoder_by_name("mpeg2_dxva2") != NULL)
-                codec_hw = avcodec_find_decoder_by_name("mpeg2_dxva2");
-		if (codecCtx->codec_id == AV_CODEC_ID_H264 && avcodec_find_decoder_by_name("h264_dxva2") != NULL) codec_hw = avcodec_find_decoder_by_name("h264_dxva2");
-		if (codecCtx->codec_id == AV_CODEC_ID_MPEG4 && avcodec_find_decoder_by_name("mpeg4_dxva2") != NULL) codec_hw = avcodec_find_decoder_by_name("mpeg4_dxva2");
-		if (codecCtx->codec_id == AV_CODEC_ID_VC1 && avcodec_find_decoder_by_name("vc1_dxva2") != NULL) codec_hw = avcodec_find_decoder_by_name("vc1_dxva2");
-		if (codecCtx->codec_id == AV_CODEC_ID_HEVC && avcodec_find_decoder_by_name("hevc_dxva2") != NULL) codec_hw = avcodec_find_decoder_by_name("hevc_dxva2");
-    }
-
     if (!hardware_decode) av_dict_set_int(&myoptions, "gray", 1, 0);
 
 
  //       av_dict_set_int(&myoptions, "fastint", 1, 0);
  //       av_dict_set_int(&myoptions, "skip_alpha", 1, 0);
 //        av_dict_set(&myoptions, "threads", "auto", 0);
-
-    if (codec_hw != NULL && codec_hw != codec) {
-        fprintf(stderr, "Using Codec: %s instead of %s\n", codec_hw->name, codec->name);
-        codec = codec_hw;
-    }
 
     if(!codec || (avcodec_open2(codecCtx, codec, &myoptions) < 0))
     {
