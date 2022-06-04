@@ -1667,11 +1667,9 @@ int stream_component_open(VideoState *is, int stream_index)
 
     // Get a pointer to the codec context for the video stream
 
-    codecCtx = pFormatCtx->streams[stream_index]->codec;
     codecPar = pFormatCtx->streams[stream_index]->codecpar;
-    avcodec_close(codecCtx);
 
-	codec = avcodec_find_decoder(codecCtx->codec_id);
+	codec = avcodec_find_decoder(codecPar->codec_id);
 
     if (use_dxva2 && !codec_hw) {
 		if (codecPar->codec_id == AV_CODEC_ID_MPEG2VIDEO) codec_hw = avcodec_find_decoder_by_name("mpeg2_dxva2");
@@ -1710,6 +1708,9 @@ int stream_component_open(VideoState *is, int stream_index)
         fprintf(stderr, "Using Codec: %s instead of %s\n", codec_hw->name, codec->name);
         codec = codec_hw;
     }
+
+    codecCtx = avcodec_alloc_context3(codec);
+    avcodec_parameters_to_context(codecCtx, codecPar);
 
     if (codecCtx->codec_type == AVMEDIA_TYPE_VIDEO)
     {
@@ -2105,13 +2106,13 @@ void file_close()
 //    av_freep(&ist->hwaccel_device);
 
 
-    if (is->dec_ctx) avcodec_close(is->dec_ctx);
+    if (is->dec_ctx) avcodec_free_context(&is->dec_ctx);
     is->videoStream = -1;
 //    avcodec_free_context(&is->pFormatCtx->streams[is->videoStream]->codec);
 
-    if (is->audio_ctx) avcodec_close(is->audio_ctx);
+    if (is->audio_ctx) avcodec_free_context(&is->audio_ctx);
     is->audioStream = -1;
-    if (is->subtitle_ctx)  avcodec_close(is->subtitle_ctx);
+    if (is->subtitle_ctx)  avcodec_free_context(&is->subtitle_ctx);
     is->subtitleStream = -1;
 //    is->pFormatCtx = NULL;
 
