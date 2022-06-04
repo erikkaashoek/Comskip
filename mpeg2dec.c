@@ -1073,7 +1073,7 @@ again:
         }
         if(is->videoStream >= 0)
         {
-            avcodec_flush_buffers(is->video_st->codec);
+            avcodec_flush_buffers(is->dec_ctx);
         }
     }
     is->seek_no_flush = 0;
@@ -1156,7 +1156,7 @@ nextpacket:
                     break;
                 }
 /*
-                double frame_delay = av_q2d(is->video_st->codecpar->time_base)* is->video_st->codecpar->ticks_per_frame;         // <------------------------ frame delay is the time in seconds till the next frame
+                double frame_delay = av_q2d(is->dec_ctxpar->time_base)* is->dec_ctxpar->ticks_per_frame;         // <------------------------ frame delay is the time in seconds till the next frame
                 if (is->video_clock - is->seek_pts > -frame_delay / 2.0)
                 {
                     av_packet_unref(packet);
@@ -1233,10 +1233,10 @@ static int    prev_strange_framenum = 0;
     }
     real_pts = 0.0;
     pts = 0;
-    //is->video_st->codec.thread_type
-    if (!hardware_decode) is->video_st->codec->flags |= AV_CODEC_FLAG_GRAY;
+    //is->dec_ctx.thread_type
+    if (!hardware_decode) is->dec_ctx->flags |= AV_CODEC_FLAG_GRAY;
     // Decode video frame
-    len1 = avcodec_decode_video2(is->video_st->codec, is->pFrame, &frameFinished,
+    len1 = avcodec_decode_video2(is->dec_ctx, is->pFrame, &frameFinished,
                                  packet);
 
     if (len1<0)
@@ -1275,16 +1275,16 @@ static int    prev_strange_framenum = 0;
             is->pFrame = newframe;
         }
 
-        if(is->video_st->codec->framerate.den && is->video_st->codec->framerate.num)
+        if(is->dec_ctx->framerate.den && is->dec_ctx->framerate.num)
         {
-            frame_delay = (1/ av_q2d(is->video_st->codec->framerate) ) /* * is->video_st->codec->ticks_per_frame */ ;
+            frame_delay = (1/ av_q2d(is->dec_ctx->framerate) ) /* * is->dec_ctx->ticks_per_frame */ ;
         }
         else
         {
-           frame_delay = av_q2d(is->video_st->codec->time_base) * is->video_st->codec->ticks_per_frame ;
+           frame_delay = av_q2d(is->dec_ctx->time_base) * is->dec_ctx->ticks_per_frame ;
         }
 
-//        frame_delay = av_q2d(is->video_st->codec->time_base) * is->video_st->codec->ticks_per_frame ;
+//        frame_delay = av_q2d(is->dec_ctx->time_base) * is->dec_ctx->ticks_per_frame ;
         repeat = av_stream_get_parser(is->video_st) ? av_stream_get_parser(is->video_st)->repeat_pict: 4;
 
  //       if (prev_frame_delay != 0.0 && frame_delay != prev_frame_delay)
@@ -1392,24 +1392,24 @@ static int    prev_strange_framenum = 0;
 //#define SHOW_VIDEO_TIMING
 #ifdef SHOW_VIDEO_TIMING
         if (framenum==0)
-            Debug(1,"Video timing ---------------------------------------------------\n", frame_delay/is->video_st->codec->ticks_per_frame, is->video_st->codec->ticks_per_frame, repeat, real_pts,calculated_delay);
+            Debug(1,"Video timing ---------------------------------------------------\n", frame_delay/is->dec_ctx->ticks_per_frame, is->dec_ctx->ticks_per_frame, repeat, real_pts,calculated_delay);
         else if (framenum<20)
-            Debug(1,"Video timing fr=%6.5f, tick=%d, repeat=%d, pts=%6.3f, step=%6.5f\n", frame_delay/is->video_st->codec->ticks_per_frame, is->video_st->codec->ticks_per_frame, repeat, real_pts,calculated_delay);
+            Debug(1,"Video timing fr=%6.5f, tick=%d, repeat=%d, pts=%6.3f, step=%6.5f\n", frame_delay/is->dec_ctx->ticks_per_frame, is->dec_ctx->ticks_per_frame, repeat, real_pts,calculated_delay);
 #endif // SHOW_VIDEO_TIMING
 
 
         pts_offset *= 0.9;
         if (!reviewing && timeline_repair) {
             if (framenum > 1 && fabs(calculated_delay - pts_offset - frame_delay) < 1.0) { // Allow max 0.5 second timeline jitter to be compensated
-                if (!ISSAME(3*frame_delay/ is->video_st->codec->ticks_per_frame, calculated_delay))
-                    if (!ISSAME(1*frame_delay/ is->video_st->codec->ticks_per_frame, calculated_delay))
+                if (!ISSAME(3*frame_delay/ is->dec_ctx->ticks_per_frame, calculated_delay))
+                    if (!ISSAME(1*frame_delay/ is->dec_ctx->ticks_per_frame, calculated_delay))
                         pts_offset = pts_offset + frame_delay - calculated_delay;
             }
         }
         else
             do_audio_repair = 0;
 
-//		Debug(0 ,"pst[%3d] = %12.3f, inter = %d, ticks = %d\n", framenum, pts/frame_delay, is->pFrame->interlaced_frame, is->video_st->codecpar->ticks_per_frame);
+//		Debug(0 ,"pst[%3d] = %12.3f, inter = %d, ticks = %d\n", framenum, pts/frame_delay, is->pFrame->interlaced_frame, is->dec_ctxpar->ticks_per_frame);
 
         pts = real_pts + pts_offset;
 
@@ -1417,9 +1417,9 @@ static int    prev_strange_framenum = 0;
 
         if (!reviewing
             && framenum > 1 && fabs(calculated_delay - frame_delay) > 0.01
-            && !ISSAME(3*frame_delay/ is->video_st->codec->ticks_per_frame, calculated_delay)
-            && !ISSAME(2*frame_delay/ is->video_st->codec->ticks_per_frame, calculated_delay)
-            && !ISSAME(1*frame_delay/ is->video_st->codec->ticks_per_frame, calculated_delay)
+            && !ISSAME(3*frame_delay/ is->dec_ctx->ticks_per_frame, calculated_delay)
+            && !ISSAME(2*frame_delay/ is->dec_ctx->ticks_per_frame, calculated_delay)
+            && !ISSAME(1*frame_delay/ is->dec_ctx->ticks_per_frame, calculated_delay)
             ){
             if ( (prev_strange_framenum + 1 != framenum) &&( prev_strange_step < fabs(calculated_delay - frame_delay))) {
                 Debug(8 ,"Strange video pts step of %6.5f instead of %6.5f at frame %d\n", calculated_delay+0.0000005, frame_delay+0.0000005, framenum); // Unknown strange step
@@ -1847,7 +1847,7 @@ int stream_component_open(VideoState *is, int stream_index)
 #endif
         }
         if (codecCtx->codec_id == AV_CODEC_ID_MPEG1VIDEO)
-            is->video_st->codec->ticks_per_frame = 1;
+            is->dec_ctx->ticks_per_frame = 1;
         if (demux_pid)
             selected_video_pid = is->video_st->id;
         /*
@@ -2029,7 +2029,7 @@ again:
         else
         {
             Debug(10, "Warning, no stream frame rate, deriving from codec\n");
-            is->fps = 1/(av_q2d(is->video_st->codec->time_base) * is->video_st->codec->ticks_per_frame );
+            is->fps = 1/(av_q2d(is->dec_ctx->time_base) * is->dec_ctx->ticks_per_frame );
         }
         set_fps( 1.0 / is->fps);
 //        Debug(1, "Stream frame rate is %5.3f f/s\n", is->fps);
@@ -2403,7 +2403,7 @@ nextpacket:
 
                     if ((live_tv && retries < live_tv_retries) /* || (selftest == 3 && retries == 0) */)
                     {
-                        double frame_delay = av_q2d(is->video_st->codec->time_base) * is->video_st->codec->ticks_per_frame;
+                        double frame_delay = av_q2d(is->dec_ctx->time_base) * is->dec_ctx->ticks_per_frame;
 //                    uint64_t retry_target;
                         if (retries == 0)
                         {
