@@ -1207,7 +1207,7 @@ extern char					mpegfilename[];
 int video_packet_process(VideoState *is,AVPacket *packet)
 {
     double frame_delay;
-    int len1, frameFinished;
+    int len1, frameFinished = 0;
     int repeat;
     double pts;
 //    double dts;
@@ -1236,8 +1236,7 @@ static int    prev_strange_framenum = 0;
     //is->dec_ctx.thread_type
     if (!hardware_decode) is->dec_ctx->flags |= AV_CODEC_FLAG_GRAY;
     // Decode video frame
-    len1 = avcodec_decode_video2(is->dec_ctx, is->pFrame, &frameFinished,
-                                 packet);
+    len1 = avcodec_send_packet(is->dec_ctx, packet);
 
     if (len1<0)
     {
@@ -1259,8 +1258,9 @@ static int    prev_strange_framenum = 0;
     }
 
     // Did we get a video frame?
-    if(frameFinished)
+    while ((len1 = avcodec_receive_frame(is->dec_ctx, is->pFrame)) >= 0)
     {
+        frameFinished = 1;
         // convert to 8bit
         if (is->pFrame->format == AV_PIX_FMT_YUV420P10LE) {
             is->img_convert_ctx = sws_getCachedContext(is->img_convert_ctx, is->pFrame->width, is->pFrame->height, is->pFrame->format, is->pFrame->width, is->pFrame->height, AV_PIX_FMT_YUV420P, SWS_POINT, NULL, NULL, NULL);
@@ -1578,9 +1578,9 @@ static int    prev_strange_framenum = 0;
             }
         }
 #endif
-
-        return 1;
     }
+
+    return frameFinished;
 quit:
     return 0;
 }
