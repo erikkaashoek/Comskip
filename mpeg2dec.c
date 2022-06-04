@@ -2105,13 +2105,13 @@ void file_close()
 //    av_freep(&ist->hwaccel_device);
 
 
-    if (is->videoStream != -1) avcodec_close(is->pFormatCtx->streams[is->videoStream]->codec);
+    if (is->dec_ctx) avcodec_close(is->dec_ctx);
     is->videoStream = -1;
 //    avcodec_free_context(&is->pFormatCtx->streams[is->videoStream]->codec);
 
-    if (is->audioStream != -1) avcodec_close(is->pFormatCtx->streams[is->audioStream]->codec);
+    if (is->audio_ctx) avcodec_close(is->audio_ctx);
     is->audioStream = -1;
-    if (is->subtitleStream != -1)  avcodec_close(is->pFormatCtx->streams[is->subtitleStream]->codec);
+    if (is->subtitle_ctx)  avcodec_close(is->subtitle_ctx);
     is->subtitleStream = -1;
 //    is->pFormatCtx = NULL;
 
