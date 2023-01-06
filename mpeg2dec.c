@@ -94,7 +94,7 @@ typedef struct VideoPicture
 typedef struct VideoState
 {
     AVFormatContext *pFormatCtx;
-    AVCodecContext *dec_ctx;
+    AVCodecContext *dec_ctx, *audio_ctx, *subtitle_ctx;
     int             videoStream, audioStream, subtitleStream;
 
     int             av_sync_type;
@@ -728,20 +728,13 @@ void audio_packet_process(VideoState *is, AVPacket *pkt)
 
     initial_apts_set = 1;
 
+    len1 = avcodec_send_packet(is->audio_ctx, pkt_temp);
+
     //		fprintf(stderr, "sac = %f\n", is->audio_clock);
-    while(pkt_temp->size > 0)
+    while ((len1 = avcodec_receive_frame(is->audio_ctx, is->frame)) != AVERROR(EAGAIN))
     {
  //       data_size = STORAGE_SIZE;
-
-//        if (!is->frame)
-//        {
-            if (!(is->frame = av_frame_alloc()))
-                return;
- //       }
- //       else
- //           avcodec_get_frame_defaults(is->frame);
-
-        len1 = avcodec_decode_audio4(is->audio_st->codec, is->frame, &got_frame, pkt_temp);
+        got_frame = len1 >= 0;
 
         if (prev_codec_id != -1 && (unsigned int)prev_codec_id != is->audio_st->codecpar->codec_id)
         {
@@ -782,7 +775,7 @@ void audio_packet_process(VideoState *is, AVPacket *pkt)
         }
         is->audio_clock += (double)data_size /
                            (is->frame->channels * is->frame->sample_rate * av_get_bytes_per_sample(is->frame->format));
-        av_frame_free(&(is->frame));
+        av_frame_unref(is->frame);
     }
 
     if (ALIGN_AC3_PACKETS && is->audio_st->codecpar->codec_id == AV_CODEC_ID_AC3) {
@@ -1069,11 +1062,11 @@ again:
     {
         if(is->audioStream >= 0)
         {
-            avcodec_flush_buffers(is->audio_st->codec);
+            avcodec_flush_buffers(is->audio_ctx);
         }
         if(is->videoStream >= 0)
         {
-            avcodec_flush_buffers(is->video_st->codec);
+            avcodec_flush_buffers(is->dec_ctx);
         }
     }
     is->seek_no_flush = 0;
@@ -1156,7 +1149,7 @@ nextpacket:
                     break;
                 }
 /*
-                double frame_delay = av_q2d(is->video_st->codecpar->time_base)* is->video_st->codecpar->ticks_per_frame;         // <------------------------ frame delay is the time in seconds till the next frame
+                double frame_delay = av_q2d(is->dec_ctxpar->time_base)* is->dec_ctxpar->ticks_per_frame;         // <------------------------ frame delay is the time in seconds till the next frame
                 if (is->video_clock - is->seek_pts > -frame_delay / 2.0)
                 {
                     av_packet_unref(packet);
@@ -1207,7 +1200,7 @@ extern char					mpegfilename[];
 int video_packet_process(VideoState *is,AVPacket *packet)
 {
     double frame_delay;
-    int len1, frameFinished;
+    int len1, frameFinished = 0;
     int repeat;
     double pts;
 //    double dts;
@@ -1233,11 +1226,10 @@ static int    prev_strange_framenum = 0;
     }
     real_pts = 0.0;
     pts = 0;
-    //is->video_st->codec.thread_type
-    if (!hardware_decode) is->video_st->codec->flags |= AV_CODEC_FLAG_GRAY;
+    //is->dec_ctx.thread_type
+    if (!hardware_decode) is->dec_ctx->flags |= AV_CODEC_FLAG_GRAY;
     // Decode video frame
-    len1 = avcodec_decode_video2(is->video_st->codec, is->pFrame, &frameFinished,
-                                 packet);
+    len1 = avcodec_send_packet(is->dec_ctx, packet);
 
     if (len1<0)
     {
@@ -1259,8 +1251,9 @@ static int    prev_strange_framenum = 0;
     }
 
     // Did we get a video frame?
-    if(frameFinished)
+    while ((len1 = avcodec_receive_frame(is->dec_ctx, is->pFrame)) >= 0)
     {
+        frameFinished = 1;
         // convert to 8bit
         if (is->pFrame->format == AV_PIX_FMT_YUV420P10LE) {
             is->img_convert_ctx = sws_getCachedContext(is->img_convert_ctx, is->pFrame->width, is->pFrame->height, is->pFrame->format, is->pFrame->width, is->pFrame->height, AV_PIX_FMT_YUV420P, SWS_POINT, NULL, NULL, NULL);
@@ -1275,16 +1268,16 @@ static int    prev_strange_framenum = 0;
             is->pFrame = newframe;
         }
 
-        if(is->video_st->codec->framerate.den && is->video_st->codec->framerate.num)
+        if(is->dec_ctx->framerate.den && is->dec_ctx->framerate.num)
         {
-            frame_delay = (1/ av_q2d(is->video_st->codec->framerate) ) /* * is->video_st->codec->ticks_per_frame */ ;
+            frame_delay = (1/ av_q2d(is->dec_ctx->framerate) ) /* * is->dec_ctx->ticks_per_frame */ ;
         }
         else
         {
-           frame_delay = av_q2d(is->video_st->codec->time_base) * is->video_st->codec->ticks_per_frame ;
+           frame_delay = av_q2d(is->dec_ctx->time_base) * is->dec_ctx->ticks_per_frame ;
         }
 
-//        frame_delay = av_q2d(is->video_st->codec->time_base) * is->video_st->codec->ticks_per_frame ;
+//        frame_delay = av_q2d(is->dec_ctx->time_base) * is->dec_ctx->ticks_per_frame ;
         repeat = av_stream_get_parser(is->video_st) ? av_stream_get_parser(is->video_st)->repeat_pict: 4;
 
  //       if (prev_frame_delay != 0.0 && frame_delay != prev_frame_delay)
@@ -1392,24 +1385,24 @@ static int    prev_strange_framenum = 0;
 //#define SHOW_VIDEO_TIMING
 #ifdef SHOW_VIDEO_TIMING
         if (framenum==0)
-            Debug(1,"Video timing ---------------------------------------------------\n", frame_delay/is->video_st->codec->ticks_per_frame, is->video_st->codec->ticks_per_frame, repeat, real_pts,calculated_delay);
+            Debug(1,"Video timing ---------------------------------------------------\n", frame_delay/is->dec_ctx->ticks_per_frame, is->dec_ctx->ticks_per_frame, repeat, real_pts,calculated_delay);
         else if (framenum<20)
-            Debug(1,"Video timing fr=%6.5f, tick=%d, repeat=%d, pts=%6.3f, step=%6.5f\n", frame_delay/is->video_st->codec->ticks_per_frame, is->video_st->codec->ticks_per_frame, repeat, real_pts,calculated_delay);
+            Debug(1,"Video timing fr=%6.5f, tick=%d, repeat=%d, pts=%6.3f, step=%6.5f\n", frame_delay/is->dec_ctx->ticks_per_frame, is->dec_ctx->ticks_per_frame, repeat, real_pts,calculated_delay);
 #endif // SHOW_VIDEO_TIMING
 
 
         pts_offset *= 0.9;
         if (!reviewing && timeline_repair) {
             if (framenum > 1 && fabs(calculated_delay - pts_offset - frame_delay) < 1.0) { // Allow max 0.5 second timeline jitter to be compensated
-                if (!ISSAME(3*frame_delay/ is->video_st->codec->ticks_per_frame, calculated_delay))
-                    if (!ISSAME(1*frame_delay/ is->video_st->codec->ticks_per_frame, calculated_delay))
+                if (!ISSAME(3*frame_delay/ is->dec_ctx->ticks_per_frame, calculated_delay))
+                    if (!ISSAME(1*frame_delay/ is->dec_ctx->ticks_per_frame, calculated_delay))
                         pts_offset = pts_offset + frame_delay - calculated_delay;
             }
         }
         else
             do_audio_repair = 0;
 
-//		Debug(0 ,"pst[%3d] = %12.3f, inter = %d, ticks = %d\n", framenum, pts/frame_delay, is->pFrame->interlaced_frame, is->video_st->codecpar->ticks_per_frame);
+//		Debug(0 ,"pst[%3d] = %12.3f, inter = %d, ticks = %d\n", framenum, pts/frame_delay, is->pFrame->interlaced_frame, is->dec_ctxpar->ticks_per_frame);
 
         pts = real_pts + pts_offset;
 
@@ -1417,9 +1410,9 @@ static int    prev_strange_framenum = 0;
 
         if (!reviewing
             && framenum > 1 && fabs(calculated_delay - frame_delay) > 0.01
-            && !ISSAME(3*frame_delay/ is->video_st->codec->ticks_per_frame, calculated_delay)
-            && !ISSAME(2*frame_delay/ is->video_st->codec->ticks_per_frame, calculated_delay)
-            && !ISSAME(1*frame_delay/ is->video_st->codec->ticks_per_frame, calculated_delay)
+            && !ISSAME(3*frame_delay/ is->dec_ctx->ticks_per_frame, calculated_delay)
+            && !ISSAME(2*frame_delay/ is->dec_ctx->ticks_per_frame, calculated_delay)
+            && !ISSAME(1*frame_delay/ is->dec_ctx->ticks_per_frame, calculated_delay)
             ){
             if ( (prev_strange_framenum + 1 != framenum) &&( prev_strange_step < fabs(calculated_delay - frame_delay))) {
                 Debug(8 ,"Strange video pts step of %6.5f instead of %6.5f at frame %d\n", calculated_delay+0.0000005, frame_delay+0.0000005, framenum); // Unknown strange step
@@ -1578,9 +1571,9 @@ static int    prev_strange_framenum = 0;
             }
         }
 #endif
-
-        return 1;
     }
+
+    return frameFinished;
 quit:
     return 0;
 }
@@ -1649,11 +1642,11 @@ static int get_buffer(AVCodecContext *s, AVFrame *frame, int flags)
 
 int stream_component_open(VideoState *is, int stream_index)
 {
-
     AVFormatContext *pFormatCtx = is->pFormatCtx;
+    AVCodecParameters *codecPar = NULL;
     AVCodecContext *codecCtx;
-    AVCodec *codec;
-    AVCodec *codec_hw = NULL;
+    const AVCodec *codec;
+    const AVCodec *codec_hw = NULL;
 
 
 
@@ -1667,8 +1660,50 @@ int stream_component_open(VideoState *is, int stream_index)
 
     // Get a pointer to the codec context for the video stream
 
-    codecCtx = pFormatCtx->streams[stream_index]->codec;
-    avcodec_close(codecCtx);
+    codecPar = pFormatCtx->streams[stream_index]->codecpar;
+
+	codec = avcodec_find_decoder(codecPar->codec_id);
+
+    if (use_dxva2 && !codec_hw) {
+		if (codecPar->codec_id == AV_CODEC_ID_MPEG2VIDEO) codec_hw = avcodec_find_decoder_by_name("mpeg2_dxva2");
+		if (codecPar->codec_id == AV_CODEC_ID_H264) codec_hw = avcodec_find_decoder_by_name("h264_dxva2");
+		if (codecPar->codec_id == AV_CODEC_ID_MPEG4) codec_hw = avcodec_find_decoder_by_name("mpeg4_dxva2");
+		if (codecPar->codec_id == AV_CODEC_ID_VC1) codec_hw = avcodec_find_decoder_by_name("vc1_dxva2");
+		if (codecPar->codec_id == AV_CODEC_ID_HEVC) codec_hw = avcodec_find_decoder_by_name("hevc_dxva2");
+    }
+
+    if (use_vdpau && !codec_hw) {
+		if (codecPar->codec_id == AV_CODEC_ID_MPEG2VIDEO) codec_hw = avcodec_find_decoder_by_name("mpeg2_vdpau");
+		if (codecPar->codec_id == AV_CODEC_ID_H264) codec_hw = avcodec_find_decoder_by_name("h264_vdpau");
+		if (codecPar->codec_id == AV_CODEC_ID_MPEG4) codec_hw = avcodec_find_decoder_by_name("mpeg4_vdpau");
+		if (codecPar->codec_id == AV_CODEC_ID_VC1) codec_hw = avcodec_find_decoder_by_name("vc1_vdpau");
+		if (codecPar->codec_id == AV_CODEC_ID_HEVC) codec_hw = avcodec_find_decoder_by_name("hevc_vdpau");
+    }
+
+    if (use_cuvid && !codec_hw) {
+		if (codecPar->codec_id == AV_CODEC_ID_MPEG2VIDEO) codec_hw = avcodec_find_decoder_by_name("mpeg2_cuvid");
+		if (codecPar->codec_id == AV_CODEC_ID_H264) codec_hw = avcodec_find_decoder_by_name("h264_cuvid");
+		if (codecPar->codec_id == AV_CODEC_ID_HEVC) codec_hw = avcodec_find_decoder_by_name("hevc_cuvid");
+		if (codecPar->codec_id == AV_CODEC_ID_MPEG4) codec_hw = avcodec_find_decoder_by_name("mpeg4_cuvid");
+		if (codecPar->codec_id == AV_CODEC_ID_VC1) codec_hw = avcodec_find_decoder_by_name("vc1_cuvidl");
+    }
+
+	// If decoding in hardware try if running on a Raspberry Pi and then use it's decoder instead.
+    if (hardware_decode && !codec_hw) {
+		if (codecPar->codec_id == AV_CODEC_ID_MPEG2VIDEO) codec_hw = avcodec_find_decoder_by_name("mpeg2_mmal");
+		if (codecPar->codec_id == AV_CODEC_ID_H264) codec_hw = avcodec_find_decoder_by_name("h264_mmal");
+		if (codecPar->codec_id == AV_CODEC_ID_MPEG4) codec_hw = avcodec_find_decoder_by_name("mpeg4_mmal");
+		if (codecPar->codec_id == AV_CODEC_ID_VC1) codec_hw = avcodec_find_decoder_by_name("vc1_mmal");
+    }
+
+
+    if (codec_hw != NULL && codec_hw != codec) {
+        fprintf(stderr, "Using Codec: %s instead of %s\n", codec_hw->name, codec->name);
+        codec = codec_hw;
+    }
+
+    codecCtx = avcodec_alloc_context3(codec);
+    avcodec_parameters_to_context(codecCtx, codecPar);
 
     if (codecCtx->codec_type == AVMEDIA_TYPE_VIDEO)
     {
@@ -1738,53 +1773,12 @@ int stream_component_open(VideoState *is, int stream_index)
         }
     }
 
-
-	codec = avcodec_find_decoder(codecCtx->codec_id);
-
-	// If decoding in hardware try if running on a Raspberry Pi and then use it's decoder instead.
-    if (hardware_decode) {
-		if (codecCtx->codec_id == AV_CODEC_ID_MPEG2VIDEO && avcodec_find_decoder_by_name("mpeg2_mmal") != NULL) codec_hw = avcodec_find_decoder_by_name("mpeg2_mmal");
-		if (codecCtx->codec_id == AV_CODEC_ID_H264 && avcodec_find_decoder_by_name("h264_mmal") != NULL) codec_hw = avcodec_find_decoder_by_name("h264_mmal");
-		if (codecCtx->codec_id == AV_CODEC_ID_MPEG4 && avcodec_find_decoder_by_name("mpeg4_mmal") != NULL) codec_hw = avcodec_find_decoder_by_name("mpeg4_mmal");
-		if (codecCtx->codec_id == AV_CODEC_ID_VC1 && avcodec_find_decoder_by_name("vc1_mmal") != NULL) codec_hw = avcodec_find_decoder_by_name("vc1_mmal");
-    }
-
-    if (use_cuvid) {
-		if (codecCtx->codec_id == AV_CODEC_ID_MPEG2VIDEO && avcodec_find_decoder_by_name("mpeg2_cuvid") != NULL) codec_hw = avcodec_find_decoder_by_name("mpeg2_cuvid");
-		if (codecCtx->codec_id == AV_CODEC_ID_H264 && avcodec_find_decoder_by_name("h264_cuvid") != NULL) codec_hw = avcodec_find_decoder_by_name("h264_cuvid");
-		if (codecCtx->codec_id == AV_CODEC_ID_HEVC && avcodec_find_decoder_by_name("hevc_cuvid") != NULL) codec_hw = avcodec_find_decoder_by_name("hevc_cuvid");
-		if (codecCtx->codec_id == AV_CODEC_ID_MPEG4 && avcodec_find_decoder_by_name("mpeg4_cuvid") != NULL) codec_hw = avcodec_find_decoder_by_name("mpeg4_cuvid");
-		if (codecCtx->codec_id == AV_CODEC_ID_VC1 && avcodec_find_decoder_by_name("vc1_cuvidl") != NULL) codec_hw = avcodec_find_decoder_by_name("vc1_cuvidl");
-    }
-
-    if (use_vdpau) {
-		if (codecCtx->codec_id == AV_CODEC_ID_MPEG2VIDEO && avcodec_find_decoder_by_name("mpeg2_vdpau") != NULL) codec_hw = avcodec_find_decoder_by_name("mpeg2_vdpau");
-		if (codecCtx->codec_id == AV_CODEC_ID_H264 && avcodec_find_decoder_by_name("h264_vdpau") != NULL) codec_hw = avcodec_find_decoder_by_name("h264_vdpau");
-		if (codecCtx->codec_id == AV_CODEC_ID_MPEG4 && avcodec_find_decoder_by_name("mpeg4_vdpau") != NULL) codec_hw = avcodec_find_decoder_by_name("mpeg4_vdpau");
-		if (codecCtx->codec_id == AV_CODEC_ID_VC1 && avcodec_find_decoder_by_name("vc1_vdpau") != NULL) codec_hw = avcodec_find_decoder_by_name("vc1_vdpau");
-		if (codecCtx->codec_id == AV_CODEC_ID_HEVC && avcodec_find_decoder_by_name("hevc_vdpau") != NULL) codec_hw = avcodec_find_decoder_by_name("vhevc_vdpau");
-    }
-    if (use_dxva2) {
-		if (codecCtx->codec_id == AV_CODEC_ID_MPEG2VIDEO &&
-            avcodec_find_decoder_by_name("mpeg2_dxva2") != NULL)
-                codec_hw = avcodec_find_decoder_by_name("mpeg2_dxva2");
-		if (codecCtx->codec_id == AV_CODEC_ID_H264 && avcodec_find_decoder_by_name("h264_dxva2") != NULL) codec_hw = avcodec_find_decoder_by_name("h264_dxva2");
-		if (codecCtx->codec_id == AV_CODEC_ID_MPEG4 && avcodec_find_decoder_by_name("mpeg4_dxva2") != NULL) codec_hw = avcodec_find_decoder_by_name("mpeg4_dxva2");
-		if (codecCtx->codec_id == AV_CODEC_ID_VC1 && avcodec_find_decoder_by_name("vc1_dxva2") != NULL) codec_hw = avcodec_find_decoder_by_name("vc1_dxva2");
-		if (codecCtx->codec_id == AV_CODEC_ID_HEVC && avcodec_find_decoder_by_name("hevc_dxva2") != NULL) codec_hw = avcodec_find_decoder_by_name("hevc_dxva2");
-    }
-
     if (!hardware_decode) av_dict_set_int(&myoptions, "gray", 1, 0);
 
 
  //       av_dict_set_int(&myoptions, "fastint", 1, 0);
  //       av_dict_set_int(&myoptions, "skip_alpha", 1, 0);
 //        av_dict_set(&myoptions, "threads", "auto", 0);
-
-    if (codec_hw != NULL && codec_hw != codec) {
-        fprintf(stderr, "Using Codec: %s instead of %s\n", codec_hw->name, codec->name);
-        codec = codec_hw;
-    }
 
     if(!codec || (avcodec_open2(codecCtx, codec, &myoptions) < 0))
     {
@@ -1797,12 +1791,14 @@ int stream_component_open(VideoState *is, int stream_index)
     case AVMEDIA_TYPE_SUBTITLE:
         is->subtitleStream = stream_index;
         is->subtitle_st = pFormatCtx->streams[stream_index];
+        is->subtitle_ctx = codecCtx;
         if (demux_pid)
             selected_subtitle_pid = is->subtitle_st->id;
         break;
     case AVMEDIA_TYPE_AUDIO:
         is->audioStream = stream_index;
         is->audio_st = pFormatCtx->streams[stream_index];
+        is->audio_ctx = codecCtx;
 //          is->audio_buf_size = 0;
 //          is->audio_buf_index = 0;
 
@@ -1820,6 +1816,7 @@ int stream_component_open(VideoState *is, int stream_index)
     case AVMEDIA_TYPE_VIDEO:
         is->videoStream = stream_index;
         is->video_st = pFormatCtx->streams[stream_index];
+        is->dec_ctx = codecCtx;
 
 //          is->frame_timer = (double)av_gettime() / 1000000.0;
 //          is->frame_last_delay = 40e-3;
@@ -1847,7 +1844,7 @@ int stream_component_open(VideoState *is, int stream_index)
 #endif
         }
         if (codecCtx->codec_id == AV_CODEC_ID_MPEG1VIDEO)
-            is->video_st->codec->ticks_per_frame = 1;
+            is->dec_ctx->ticks_per_frame = 1;
         if (demux_pid)
             selected_video_pid = is->video_st->id;
         /*
@@ -1997,6 +1994,11 @@ again:
         if (retries == 0) av_dump_format(is->pFormatCtx, 0, is->filename, 0);
     }
 
+    if (!is->frame) {
+        if (!(is->frame = av_frame_alloc()))
+            exit(-1);
+    }
+
     if ( is->videoStream == -1)
     {
         video_index = av_find_best_stream(is->pFormatCtx, AVMEDIA_TYPE_VIDEO, -1, -1, NULL, 0);
@@ -2029,7 +2031,7 @@ again:
         else
         {
             Debug(10, "Warning, no stream frame rate, deriving from codec\n");
-            is->fps = 1/(av_q2d(is->video_st->codec->time_base) * is->video_st->codec->ticks_per_frame );
+            is->fps = 1/(av_q2d(is->dec_ctx->time_base) * is->dec_ctx->ticks_per_frame );
         }
         set_fps( 1.0 / is->fps);
 //        Debug(1, "Stream frame rate is %5.3f f/s\n", is->fps);
@@ -2102,13 +2104,13 @@ void file_close()
 //    av_freep(&ist->hwaccel_device);
 
 
-    if (is->videoStream != -1) avcodec_close(is->pFormatCtx->streams[is->videoStream]->codec);
+    if (is->dec_ctx) avcodec_free_context(&is->dec_ctx);
     is->videoStream = -1;
 //    avcodec_free_context(&is->pFormatCtx->streams[is->videoStream]->codec);
 
-    if (is->audioStream != -1) avcodec_close(is->pFormatCtx->streams[is->audioStream]->codec);
+    if (is->audio_ctx) avcodec_free_context(&is->audio_ctx);
     is->audioStream = -1;
-    if (is->subtitleStream != -1)  avcodec_close(is->pFormatCtx->streams[is->subtitleStream]->codec);
+    if (is->subtitle_ctx)  avcodec_free_context(&is->subtitle_ctx);
     is->subtitleStream = -1;
 //    is->pFormatCtx = NULL;
 
@@ -2403,7 +2405,7 @@ nextpacket:
 
                     if ((live_tv && retries < live_tv_retries) /* || (selftest == 3 && retries == 0) */)
                     {
-                        double frame_delay = av_q2d(is->video_st->codec->time_base) * is->video_st->codec->ticks_per_frame;
+                        double frame_delay = av_q2d(is->dec_ctx->time_base) * is->dec_ctx->ticks_per_frame;
 //                    uint64_t retry_target;
                         if (retries == 0)
                         {
