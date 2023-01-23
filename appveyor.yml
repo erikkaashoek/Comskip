@@ -12,20 +12,20 @@ artifacts:
 before_build:
   - git log -1
   - cd C:\projects\comskip
-  - appveyor DownloadFile https://www.gyan.dev/ffmpeg/builds/packages/ffmpeg-4.4.1-full_build-shared.7z
+  - appveyor DownloadFile https://www.gyan.dev/ffmpeg/builds/packages/ffmpeg-5.0.1-full_build-shared.7z
   - appveyor DownloadFile https://downloads.sourceforge.net/project/argtable/argtable/argtable-2.13/argtable2-13.tar.gz
 
 build_script:
-  - 7z x ffmpeg-4.4.1-full_build-shared.7z
+  - 7z x ffmpeg-5.0.1-full_build-shared.7z
   - C:\msys64\usr\bin\bash -lc "cd /c/projects/comskip && tar xf argtable2-13.tar.gz && cd argtable2-13 && ./configure --build=x86_64-w64-mingw32 && make"
-  - C:\msys64\usr\bin\bash -lc "cd /c/projects/comskip && ./autogen.sh && argtable2_CFLAGS='-Iargtable2-13/src' argtable2_LIBS='-Largtable2-13/src/.libs -largtable2' ffmpeg_CFLAGS='-Iffmpeg-4.4.1-full_build-shared/include' ffmpeg_LIBS='-Lffmpeg-4.4.1-full_build-shared/lib -lavutil -lavformat -lavcodec -lswscale' ./configure && make"
+  - C:\msys64\usr\bin\bash -lc "cd /c/projects/comskip && ./autogen.sh && argtable2_CFLAGS='-Iargtable2-13/src' argtable2_LIBS='-Largtable2-13/src/.libs -largtable2' ffmpeg_CFLAGS='-Iffmpeg-5.0.1-full_build-shared/include' ffmpeg_LIBS='-Lffmpeg-5.0.1-full_build-shared/lib -lavutil -lavformat -lavcodec -lswscale' ./configure && make"
 
 before_test:
-  - C:\msys64\usr\bin\bash -lc "cd /c/projects/comskip && export PATH=$(pwd)/ffmpeg-4.4.1-full_build-shared/bin/:$PATH && ls -alh comskip.exe && ldd comskip.exe"
+  - C:\msys64\usr\bin\bash -lc "cd /c/projects/comskip && export PATH=$(pwd)/ffmpeg-5.0.1-full_build-shared/bin/:$PATH && ls -alh comskip.exe && ldd comskip.exe"
   - appveyor DownloadFile https://s3.amazonaws.com/tmm1/ten-copy.mkv
 
 test_script:
-  - SET PATH=C:\projects\comskip\ffmpeg-4.4.1-full_build-shared\bin;%PATH%
+  - SET PATH=C:\projects\comskip\ffmpeg-5.0.1-full_build-shared\bin;%PATH%
   - comskip ten-copy.mkv
   - cat ten-copy.txt
   - grep "9361\s17922" ten-copy.txt
