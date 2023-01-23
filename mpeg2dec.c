@@ -292,10 +292,10 @@ int cur_minute = 0;
 int cur_second = 0;
 
 extern char HomeDir[256];
-extern int processCC;
+extern bool processCC;
 int	reorderCC = 0;
 
-extern int live_tv;
+extern bool live_tv;
 int csRestart;
 int csStartJump;
 int csStepping;
@@ -309,11 +309,11 @@ extern uint8_t ccData[500];
 extern int ccDataLen;
 
 extern int height,width, videowidth;
-extern int output_debugwindow;
-extern int output_console;
-extern int output_timing;
-extern int output_srt;
-extern int output_smi;
+extern bool output_debugwindow;
+extern bool output_console;
+extern bool output_timing;
+extern bool output_srt;
+extern bool output_smi;
 
 extern unsigned char *frame_ptr;
 extern int lastFrameWasSceneChange;
@@ -560,7 +560,7 @@ void sound_to_frames(VideoState *is, short **b, int s, int c, int format)
     {
         if (format == AV_SAMPLE_FMT_FLTP)
         {
-            for (l=0;l < is->audio_st->codecpar->channels;l++ )
+            for (l=0;l < c;l++ )
             {
                 fb[l] = (float*)b[l];
             }
@@ -568,16 +568,16 @@ void sound_to_frames(VideoState *is, short **b, int s, int c, int format)
             {
                 volume = 0;
                 if (planar)
-                    for (l=0;l < is->audio_st->codecpar->channels;l++ ) volume += *((fb[l])++) * 64000;
+                    for (l=0;l < c;l++ ) volume += *((fb[l])++) * 64000;
                 else
-                    for (l=0;l < is->audio_st->codecpar->channels;l++ ) volume += *((fb[0])++) * 64000;
+                    for (l=0;l < c;l++ ) volume += *((fb[0])++) * 64000;
                 *audio_buffer_ptr++ = volume / is->audio_st->codecpar->channels;
                 avg_volume += abs(volume / is->audio_st->codecpar->channels);
             }
         }
         else
         {
-            for (l=0;l < is->audio_st->codecpar->channels;l++ )
+            for (l=0;l < c;l++ )
             {
                 sb[l] = (short*)b[l];
             }
@@ -585,9 +585,9 @@ void sound_to_frames(VideoState *is, short **b, int s, int c, int format)
             {
                 volume = 0;
                 if (planar)
-                    for (l=0;l < is->audio_st->codecpar->channels;l++ ) volume += *((sb[l])++);
+                    for (l=0;l < c;l++ ) volume += *((sb[l])++);
                 else
-                    for (l=0;l < is->audio_st->codecpar->channels;l++ ) volume += *((sb[0])++);
+                    for (l=0;l < c;l++ ) volume += *((sb[0])++);
                 *audio_buffer_ptr++ = volume / is->audio_st->codecpar->channels;
                 avg_volume += abs(volume / is->audio_st->codecpar->channels);
             }
