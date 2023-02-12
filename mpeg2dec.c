@@ -68,6 +68,10 @@ extern int      hardware_decode;
 extern int      use_cuvid;
 extern int      use_vdpau;
 extern int      use_dxva2;
+#ifdef ENABLE_JETSONNANO
+extern int      use_nvmpi;
+extern int      use_nvv4l2dec;
+#endif
 int av_log_level=AV_LOG_INFO;
 
 
@@ -1687,6 +1691,28 @@ int stream_component_open(VideoState *is, int stream_index)
 		if (codecPar->codec_id == AV_CODEC_ID_MPEG4) codec_hw = avcodec_find_decoder_by_name("mpeg4_cuvid");
 		if (codecPar->codec_id == AV_CODEC_ID_VC1) codec_hw = avcodec_find_decoder_by_name("vc1_cuvidl");
     }
+
+#ifdef ENABLE_JETSONNANO
+    if (use_nvmpi && !codec_hw) {
+      if (codecPar->codec_id == AV_CODEC_ID_MPEG2VIDEO) codec_hw = avcodec_find_decoder_by_name("mpeg2_nvmpi");
+      if (codecPar->codec_id == AV_CODEC_ID_H264)       codec_hw = avcodec_find_decoder_by_name("h264_nvmpi");
+      if (codecPar->codec_id == AV_CODEC_ID_HEVC)       codec_hw = avcodec_find_decoder_by_name("hevc_nvmpi");
+      if (codecPar->codec_id == AV_CODEC_ID_MPEG4)      codec_hw = avcodec_find_decoder_by_name("mpeg4_nvmpi");
+
+      if (codecPar->codec_id == AV_CODEC_ID_VP8)        codec_hw = avcodec_find_decoder_by_name("vp8_nvmpi");
+      if (codecPar->codec_id == AV_CODEC_ID_VP9)        codec_hw = avcodec_find_decoder_by_name("vp9_nvmpi");
+    }
+
+    if (use_nvv4l2dec && !codec_hw) {
+      if (codecPar->codec_id == AV_CODEC_ID_MPEG2VIDEO) codec_hw = avcodec_find_decoder_by_name("mpeg2_nvv4l2dec");
+      if (codecPar->codec_id == AV_CODEC_ID_H264)       codec_hw = avcodec_find_decoder_by_name("h264_nvv4l2dec");
+      if (codecPar->codec_id == AV_CODEC_ID_HEVC)       codec_hw = avcodec_find_decoder_by_name("hevc_nvv4l2dec");
+      if (codecPar->codec_id == AV_CODEC_ID_MPEG4)      codec_hw = avcodec_find_decoder_by_name("mpeg4_nvv4l2dec");
+
+      if (codecPar->codec_id == AV_CODEC_ID_VP8)        codec_hw = avcodec_find_decoder_by_name("vp8_nvv4l2dec");
+      if (codecPar->codec_id == AV_CODEC_ID_VP9)        codec_hw = avcodec_find_decoder_by_name("vp9_nvv4l2dec");
+    }
+#endif
 
 	// If decoding in hardware try if running on a Raspberry Pi and then use it's decoder instead.
     if (hardware_decode && !codec_hw) {
