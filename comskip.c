@@ -468,6 +468,10 @@ int                     hardware_decode = 0;
 int                     use_cuvid = 0;
 int                     use_vdpau = 0;
 int                     use_dxva2 = 0;
+#ifdef ENABLE_JETSONNANO
+int                     use_nvmpi = 0;
+int                     use_nvv4l2dec = 0;
+#endif
 int						skip_B_frames = 0;
 int						lowres = 0;
 bool					live_tv = false;
@@ -8767,6 +8771,10 @@ FILE* LoadSettings(int argc, char ** argv)
     struct arg_lit*		cl_use_cuvid			= arg_lit0(NULL, "cuvid", "Use NVIDIA Video Decoder (CUVID), if available");
     struct arg_lit*		cl_use_vdpau			= arg_lit0(NULL, "vdpau", "Use NVIDIA Video Decode and Presentation API (VDPAU), if available");
     struct arg_lit*		cl_use_dxva2			= arg_lit0(NULL, "dxva2", "Use DXVA2 Video Decode and Presentation API (DXVA2), if available");
+#ifdef ENABLE_JETSONNANO
+    struct arg_lit*     cl_use_nvmpi            = arg_lit0(NULL, "nvmpi",  "Use NVIDIA Video Decoder (NVMPI), if available");
+    struct arg_lit*     cl_use_nvv4l2dec        = arg_lit0(NULL, "nvv4l2dec", "Use NVIDIA Video Decoder (NVV4L2), if available");
+#endif
     struct arg_lit*		cl_list_decoders		= arg_lit0(NULL, "decoders", "List all decoders and exit");
     struct arg_int*		cl_threads				= arg_int0(NULL, "threads", "<int>", "The number of threads to use");
     struct arg_int*		cl_verbose				= arg_intn("v", "verbose", NULL, 0, 1, "Verbose level");
@@ -8797,6 +8805,10 @@ FILE* LoadSettings(int argc, char ** argv)
         cl_use_cuvid,
         cl_use_vdpau,
         cl_use_dxva2,
+#ifdef ENABLE_JETSONNANO
+        cl_use_nvmpi,
+        cl_use_nvv4l2dec,
+#endif
         cl_list_decoders,
         cl_threads,
         cl_pid,
@@ -9258,6 +9270,18 @@ FILE* LoadSettings(int argc, char ** argv)
         printf("Enabling use_dxva2\n");
         use_dxva2 = 1;
     }
+#ifdef ENABLE_JETSONNANO
+    if (cl_use_nvmpi->count)
+    {
+        printf("Enabling use_nvmpi\n");
+        use_nvmpi = 1;
+    }
+    if (cl_use_nvv4l2dec->count)
+    {
+        printf("Enabling use_nvv4l2dec\n");
+        use_nvv4l2dec = 1;
+    }
+#endif
 
     if (cl_threads->count)
     {

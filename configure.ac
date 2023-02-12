@@ -46,6 +46,15 @@ AC_MSG_CHECKING([whether to build with debugging options enabled])
 AS_IF([test "x${enable_debug}" = "xyes"], AC_MSG_RESULT([yes]), AC_MSG_RESULT([no]))
 AM_CONDITIONAL([ENABLE_DEBUG], [test "x${enable_debug}" = "xyes"])
 
+AC_ARG_ENABLE([jetsonnano], [AS_HELP_STRING([--enable-jetsonnano], [build with NVidia Jetson Nano specific hardware accelerations])])
+AC_MSG_CHECKING([whether to build with Jetson Nano specific hardware accelerations])
+AS_IF([test "x${enable_jetsonnano}" = "xyes"], AC_MSG_RESULT([yes]), AC_MSG_RESULT([no]))
+AM_CONDITIONAL([ENABLE_JETSONNANO], [test "x${enable_jetsonnano}" = "xyes"])
+
+AS_IF([test "x${enable_jetsonnano}" = "xyes"],[
+  AC_DEFINE(ENABLE_JETSONNANO)
+])
+
 PKG_PROG_PKG_CONFIG
 AS_IF([test "x${enable_static}" = "xyes"], PKG_CONFIG="$PKG_CONFIG --static")
 PKG_CHECK_MODULES(argtable2, [argtable2 >= 2.12])
