@@ -4363,6 +4363,11 @@ scanagain:
     frame[frame_count].hasBright = 0;
     InsertBlackFrame(frame_count,0,0,0, C_b);
 
+    if (cut_on_ac_change || ac_wrong_modifier != 0) {
+        FillACHistogram(true);
+        dominant_ac = ac_histogram[0].audio_channels;
+    }
+
     if (cut_on_ac_change)
     {
         if (ac_block[ac_block_count].start > 0)
@@ -4371,9 +4376,6 @@ scanagain:
             ac_block[ac_block_count].end = frame_count;
             ac_block_count++;
         }
-
-        FillACHistogram(true);
-        dominant_ac = ac_histogram[0].audio_channels;
 
         // Print out ar cblock list
         Debug(4, "\nPrinting AC cblock list\n-----------------------------------------\n");
