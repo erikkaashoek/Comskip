@@ -5508,6 +5508,33 @@ void WeighBlocks(void)
             cblock[i].more |= C_AR;
         }
 
+        
+        /* Remove commercial blocks smaller than always_keep_first_seconds
+        so that delete_show_before_first_commercial will be able to remove
+        the previous show */
+        if (F2T(cblock[i].f_end) < always_keep_first_seconds)
+        {
+            Debug(2, "Block %i is shorter than %i seconds.\n", i, always_keep_first_seconds);
+            Debug(3, "Block %i score:\tBefore - %.2f\t", i, cblock[i].score);
+            cblock[i].score = 0;
+            cblock[i].cause |= C_H3;
+            cblock[i].cause |= C_H3;
+            Debug(3, "After - %.2f\n", cblock[i].score);
+        }
+
+        /* Remove commercial blocks smaller than always_keep_first_seconds
+        so that delete_show_after_last_commercial will be able to remove
+        the succeeding show */
+        if (F2L(cblock[block_count-1].f_end, cblock[i].f_start) < always_keep_last_seconds)
+        {
+            Debug(2, "Block %i is shorter than %i seconds.\n", i, always_keep_first_seconds);
+            Debug(3, "Block %i score:\tBefore - %.2f\t", i, cblock[i].score);
+            cblock[i].score = 0;
+            cblock[i].cause |= C_H3;
+            cblock[i].cause |= C_H3;
+            Debug(3, "After - %.2f\n", cblock[i].score);
+        }
+
 
     }
 
@@ -7420,6 +7447,8 @@ bool OutputBlocks(void)
                 deleted = true;
             }
         }
+
+/*
 #ifdef NOTDEF
 // keep first seconds
         if (always_keep_first_seconds && commercial_count >= 0)
@@ -7465,6 +7494,7 @@ bool OutputBlocks(void)
             }
         }
 #endif
+*/
 
         /*
         		// Delete too short first commercial
@@ -7622,6 +7652,7 @@ bool OutputBlocks(void)
                 commercial[k].end_frame--;
         }
     }
+*/
 
 
 
