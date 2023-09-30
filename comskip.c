@@ -7558,22 +7558,28 @@ bool OutputBlocks(void)
 
     if (delete_show_before_first_commercial &&
             commercial_count > -1 &&
-            commercial[0].start_block == 1 &&
+            //commercial[0].start_block == 1 &&
             ((delete_show_before_first_commercial == 1 && cblock[commercial[0].end_block].f_end < after_start) ||
              (delete_show_before_first_commercial > F2T(cblock[commercial[0].end_block].f_end)))
        )
     {
+        i = commercial[0].start_block;
         commercial[0].start_block = 0;
         commercial[0].start_frame = cblock[0].f_start/* + (cblock[i + 1].bframe_count / 2)*/;
         commercial[0].length = F2L(commercial[0].end_frame, commercial[0].start_frame);
-        Debug(3, "H5 Deleting cblock %i of %i seconds because it comes before the first commercial.\n",
-              0, (int)cblock[0].length);
-        cblock[0].score = 99.99;
-        cblock[0].cause |= C_H5;
-        cblock[0].more |= C_H5;
+        while (i > 0)
+        {
+            Debug(3, "H5 Deleting cblock %i of %i seconds because it comes before the first commercial.\n",
+                  0, (int)cblock[0].length);
+            cblock[0].score = 99.99;
+            cblock[0].cause |= C_H5;
+            cblock[0].more |= C_H5;
+            i--;
+        }
 
     }
 
+/*
 // keep first seconds
     if (always_keep_first_seconds && commercial_count >= 0)
     {
