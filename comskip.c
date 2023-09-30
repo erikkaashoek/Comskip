@@ -7600,13 +7600,70 @@ bool OutputBlocks(void)
         while (i > 0)
         {
             Debug(3, "H5 Deleting cblock %i of %i seconds because it comes before the first commercial.\n",
-                  0, (int)cblock[0].length);
-            cblock[0].score = 99.99;
-            cblock[0].cause |= C_H5;
-            cblock[0].more |= C_H5;
+                  i, (int)cblock[i].length);
+            cblock[i].score = 99.99;
+            cblock[i].cause |= C_H5;
+            cblock[i].more |= C_H5;
             i--;
         }
 
+    }
+
+    /* Delete shows that come before and after the current show if
+    the are seperated by a short commercial, shorter than min_commercialbreak
+    and only if the shows are shorter than added_recording or the specified
+    duration */
+    if (delete_show_before_or_after_current &&
+            commercial_count > -1)
+    {
+        if (((delete_show_before_or_after_current == 1 && commercial[0].start_frame < after_start) ||
+            (delete_show_before_or_after_current > 1 && commercial[0].start_frame < delete_show_before_or_after_current)) &&
+            (commercial[0].length < min_commercialbreak))
+        {
+            i = commercial[0].start_block - 1;
+            commercial[0].start_block = 0;
+            commercial[0].start_frame = cblock[0].f_start;
+            commercial[0].length = F2L(commercial[0].end_frame, commercial[0].start_frame);
+            while (i > 0)
+            {
+                Debug(3, "H5 Deleting cblock %i of %i seconds because it comes before a short first commercial.\n",
+                    i, (int)cblock[i].length);
+                cblock[i].score = 99.99;
+                cblock[i].cause |= C_H5;
+                cblock[i].more |= C_H5;
+                i--;
+            }
+        }
+
+        k = commercial_count;
+        int j = block_count - 1;
+        if (commercial[k].length < min_commercialbreak)
+        {
+            i = commercial[k].end_block + 1;
+            int combined_length = 0;
+            while (i < j)
+            {
+                combined_length += cblock[i].length;
+                i++;
+            }
+            if ((delete_show_before_or_after_current == 1 && combined_length < after_start) ||
+                    (delete_show_before_or_after_current > 1 && combined_length < delete_show_before_or_after_current))
+            {
+                i = commercial[k].start_block + 1;
+                commercial[k].end_block = j;
+                commercial[k].end_frame = cblock[j].f_end;
+                commercial[k].length = F2L(commercial[k].end_frame, commercial[k].start_frame);
+                while (i < j)
+                {
+                    Debug(3, "H5 Deleting cblock %i of %i seconds because it comes after a short last commercial.\n",
+                        i, (int)cblock[i].length);
+                    cblock[i].score = 99.99;
+                    cblock[i].cause |= C_H5;
+                    cblock[i].more |= C_H5;
+                    i++;
+                }
+            }
+        }
     }
 
 /*
