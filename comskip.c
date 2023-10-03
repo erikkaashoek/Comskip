@@ -3320,7 +3320,7 @@ int DetectCommercials(int f, double pts)
         {
             if (delay_logo_search == 0 ||
                     (delay_logo_search == 1 && F2T(frame_count) > added_recording * 60) ||
-                    (F2T(frame_count) > delay_logo_search))
+                    (delay_logo_search > 1 && F2T(frame_count) > delay_logo_search))
             {
                 FillLogoBuffer();
                 if (logoBuffersFull)
