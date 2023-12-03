@@ -733,9 +733,9 @@ int					sceneChangePercent;
 bool				lastFrameWasBlack = false;
 bool				lastFrameWasSceneChange = false;
 
-#include <libavutil/avutil.h>  // only for DECLARE_ALIGNED
-static DECLARE_ALIGNED(32, long, histogram)[256];
-static DECLARE_ALIGNED(32, long, lastHistogram)[256];
+
+static long histogram[256];
+static long lastHistogram[256];
 
 #define				MAXCSLENGTH		400*300
 #define				MAXCUTSCENES	8
@@ -10097,7 +10097,7 @@ void LoadCutScene(const char *filename)
 #define OWN_HISTOGRAM_WIDTH 4
 #define OWN_HISTOGRAM_HEIGHT 256
 
-static DECLARE_ALIGNED(32, int, own_histogram)[OWN_HISTOGRAM_WIDTH][OWN_HISTOGRAM_HEIGHT];
+static int own_histogram[OWN_HISTOGRAM_WIDTH][OWN_HISTOGRAM_HEIGHT];
 int scan_step;
 
 #define SCAN_MULTI
