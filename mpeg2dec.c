@@ -349,7 +349,7 @@ static void signal_handler (int sig)
 #define AUDIOBUFFER	1600000
 
 static double base_apts = 0.0, apts, top_apts = 0.0;
-static DECLARE_ALIGNED(16, short, audio_buffer[AUDIOBUFFER]);
+static short audio_buffer[AUDIOBUFFER];
 static short *audio_buffer_ptr = audio_buffer;
 static int audio_samples = 0;
 #define ISSAME(T1,T2) (fabs((T1) - (T2)) < 0.001)
