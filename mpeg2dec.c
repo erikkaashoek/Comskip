@@ -56,6 +56,9 @@ const HWAccel hwaccels[] = {
 #if CONFIG_VDA
     { "vda",   vda_init,   HWACCEL_VDA,   AV_PIX_FMT_VDA },
 #endif
+#if HAVE_QSV
+    { "qsv",   qsv_init,   HWACCEL_QSV,   AV_PIX_FMT_QSV },
+#endif
     { 0 },
 };
 
@@ -68,6 +71,7 @@ extern int      hardware_decode;
 extern int      use_cuvid;
 extern int      use_vdpau;
 extern int      use_dxva2;
+extern int      use_qsv;
 int av_log_level=AV_LOG_INFO;
 
 
@@ -1663,6 +1667,17 @@ int stream_component_open(VideoState *is, int stream_index)
     codecPar = pFormatCtx->streams[stream_index]->codecpar;
 
 	codec = avcodec_find_decoder(codecPar->codec_id);
+
+    if (use_qsv && !codec_hw) {
+		if (codecPar->codec_id == AV_CODEC_ID_MJPEG) codec_hw = avcodec_find_decoder_by_name("mjpeg_qsv");
+		if (codecPar->codec_id == AV_CODEC_ID_MPEG2VIDEO) codec_hw = avcodec_find_decoder_by_name("mpeg2_qsv");
+		if (codecPar->codec_id == AV_CODEC_ID_H264) codec_hw = avcodec_find_decoder_by_name("h264_qsv");
+		if (codecPar->codec_id == AV_CODEC_ID_VC1) codec_hw = avcodec_find_decoder_by_name("vc1_qsv");
+		if (codecPar->codec_id == AV_CODEC_ID_HEVC) codec_hw = avcodec_find_decoder_by_name("hevc_qsv");
+		if (codecPar->codec_id == AV_CODEC_ID_AV1) codec_hw = avcodec_find_decoder_by_name("av1_qsv");
+		if (codecPar->codec_id == AV_CODEC_ID_VP8) codec_hw = avcodec_find_decoder_by_name("vp8_qsv");
+		if (codecPar->codec_id == AV_CODEC_ID_VP9) codec_hw = avcodec_find_decoder_by_name("vp9_qsv");
+    }
 
     if (use_dxva2 && !codec_hw) {
 		if (codecPar->codec_id == AV_CODEC_ID_MPEG2VIDEO) codec_hw = avcodec_find_decoder_by_name("mpeg2_dxva2");
