@@ -6,6 +6,12 @@ http://www.kaashoek.com/comskip/
 ![Example Comskip image](https://github.com/essandess/etv-comskip/blob/master/example.png)
 *Commercials are marked and skipped using [associated projects](https://github.com/essandess/etv-comskip).*
 
+This fork contains small feature tweaks that optimize comskip for my specific use case. Use with care!
+
+Applied changes:
+- Let `ac_wrong_modifier` punish blocks even if `cut_on_ac_change` is disabled
+- Blocks that are freed by `always_keep_(first|last)_seconds` can still be deleted by `delete_show_(before|after)_(first|last)_commercial` (Yes, that's a feature and it's very beneficial for **my** specific use case)
+
 ### Requirements
 
 - FFmpeg with headers and shared libraries (2.4+)
