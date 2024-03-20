@@ -16516,8 +16516,11 @@ void dump_data(char *start, int length)
 
 void close_data()
 {
+    if (output_data)
+    {
 	if (dump_data_file) {
 		fclose(dump_data_file);
 		dump_data_file = 0;
 	}
+    }
 }
