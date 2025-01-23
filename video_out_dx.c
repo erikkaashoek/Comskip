@@ -541,7 +541,7 @@ static int create_window (dx_instance_t * instance)
      /* store a directx_instance pointer into the window local storage
       * (for later use in event_handler).
       * We need to use SetWindowLongPtr when it is available in mingw */
-     SetWindowLongPtr (instance->window, GWLP_USERDATA, instance);
+     SetWindowLongPtr (instance->window, GWLP_USERDATA, (LONG_PTR) instance);
      SetWindowPos(instance->window, HWND_TOP, 100, 0, 0, 0, SWP_SHOWWINDOW|SWP_NOSIZE);
 
      ShowWindow (instance->window, SW_SHOW);
@@ -928,13 +928,13 @@ void vo_init(int width, int height, char *title)
      memset(buf2,128,width*height);
 
 #ifdef RGB
-     instance = vo_dxrgb_open();
-     hWind = instance;
+     instance = (dx_instance_t *) vo_dxrgb_open();
+     hWind = (HWND) instance;
      strcpy(instance->title, title);
      dxrgb_setup( instance, width, height, width, height, &result);
 //	dx_setup_fbuf ( instance, buffer, &result);
 #else
-     instance = vo_dx_open();
+     instance = (HWND) vo_dx_open();
      strcpy(instance->title, title);
      dx_setup( instance, width, height, width, height, &result);
 #endif
