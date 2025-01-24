@@ -16,6 +16,7 @@
 #include "platform.h"
 #include "vo.h"
 #include <argtable2.h>
+#include <pthread.h>
 
 
 #include <libavformat/avformat.h>
