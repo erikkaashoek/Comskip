@@ -67,7 +67,7 @@ First install Xcode (freely available from the Mac OS X App Store). After it's i
 The easiest way to install Comskip's dependencies is via Homebrew (http://brew.sh/):
 
 ```
-$ brew install autoconf automake libtool pkgconf argtable ffmpeg sdl12-compat
+$ brew install autoconf automake libtool pkgconf argtable ffmpeg sdl2
 ```
 
 [Macports](https://www.macports.org/install.php) natively compiles all libraries from source. The project [etv-comskip](https://github.com/essandess/etv-comskip) has an example [Makefile](https://github.com/essandess/etv-comskip/blob/master/Makefile) using Macports tools.

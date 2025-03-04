@@ -39,18 +39,18 @@ jobs:
     - name: Configure Brew packages ffmpeg7
       if: ${{ matrix.ffmpeg_version == 'ffmpeg7' }}
       run: |
-        brew install autoconf automake libtool pkgconf argtable ffmpeg sdl12-compat
+        brew install autoconf automake libtool pkgconf argtable ffmpeg sdl2
 
     - name: Configure Brew packages ffmpeg6
       if: ${{ matrix.ffmpeg_version == 'ffmpeg6' }}
       run: |
-        brew install autoconf automake libtool pkgconf argtable ffmpeg@6 sdl12-compat
+        brew install autoconf automake libtool pkgconf argtable ffmpeg@6 sdl2
         brew link ffmpeg@6
 
     - name: Configure Brew packages ffmpeg5
       if: ${{ matrix.ffmpeg_version == 'ffmpeg5' }}
       run: |
-        brew install autoconf automake libtool pkgconf argtable ffmpeg@5 sdl12-compat
+        brew install autoconf automake libtool pkgconf argtable ffmpeg@5 sdl2
         brew link ffmpeg@5
 
     - name: Setup msys2
