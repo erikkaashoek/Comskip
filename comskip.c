@@ -978,7 +978,7 @@ int					FindBlackThreshold(double percentile);
 int					FindUniformThreshold(double percentile);
 void				OutputFrameArray(bool screenOnly);
 void                OutputBlackArray();
-void				OutputFrame();
+void				OutputFrame(int frame_number);
 void				OpenOutputFiles();
 void				InitializeFrameArray(long i);
 void				InitializeBlackArray(long i);
