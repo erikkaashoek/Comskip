@@ -26,10 +26,10 @@ if PLATFORM_WIN32
     PLATFORM_LIBS = -lcomdlg32 -lgdi32
 endif
 
-comskip_CPPFLAGS = -Wall $(argtable2_CFLAGS) $(ffmpeg_CFLAGS) $(DEFINES)
-comskip_LDADD = $(argtable2_LIBS) $(ffmpeg_LIBS) $(PLATFORM_LIBS)
-comskip_gui_CPPFLAGS = -Wall $(argtable2_CFLAGS) $(ffmpeg_CFLAGS) $(sdl_CFLAGS) $(DEFINES) -DHAVE_SDL
-comskip_gui_LDADD = $(argtable2_LIBS) $(ffmpeg_LIBS) $(sdl_LIBS) $(PLATFORM_LIBS)
+comskip_CPPFLAGS = -Wall $(argtable3_CFLAGS) $(argtable2_CFLAGS) $(ffmpeg_CFLAGS) $(DEFINES)
+comskip_LDADD = $(argtable3_LIBS) $(argtable2_LIBS) $(ffmpeg_LIBS) $(PLATFORM_LIBS)
+comskip_gui_CPPFLAGS = -Wall $(argtable3_CFLAGS) $(argtable2_CFLAGS) $(ffmpeg_CFLAGS) $(sdl_CFLAGS) $(DEFINES) -DHAVE_SDL
+comskip_gui_LDADD = $(argtable3_LIBS) $(argtable2_LIBS) $(ffmpeg_LIBS) $(sdl_LIBS) $(PLATFORM_LIBS)
 votest_CPPFLAGS = -Wall $(sdl_CFLAGS) -DTEST
 votest_LDADD = $(sdl_LIBS) $(PLATFORM_LIBS)
 

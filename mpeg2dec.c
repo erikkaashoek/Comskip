@@ -28,7 +28,12 @@
 #ifdef HAVE_SDL
 #include <SDL.h>
 #endif
+#ifdef HAVE_argtable3
+#include <argtable3.h>
+#endif
+#ifdef HAVE_argtable2
 #include <argtable2.h>
+#endif
 #define SELFTEST
 
 int pass = 0;
