@@ -8470,9 +8470,34 @@ void LoadIniFile()
     if (ini_file)
     {
         printf("Using %s for initiation values.\n", inifilename);
-        len = fread(data, 1, 59999, ini_file);
-        fclose(ini_file);
+        {
+            char line[2048];
+            len = 0;
+            while (fgets(line, sizeof(line), ini_file) && len < 59998)
+            {
+                char *p = line;
+                int in_quote = 0;
+                while (*p)
+                {
+                    if (in_quote && *p == '\\') { p += 2; continue; }
+                    if (*p == '"') { in_quote = !in_quote; p++; continue; }
+                    if (!in_quote && (*p == ';' || *p == '#'))
+                    {
+                        *p++ = '\n';
+                        *p   = '\0';
+                        break;
+                    }
+                    p++;
+                }
+                size_t ll = strlen(line);
+                if (len + ll > 59998) break;
+                memcpy(data + len, line, ll);
+                len += ll;
+            }
+            fclose(ini_file);
+        }
         data[len] = '\0';
+
         ini_text[0] = 0;
         AddIniString("[Main Settings]\n");
         AddIniString(";the sum of the values for which kind of frames comskip will consider as possible cutpoints: 1=uniform (black or any other color) frame, 2=logo, 4=scene change, 8=resolution change, 16=closed captions, 32=aspect ration, 64=silence, 255=all.\n");
