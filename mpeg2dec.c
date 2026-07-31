@@ -1289,7 +1289,10 @@ static int    prev_strange_framenum = 0;
     {
         frameFinished = 1;
         // convert to 8bit
-        if (is->pFrame->format == AV_PIX_FMT_YUV420P10LE) {
+        if (is->pFrame->format == AV_PIX_FMT_YUV420P10LE ||
+            is->pFrame->format == AV_PIX_FMT_P010LE ||
+            is->pFrame->format == AV_PIX_FMT_P016LE ||
+            is->pFrame->format == AV_PIX_FMT_YUV420P12LE) {
             is->img_convert_ctx = sws_getCachedContext(is->img_convert_ctx, is->pFrame->width, is->pFrame->height, is->pFrame->format, is->pFrame->width, is->pFrame->height, AV_PIX_FMT_YUV420P, SWS_POINT, NULL, NULL, NULL);
             AVFrame *newframe = av_frame_alloc();
             av_frame_copy_props(newframe, is->pFrame);
