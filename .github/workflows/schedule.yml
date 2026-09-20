@@ -1,0 +1,212 @@
+name: Builds Comskip jobs
+run-name: Builds Comskip jobs - ${{ github.event.head_commit.message }}
+
+env:
+  TZ: UTC
+
+on:
+  push:
+    paths-ignore:
+      - '**.md'
+      - 'LICENSE'
+  pull_request:
+    paths-ignore:
+      - '**.md'
+      - 'LICENSE'
+  workflow_dispatch:
+      debug_enabled:
+        type: boolean
+        required: false
+        default: false
+  schedule:
+    # Runs at 2:00 a.m. UTC every day
+    - cron: '0 2 * * *'
+
+jobs:
+  scheduled_daily_job_caller:
+    name: Daily builds
+    if: ${{ github.event_name == 'schedule' && github.event.schedule == '0 2 * * *' }}
+    uses: ./.github/workflows/build.yml
+    with:
+      ragged_strategy_matrix: >
+        [
+
+          {
+          "matid": "04",
+          "os": "windows-2025-vs2026",
+          "compilerEnv": "UCRT64",
+          "shellEnv": "msys2 {0}",
+          "provider": "altarchive",
+          "provider_altarchive_url": "https://github.com/BtbN/FFmpeg-Builds/releases/download/latest/ffmpeg-master-latest-win64-gpl-shared.zip",
+          "ExtraJobTitleInfo": "ffmpeg-master the Latest",
+          "GithubActionsIgnoreFail": "false"
+          }
+
+        ]
+
+  fullbuildable_job_caller:
+    name: All builds
+    if: ${{ github.event_name != 'schedule' }}
+    uses: ./.github/workflows/build.yml
+    with:
+
+      # Explanation of "common" Matrix items - "provider", "ExtraJobTitleInfo"
+      #
+      # Currently, "provider" is only used and shown in the asset and release file names
+      #
+      # provider_altarchive_url
+      # shared FFmpeg full versions only please
+      # the latest ffmpeg version # shared
+      # the latest ffmpeg version master shared
+      
+      # ExtraJobTitleInfo
+      # Currently, "ExtraJobTitleInfo" is only used in the job name
+      
+      # GithubActionsIgnoreFail
+      # Currently, controls "continue-on-error"
+
+      ragged_strategy_matrix: >
+        [
+
+          {
+          "matid": "01",
+          "os": "ubuntu-22.04",
+          "compilerEnv": "Ubuntu",
+          "ExtraJobTitleInfo": "Linux",
+          "GithubActionsIgnoreFail": "false"
+          },
+
+          {
+          "matid": "02",
+          "os": "windows-2025-vs2026",
+          "compilerEnv": "Cygwin",
+          "provider": "repository",
+          "GithubActionsIgnoreFail": "false"
+          },
+
+          {
+          "matid": "03",
+          "os": "windows-2025-vs2026",
+          "compilerEnv": "UCRT64",
+          "shellEnv": "msys2 {0}",
+          "provider": "repository",
+          "GithubActionsIgnoreFail": "false"
+          },
+
+          {
+          "matid": "04",
+          "os": "windows-2025-vs2026",
+          "compilerEnv": "UCRT64",
+          "shellEnv": "msys2 {0}",
+          "provider": "altarchive",
+          "provider_altarchive_url": "https://github.com/BtbN/FFmpeg-Builds/releases/download/latest/ffmpeg-master-latest-win64-gpl-shared.zip",
+          "ExtraJobTitleInfo": "ffmpeg-master the Latest",
+          "GithubActionsIgnoreFail": "false"
+          },
+
+          {
+          "matid": "05",
+          "os": "windows-2025-vs2026",
+          "compilerEnv": "UCRT64",
+          "shellEnv": "msys2 {0}",
+          "provider": "altarchive",
+          "provider_altarchive_url": "https://github.com/BtbN/FFmpeg-Builds/releases/download/latest/ffmpeg-n9.0-latest-win64-gpl-shared-9.0.zip",
+          "ExtraJobTitleInfo": "ffmpeg-n9.0 the Latest",
+          "GithubActionsIgnoreFail": "false"
+          },
+
+          {
+          "matid": "06",
+          "os": "windows-2025-vs2026",
+          "compilerEnv": "UCRT64",
+          "shellEnv": "msys2 {0}",
+          "provider": "altarchive",
+          "provider_altarchive_url": "https://github.com/BtbN/FFmpeg-Builds/releases/download/latest/ffmpeg-n8.1-latest-win64-gpl-shared-8.1.zip",
+          "ExtraJobTitleInfo": "ffmpeg-n8.1 the Latest",
+          "GithubActionsIgnoreFail": "false"
+          },
+
+          {
+          "matid": "07",
+          "os": "windows-2025-vs2026",
+          "compilerEnv": "UCRT64",
+          "shellEnv": "msys2 {0}",
+          "provider": "altarchive",
+          "provider_altarchive_url": "https://github.com/BtbN/FFmpeg-Builds/releases/download/autobuild-2026-07-31-14-10/ffmpeg-n7.1.5-12-g1fdbca85aa-win64-gpl-shared-7.1.zip",
+          "ExtraJobTitleInfo": "ffmpeg-n7.1.5-12 the 2nd from Last",
+          "GithubActionsIgnoreFail": "false"
+          },
+
+          {
+          "matid": "08",
+          "os": "windows-2025-vs2026",
+          "compilerEnv": "UCRT64",
+          "shellEnv": "msys2 {0}",
+          "provider": "altarchive",
+          "provider_altarchive_url": "https://github.com/BtbN/FFmpeg-Builds/releases/download/autobuild-2025-07-31-14-15/ffmpeg-n6.1.2-192-g78690eba61-win64-gpl-shared-6.1.zip",
+          "ExtraJobTitleInfo": "ffmpeg-n6.1.2-192 the Last",
+          "GithubActionsIgnoreFail": "false"
+          },
+
+          {
+          "matid": "09",
+          "os": "windows-2025-vs2026",
+          "compilerEnv": "UCRT64",
+          "shellEnv": "msys2 {0}",
+          "provider": "altarchive",
+          "provider_altarchive_url": "https://github.com/BtbN/FFmpeg-Builds/releases/download/autobuild-2025-01-31-12-58/ffmpeg-n5.1.6-16-g6e63e49496-win64-gpl-shared-5.1.zip",
+          "ExtraJobTitleInfo": "ffmpeg-n5.1.6-16 the Last",
+          "GithubActionsIgnoreFail": "false"
+          },
+
+          {
+          "matid": "10",
+          "os": "macos-latest",
+          "compilerEnv": "MacOS",
+          "brewMethod": "make",
+          "ffmpeg_version": "9",
+          "ExtraJobTitleInfo": "ffmpeg9",
+          "GithubActionsIgnoreFail": "false"
+          },
+
+          {
+          "matid": "11",
+          "os": "macos-latest",
+          "compilerEnv": "MacOS",
+          "brewMethod": "make",
+          "ffmpeg_version": "8",
+          "ExtraJobTitleInfo": "ffmpeg8",
+          "GithubActionsIgnoreFail": "false"
+          },
+
+          {
+          "matid": "12",
+          "os": "macos-latest",
+          "compilerEnv": "MacOS",
+          "brewMethod": "make",
+          "ffmpeg_version": "7",
+          "ExtraJobTitleInfo": "ffmpeg7",
+          "GithubActionsIgnoreFail": "false"
+          },
+
+          {
+          "matid": "13",
+          "os": "macos-latest",
+          "compilerEnv": "MacOS",
+          "brewMethod": "link",
+          "ffmpeg_version": "6",
+          "ExtraJobTitleInfo": "ffmpeg6",
+          "GithubActionsIgnoreFail": "false"
+          },
+
+          {
+          "matid": "14",
+          "os": "macos-latest",
+          "compilerEnv": "MacOS",
+          "brewMethod": "link",
+          "ffmpeg_version": "5",
+          "ExtraJobTitleInfo": "ffmpeg5",
+          "GithubActionsIgnoreFail": "false"
+          }
+
+        ]

@@ -1,31 +1,112 @@
-clone_depth: 5
+
+version: 1.0.{build}
+
+image: Visual Studio 2015
 
 platform:
   - x64
 
-artifacts:
-  - path: comskip.exe
+clone_depth: 1
 
-#init:
-#  - ps: iex ((new-object net.webclient).DownloadString('https://raw.githubusercontent.com/appveyor/ci/master/scripts/enable-rdp.ps1'))
+environment:
+  # Always Try to save
+  APPVEYOR_SAVE_CACHE_ON_ERROR: true
+
+cache:
+  - ffmpeg-5.0.1-full_build-shared.7z
+  - argtable2-13.tar.gz
+  - ten-copy.mkv
+
+init:
+# - ps: iex ((new-object net.webclient).DownloadString('https://raw.githubusercontent.com/appveyor/ci/master/scripts/enable-rdp.ps1'))
+
+  # If SKIP is found in the tag name, then just quit
+  - echo "$APPVEYOR_REPO_TAG_NAME %APPVEYOR_REPO_TAG_NAME%"
+  - ps: if (${env:APPVEYOR_REPO_TAG_NAME} -like "SKIP*") { Exit-AppVeyorBuild }
+
+  - systeminfo
 
 before_build:
   - git log -1
-  - cd C:\projects\comskip
-  - appveyor DownloadFile https://github.com/GyanD/codexffmpeg/releases/download/5.0.1/ffmpeg-5.0.1-full_build-shared.7z
-  - appveyor DownloadFile https://downloads.sourceforge.net/project/argtable/argtable/argtable-2.13/argtable2-13.tar.gz
+  - cd %APPVEYOR_BUILD_FOLDER%
+  - if not exist ffmpeg-5.0.1-full_build-shared.7z appveyor DownloadFile https://github.com/GyanD/codexffmpeg/releases/download/5.0.1/ffmpeg-5.0.1-full_build-shared.7z
+  - if not exist argtable2-13.tar.gz               appveyor DownloadFile https://downloads.sourceforge.net/project/argtable/argtable/argtable-2.13/argtable2-13.tar.gz
 
 build_script:
+  - set CHERE_INVOKING=yes
   - 7z x ffmpeg-5.0.1-full_build-shared.7z
-  - C:\msys64\usr\bin\bash -lc "cd /c/projects/comskip && tar xf argtable2-13.tar.gz && cd argtable2-13 && ./configure --build=x86_64-w64-mingw32 && make"
-  - C:\msys64\usr\bin\bash -lc "cd /c/projects/comskip && ./autogen.sh && argtable2_CFLAGS='-Iargtable2-13/src' argtable2_LIBS='-Largtable2-13/src/.libs -largtable2' ffmpeg_CFLAGS='-Iffmpeg-5.0.1-full_build-shared/include' ffmpeg_LIBS='-Lffmpeg-5.0.1-full_build-shared/lib -lavutil -lavformat -lavcodec -lswscale' ./configure && make"
+  - C:\msys64\usr\bin\bash -lc "cd $(cygpath \"%APPVEYOR_BUILD_FOLDER%\") && tar xf argtable2-13.tar.gz && cd argtable2-13 && ./configure --build=x86_64-w64-mingw32 && make"
+  - C:\msys64\usr\bin\bash -lc "cd $(cygpath \"%APPVEYOR_BUILD_FOLDER%\") && ./autogen.sh && argtable2_CFLAGS='-Iargtable2-13/src' argtable2_LIBS='-Largtable2-13/src/.libs -largtable2' ffmpeg_CFLAGS='-Iffmpeg-5.0.1-full_build-shared/include' ffmpeg_LIBS='-Lffmpeg-5.0.1-full_build-shared/lib -lavutil -lavformat -lavcodec -lswscale' ./configure && make"
 
 before_test:
-  - C:\msys64\usr\bin\bash -lc "cd /c/projects/comskip && export PATH=$(pwd)/ffmpeg-5.0.1-full_build-shared/bin/:$PATH && ls -alh comskip.exe && ldd comskip.exe"
-  - appveyor DownloadFile https://s3.amazonaws.com/tmm1/ten-copy.mkv
+  - C:\msys64\usr\bin\bash -lc "cd $(cygpath \"%APPVEYOR_BUILD_FOLDER%\") && export PATH=$(pwd)/ffmpeg-5.0.1-full_build-shared/bin/:$PATH && ls -alh comskip.exe && ldd comskip.exe"
+  - if not exist ten-copy.mkv appveyor DownloadFile https://s3.amazonaws.com/tmm1/ten-copy.mkv
 
 test_script:
-  - SET PATH=C:\projects\comskip\ffmpeg-5.0.1-full_build-shared\bin;%PATH%
+  - SET PATH=%APPVEYOR_BUILD_FOLDER%\ffmpeg-5.0.1-full_build-shared\bin;%PATH%
   - comskip ten-copy.mkv
   - cat ten-copy.txt
   - grep "9361\s17922" ten-copy.txt
+
+after_test:
+  - mkdir                                                             Export
+  - dir
+  - copy comskip.exe                                                  Export
+
+    # support library SDL 2 does not exist on the Appveyor image "image Visual Studio 2015"
+  - # if exist comskip-gui copy comskip-gui.exe                       Export
+
+  - dir  ffmpeg-5.0.1-full_build-shared\bin                        
+  - # copy ffmpeg-5.0.1-full_build-shared\bin\avcodec*.*              Export
+  - # copy ffmpeg-5.0.1-full_build-shared\bin\avformat*.*             Export
+  - # copy ffmpeg-5.0.1-full_build-shared\bin\swscale*.*              Export
+  - # copy ffmpeg-5.0.1-full_build-shared\bin\avutil*.*               Export
+  - # copy ffmpeg-5.0.1-full_build-shared\bin\swresample*.*           Export
+  - cd                                                                Export
+  - 7z a %APPVEYOR_BUILD_FOLDER%\comskip-MINGW32-ffmpeg-5.0.1.zip      *
+  - cd   %APPVEYOR_BUILD_FOLDER%
+
+  - if "%APPVEYOR_REPO_TAG%"=="false" move comskip-MINGW32-ffmpeg-5.0.1.zip                            apvid-01-comskip-MINGW32-ffmpeg-5.0.1.zip
+  - if "%APPVEYOR_REPO_TAG%"=="false" appveyor PushArtifact                                            apvid-01-comskip-MINGW32-ffmpeg-5.0.1.zip
+
+  - if "%APPVEYOR_REPO_TAG%"=="true"  move comskip-MINGW32-ffmpeg-5.0.1.zip                                     apvid-01-comskip-%APPVEYOR_REPO_TAG_NAME%-MINGW32-ffmpeg-5.0.1.zip
+  - if "%APPVEYOR_REPO_TAG%"=="true"  appveyor PushArtifact                                                     apvid-01-comskip-%APPVEYOR_REPO_TAG_NAME%-MINGW32-ffmpeg-5.0.1.zip
+  - if "%APPVEYOR_REPO_TAG%"=="true"  move apvid-01-comskip-%APPVEYOR_REPO_TAG_NAME%-MINGW32-ffmpeg-5.0.1.zip            comskip-%APPVEYOR_REPO_TAG_NAME%-MINGW32-ffmpeg-5.0.1.zip  
+
+    # A graceful "exit" (if any) is only allowed _before_the _artifacts_ section.
+    # If no tag exists, then do not bother to try to deploy(release to Github).
+    # (I have already given the user the artifact. Just quit.)
+  - echo "APPVEYOR_REPO_TAG %APPVEYOR_REPO_TAG%"
+  - if "%APPVEYOR_REPO_TAG%"=="false" appveyor exit
+
+artifacts:
+  - path: 'comskip*.zip'
+    name: comskip_zip
+
+deploy:
+  - provider: GitHub
+    release: $(APPVEYOR_REPO_TAG_NAME)
+    draft: false
+    prerelease: false
+    artifact: comskip_zip
+    # overwrite files in an existing release; default is false 
+    #   which will fail deployment if the release already exists on GitHub.
+    # https://www.appveyor.com/docs/deployment/github/
+    force_update: true
+    #
+    # GitHub authentication token (auth_token) - OAuth token used for 
+    # authentication against GitHub API. You can generate Personal API 
+    # access token at https://github.com/settings/tokens. Minimal token 
+    # scope is repo or public_repo to release on private or public 
+    # repositories respectively. The permissions repo:status, 
+    # repo_deployment are necessary for successful deployment of artifacts 
+    # to GitHub. Be sure to encrypt your token using “Encrypt configuration 
+    # data” page in AppVeyor (Account → Encrypt YAML).
+    #
+    # https://www.appveyor.com/docs/deployment/github/
+    #
+    auth_token:
+      #       Place Appveyor YAML encryped (Account → Encrypt YAML) Github Personal Access token PAT (PAT)
+      secure: e/rs4uf343uBsKCFmeWh64RQscCMoeFtD4DcJP9VUKV3Mhi90mwTes7m28GGHSa9
+    on:
+      APPVEYOR_REPO_TAG: true

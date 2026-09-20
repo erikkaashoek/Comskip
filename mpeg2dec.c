@@ -379,6 +379,41 @@ int frames_without_sound = 0;
 int frames_with_loud_sound = 0;
 
 
+/*
+ * Change is based on working code
+ * https://github.com/erikkaashoek/Comskip
+ *
+ *  if LIBAVCODEC_BUILD >= AV_VERSION_INT(60, 12, 100) && \
+ *  LIBAVUTIL_BUILD >= AV_VERSION_INT(58, 7, 100)
+ *
+ * Update mpeg2dec.c
+ * ticks_per_frame is deprecated. See: nschlia/ffmpegfs#149
+ * https://github.com/sgscaffidi3/Comskip/commit/9aa9f85571a183be9fd9a91608a1151148d5d011
+ *
+ *   Replace deprecated code
+ *   https://github.com/nschlia/ffmpegfs/issues/149
+ *
+ *     Update mpeg2dec.c
+ *     https://github.com/Deihmos/Comskip/pull/1
+ *
+ * 2023-05-15 - 7d1d61cc5f5 - lavc 60 - avcodec.h
+ *    Deprecate AVCodecContext.ticks_per_frame in favor of
+ *    AVCodecContext.framerate (encoding) and
+ *    AV_CODEC_PROP_FIELDS (decoding).
+ *    -------- 8< --------- FFmpeg 6.0 was cut here -------- 8< ---------
+ * https://raw.githubusercontent.com/FFmpeg/FFmpeg/master/doc/APIchanges
+ *
+ *    doc/APIchanges
+ *        2023-05-xx - xxxxxxxxxx - lavc 60.12.100 - codec_desc.h
+ *        Add AV_CODEC_PROP_FIELDS.
+ *    lavc: deprecate AVCodecContext.ticks_per_frame
+ *    https://github.com/FFmpeg/FFmpeg/commit/7d1d61cc5f57708434ba720b03234b3dd93a4d1e
+ *
+ *    Browse nearby commits
+ *    https://github.com/FFmpeg/FFmpeg/commits/release/6.1?after=7b52cb6afd4dd3d22ce43a13a034eb74c14a1e3c+2799
+*/
+
+
 void list_codecs()
 {
         const AVCodec *p;
@@ -1308,7 +1343,12 @@ static int    prev_strange_framenum = 0;
         }
         else
         {
+#if LIBAVCODEC_BUILD >= AV_VERSION_INT(60, 12, 100) && \
+    LIBAVUTIL_BUILD >= AV_VERSION_INT(58, 7, 100)
+           frame_delay = av_q2d(is->dec_ctx->time_base) * (is->dec_ctx->codec_descriptor->props & AV_CODEC_PROP_FIELDS) ;
+#else
            frame_delay = av_q2d(is->dec_ctx->time_base) * is->dec_ctx->ticks_per_frame ;
+#endif
         }
 
 //        frame_delay = av_q2d(is->dec_ctx->time_base) * is->dec_ctx->ticks_per_frame ;
@@ -1419,17 +1459,33 @@ static int    prev_strange_framenum = 0;
 //#define SHOW_VIDEO_TIMING
 #ifdef SHOW_VIDEO_TIMING
         if (framenum==0)
+#if LIBAVCODEC_BUILD >= AV_VERSION_INT(60, 12, 100) && \
+    LIBAVUTIL_BUILD >= AV_VERSION_INT(58, 7, 100)
+            Debug(1,"Video timing ---------------------------------------------------\n", frame_delay/(is->dec_ctx->codec_descriptor->props & AV_CODEC_PROP_FIELDS), (is->dec_ctx->codec_descriptor->props & AV_CODEC_PROP_FIELDS), repeat, real_pts,calculated_delay);
+#else
             Debug(1,"Video timing ---------------------------------------------------\n", frame_delay/is->dec_ctx->ticks_per_frame, is->dec_ctx->ticks_per_frame, repeat, real_pts,calculated_delay);
+#endif
         else if (framenum<20)
+#if LIBAVCODEC_BUILD >= AV_VERSION_INT(60, 12, 100) && \
+    LIBAVUTIL_BUILD >= AV_VERSION_INT(58, 7, 100)
+            Debug(1,"Video timing fr=%6.5f, tick=%d, repeat=%d, pts=%6.3f, step=%6.5f\n", frame_delay/(is->dec_ctx->codec_descriptor->props & AV_CODEC_PROP_FIELDS), (is->dec_ctx->codec_descriptor->props & AV_CODEC_PROP_FIELDS), repeat, real_pts,calculated_delay);
+#else
             Debug(1,"Video timing fr=%6.5f, tick=%d, repeat=%d, pts=%6.3f, step=%6.5f\n", frame_delay/is->dec_ctx->ticks_per_frame, is->dec_ctx->ticks_per_frame, repeat, real_pts,calculated_delay);
+#endif
 #endif // SHOW_VIDEO_TIMING
 
 
         pts_offset *= 0.9;
         if (!reviewing && timeline_repair) {
             if (framenum > 1 && fabs(calculated_delay - pts_offset - frame_delay) < 1.0) { // Allow max 0.5 second timeline jitter to be compensated
+#if LIBAVCODEC_BUILD >= AV_VERSION_INT(60, 12, 100) && \
+    LIBAVUTIL_BUILD >= AV_VERSION_INT(58, 7, 100)
+                if (!ISSAME(3*frame_delay/ (is->dec_ctx->codec_descriptor->props & AV_CODEC_PROP_FIELDS), calculated_delay))
+                    if (!ISSAME(1*frame_delay/ (is->dec_ctx->codec_descriptor->props & AV_CODEC_PROP_FIELDS), calculated_delay))
+#else
                 if (!ISSAME(3*frame_delay/ is->dec_ctx->ticks_per_frame, calculated_delay))
                     if (!ISSAME(1*frame_delay/ is->dec_ctx->ticks_per_frame, calculated_delay))
+#endif
                         pts_offset = pts_offset + frame_delay - calculated_delay;
             }
         }
@@ -1444,9 +1500,16 @@ static int    prev_strange_framenum = 0;
 
         if (!reviewing
             && framenum > 1 && fabs(calculated_delay - frame_delay) > 0.01
+#if LIBAVCODEC_BUILD >= AV_VERSION_INT(60, 12, 100) && \
+    LIBAVUTIL_BUILD >= AV_VERSION_INT(58, 7, 100)
+            && !ISSAME(3*frame_delay/ (is->dec_ctx->codec_descriptor->props & AV_CODEC_PROP_FIELDS), calculated_delay)
+            && !ISSAME(2*frame_delay/ (is->dec_ctx->codec_descriptor->props & AV_CODEC_PROP_FIELDS), calculated_delay)
+            && !ISSAME(1*frame_delay/ (is->dec_ctx->codec_descriptor->props & AV_CODEC_PROP_FIELDS), calculated_delay)
+#else
             && !ISSAME(3*frame_delay/ is->dec_ctx->ticks_per_frame, calculated_delay)
             && !ISSAME(2*frame_delay/ is->dec_ctx->ticks_per_frame, calculated_delay)
             && !ISSAME(1*frame_delay/ is->dec_ctx->ticks_per_frame, calculated_delay)
+#endif
             ){
             if ( (prev_strange_framenum + 1 != framenum) &&( prev_strange_step < fabs(calculated_delay - frame_delay))) {
                 Debug(8 ,"Strange video pts step of %6.5f instead of %6.5f at frame %d\n", calculated_delay+0.0000005, frame_delay+0.0000005, framenum); // Unknown strange step
@@ -1890,8 +1953,12 @@ int stream_component_open(VideoState *is, int stream_index)
             codecCtx->thread_count= 1;
 #endif
         }
+#if LIBAVCODEC_BUILD >= AV_VERSION_INT(60, 12, 100) && \
+    LIBAVUTIL_BUILD >= AV_VERSION_INT(58, 7, 100)
+#else
         if (codecCtx->codec_id == AV_CODEC_ID_MPEG1VIDEO)
             is->dec_ctx->ticks_per_frame = 1;
+#endif
         if (demux_pid)
             selected_video_pid = is->video_st->id;
         /*
@@ -2078,7 +2145,12 @@ again:
         else
         {
             Debug(10, "Warning, no stream frame rate, deriving from codec\n");
+#if LIBAVCODEC_BUILD >= AV_VERSION_INT(60, 12, 100) && \
+    LIBAVUTIL_BUILD >= AV_VERSION_INT(58, 7, 100)
+            is->fps = 1/(av_q2d(is->dec_ctx->time_base) * (is->dec_ctx->codec_descriptor->props & AV_CODEC_PROP_FIELDS) );
+#else
             is->fps = 1/(av_q2d(is->dec_ctx->time_base) * is->dec_ctx->ticks_per_frame );
+#endif
         }
         set_fps( 1.0 / is->fps);
 //        Debug(1, "Stream frame rate is %5.3f f/s\n", is->fps);
@@ -2452,7 +2524,12 @@ nextpacket:
 
                     if ((live_tv && retries < live_tv_retries) /* || (selftest == 3 && retries == 0) */)
                     {
+#if LIBAVCODEC_BUILD >= AV_VERSION_INT(60, 12, 100) && \
+    LIBAVUTIL_BUILD >= AV_VERSION_INT(58, 7, 100)
+                        double frame_delay = av_q2d(is->dec_ctx->time_base) * (is->dec_ctx->codec_descriptor->props & AV_CODEC_PROP_FIELDS);
+#else
                         double frame_delay = av_q2d(is->dec_ctx->time_base) * is->dec_ctx->ticks_per_frame;
+#endif
 //                    uint64_t retry_target;
                         if (retries == 0)
                         {

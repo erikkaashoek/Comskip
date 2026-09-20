@@ -1,0 +1,1144 @@
+
+# APR 2025
+# Commit a140b6a
+# Merge pull request erikkaashoek#177 from heitbaum/patch-1
+# Fix build with gcc-15 and -std=c23
+# master(erikkaashoek/Comskip#177) https://github.com/erikkaashoek/Comskip/pull/177
+# 2 parents 9497bf2 + 2c667bf commit a140b6a
+# https://github.com/AndreMikulec/heitbaum_Comskip/commit/a140b6ac8bc8f596729e9052819affc779c3b377
+# https://github.com/heitbaum/Comskip/commit/a140b6ac8bc8f596729e9052819affc779c3b377
+# https://github.com/sgscaffidi3/Comskip/commit/a140b6ac8bc8f596729e9052819affc779c3b377
+#
+# ComskipSRCversion: a140b6ac8bc8f596729e9052819affc779c3b377
+
+# Based on
+# Update mpeg2dec.c (THIS COMMIT "8725a3c" ONE I BUILT FROM)
+# sgscaffidi3 authored and heitbaum committed on Sep 13, 2025
+# https://github.com/heitbaum/Comskip/commit/8725a3c15bc9e0a6e2797e04c1433dd8bd43b5e4
+
+# FUTURE
+# https://github.com/jellyfin/jellyfin-ffmpeg/releases/download/v7.1.3-6/jellyfin-ffmpeg_7.1.3-6_portable_win64-clang-gpl.zip
+# https://github.com/jellyfin/jellyfin-ffmpeg/releases/tag/v7.1.3-6
+# jmarceton Jan 12, 2024
+# https://github.com/erikkaashoek/Comskip/issues/167
+
+# FUTURE
+# GitHub Actions scheduled workflows (the on: schedule trigger)
+#   must exist on the default branch (usually main or master) of your repository to be triggered.
+
+name: Callee of Builds Comskip
+run-name: Callee of Builds Comskip - ${{ github.event.head_commit.message }}
+
+env:
+  TZ: UTC
+
+permissions:
+  contents: write
+
+on:
+
+  workflow_call:
+    inputs:
+      debug_enabled:
+        type: boolean
+        required: false
+        default: false
+      ragged_strategy_matrix:
+        type: string
+        required: true
+
+jobs:
+
+  build_test_install:
+    name: >-
+      matid ${{ matrix.matid }} ${{ matrix.compilerEnv }} ${{ matrix.provider }} ${{ matrix.ExtraJobTitleInfo != 'notset' && matrix.ExtraJobTitleInfo }}
+    runs-on: ${{ matrix.os }}
+    continue-on-error: ${{ matrix.GithubActionsIgnoreFail == 'true' && true || false }}
+    strategy:
+      # Disable fail-fast as we want results from all even if one fails.
+      fail-fast: false
+      matrix:
+        include: ${{ fromJSON(inputs.ragged_strategy_matrix) }}
+
+    defaults:
+      run:
+        shell: ${{ matrix.shellEnv || 'bash' }}
+
+    steps:
+
+
+    - name: Before Checkout
+      shell: bash                     # redundant, because it is my defined matrix default
+      run: |
+        echo "Before Checkout"
+        set -x -v -e
+        # allows me to run older/other code
+        export ComskipSRCversion="${{ matrix.ComskipSRCversion }}"
+        if [ "${ComskipSRCversion}" == "" ]; then export ComskipSRCversion="notset"; fi
+        echo "ComskipSRCversion=${ComskipSRCversion}" >> ${GITHUB_ENV}
+
+        echo "ComskipSRCversion: ${ComskipSRCversion}"
+
+
+    # ** BASED ON THIS ONE ***
+    # MAY 2026
+    # ubuntu, builds
+    # macos@ffmpeg5 macos@ffmpeg6 macos@ffmpeg7,macos@ffmpeg8 build
+    # msys2@ffmpegy6, msys2@ffmpegy7, msys2@ffmpegy8 build
+    # msys2@ffmpeg5 DOES NOT BUILD
+    # https://github.com/AndreMikulec/heitbaum_Comskip/actions/runs/25801600601
+    # MAY 2025
+    # Commit 9aa9f85
+    # sgscaffidi3 committed on May 9, 2025
+    # Update mpeg2dec.c
+    # ticks_per_frame is deprecated. See: nschlia/ffmpegfs#149
+    # master
+    # 1 parent 5796506 commit  9aa9f85
+    # https://github.com/sgscaffidi3/Comskip/commit/9aa9f85571a183be9fd9a91608a1151148d5d011
+    # . . . SAME . . .
+    # Commit 8725a3c
+    # sgscaffidi3 authored and heitbaum committed on Sep 13, 2025
+    # Update mpeg2dec.c
+    # ticks_per_frame is deprecated. See: nschlia/ffmpegfs#149 https://github.com/nschlia/ffmpegfs/issues/149
+    # 1 parent a140b6a commit 8725a3c
+    # ticks(erikkaashoek/Comskip#187) https://github.com/erikkaashoek/Comskip/pull/187
+    # https://github.com/heitbaum/Comskip/commit/8725a3c15bc9e0a6e2797e04c1433dd8bd43b5e4
+    # ticks_try_MSYS2_old_ffmpeg7_260513_experiments
+    # https://github.com/AndreMikulec/heitbaum_Comskip/commit/8725a3c15bc9e0a6e2797e04c1433dd8bd43b5e4
+    #
+    #
+    # APRIL MAY SEPTEMER 2025
+    # ubuntu builds
+    # macos@ffmpeg6, macos@ffmpeg7 builds
+    # msys2@ffmpeg5 built one year ago,
+    # macos@ffmpeg5 DID NOT BUILD
+    # https://github.com/heitbaum/Comskip/actions/runs/17692079752/job/50286990604
+    # APR 2025
+    # Commit a140b6a
+    # Merge pull request erikkaashoek#177 from heitbaum/patch-1
+    # Fix build with gcc-15 and -std=c23
+    # master(erikkaashoek/Comskip#177) https://github.com/erikkaashoek/Comskip/pull/177
+    # 2 parents 9497bf2 + 2c667bf commit a140b6a
+    # https://github.com/AndreMikulec/Comskip/commit/a140b6ac8bc8f596729e9052819affc779c3b377
+    # https://github.com/AndreMikulec/heitbaum_Comskip/commit/a140b6ac8bc8f596729e9052819affc779c3b377
+    # master(#177) https://github.com/erikkaashoek/Comskip/pull/177
+    # https://github.com/erikkaashoek/Comskip/commit/a140b6ac8bc8f596729e9052819affc779c3b377
+    # master(erikkaashoek/Comskip#177) https://github.com/erikkaashoek/Comskip/pull/177
+    # https://github.com/heitbaum/Comskip/commit/a140b6ac8bc8f596729e9052819affc779c3b377
+    # master(#1, erikkaashoek/Comskip#177) https://github.com/erikkaashoek/Comskip/pull/177
+    # https://github.com/sgscaffidi3/Comskip/commit/a140b6ac8bc8f596729e9052819affc779c3b377
+    #
+    - name: Checkout
+      uses: actions/checkout@v6
+      with:
+        #
+        # Allow to build on a PREVIOUS COMMIT
+        #
+        # 'HEAD' does not work
+        # ''     does     work
+        # 'Commit SHA
+        # '${{ github.sha }} — This is the commit SHA that triggered the workflow run.
+        # 'Commit Message
+        # '${{ github.event.head_commit.message }} — Useful for filtering jobs based on words
+        #
+        # If your string is wrapped in single quotes, escape a literal single quote by doubling it.
+        ref: '${{ env.ComskipSRCversion != ''notset'' && env.ComskipSRCversion || '''' }}'
+
+
+    - name: Windows Machine Stats for $${{ matrix.os }}
+      if: ${{ matrix.os == 'windows-2025-vs2026' }}
+      shell: cmd
+      run: |
+        systeminfo
+
+
+    - name: General Shell Environment Variables
+      # Early and RARE case that I use "matrix." variable in "if"
+      shell: bash
+      run: |
+        set -x -v -e
+        echo "BEGIN General Shell Environment Variables for windows-2025-vs2026 made using Bash"
+
+        export TODAYSDATETIME=$(date -u +"%Y-%m-%d-%H-%M")
+        if [ "${TODAYSDATETIME}" == "" ]; then export TODAYSDATETIME="notset" ; fi
+        echo  "TODAYSDATETIME=${TODAYSDATETIME}" >> ${GITHUB_ENV}
+
+        echo  "TODAYSDATETIME: ${TODAYSDATETIME}"
+
+        export  HEAD7_GITHUB_SHA="$(echo "${GITHUB_SHA}" | cut -c -7)"
+        if [ "${HEAD7_GITHUB_SHA}" == "" ]; then export HEAD7_GITHUB_SHA="notset" ; fi
+        echo   "HEAD7_GITHUB_SHA=${HEAD7_GITHUB_SHA}" >> ${GITHUB_ENV}
+
+        echo   "HEAD7_GITHUB_SHA: ${HEAD7_GITHUB_SHA}"
+
+        export matid="${{ matrix.matid }}"
+        if [ "${matid}" == "" ]; then export matid="notset"; fi
+        echo "matid=${matid}" >> ${GITHUB_ENV}
+
+        echo "matid: ${matid}"
+
+        export os="${{ matrix.os }}"
+        if [ "${os}" == "" ]; then export os="notset"; fi
+        echo "os=${os}" >> ${GITHUB_ENV}
+
+        echo "os: ${os}"
+
+        export Platform="${{ matrix.Platform }}"
+        # default Platform
+        if [ "${Platform}" == "" ]; then export Platform="x64"; fi
+        echo "Platform=${Platform}" >> ${GITHUB_ENV}
+
+        echo "Platform: ${Platform}"
+
+        export compilerEnv="${{ matrix.compilerEnv }}"
+        if [ "${compilerEnv}" == "" ]; then export compilerEnv="notset"; fi
+        echo "compilerEnv=${compilerEnv}" >> ${GITHUB_ENV}
+
+        echo "compilerEnv: ${compilerEnv}"
+
+        export compilerClass="${{ matrix.compilerClass }}"
+        if [ "${compilerClass}" == "" ]; then export compilerClass="notset"; fi
+        #
+        if [ "${compilerEnv}" == "Ubuntu" ]; then export compilerClass="Linux"; fi
+        if [ "${compilerEnv}" == "MacOS"  ]; then export compilerClass="MacOS"; fi
+        #
+        echo "compilerClass=${compilerClass}" >> ${GITHUB_ENV}
+
+        echo "compilerClass: ${compilerClass}"
+
+        export ffmpeg_version="${{ matrix.ffmpeg_version }}"
+        if [ "${ffmpeg_version}" == "" ]; then export ffmpeg_version="notset"; fi
+        echo "ffmpeg_version=${ffmpeg_version}" >> ${GITHUB_ENV}
+
+        echo "ffmpeg_version: ${ffmpeg_version}"
+
+        export brewMethod="${{ matrix.brewMethod }}"
+        if [ "${brewMethod}" == "" ]; then export brewMethod="notset"; fi
+        echo "brewMethod=${brewMethod}" >> ${GITHUB_ENV}
+
+        echo "brewMethod: ${brewMethod}"
+
+        export ExtraJobTitleInfo="${{ matrix.ExtraJobTitleInfo }}"
+        if [ "${ExtraJobTitleInfo}" == "" ]; then export ExtraJobTitleInfo="notset"; fi
+        echo "ExtraJobTitleInfo=${ExtraJobTitleInfo}" >> ${GITHUB_ENV}
+
+        echo "ExtraJobTitleInfo: ${ExtraJobTitleInfo}"
+
+        echo "END   General Shell Environment Variables"
+
+
+      # OUT OF TIME RIGHT NOW.  IN THE FUTURE, CONVERT EVERYTHING "BELOW" "TO" BASH
+    - name: General Shell Environment Variables for windows-2025-vs2026 using Powershell
+      # Early and RARE case that I use "matrix." variable in "if"
+      if: ${{ matrix.os == 'windows-2025-vs2026' }}
+      shell: powershell
+      run: |
+        # systeminfo
+        echo "BEGIN General Shell Environment Variables for widows-latest using Powershell"
+
+        function Set-EnvVar {param($X)     Add-Content -Path ${env:GITHUB_ENV} -Value "$X"}
+
+        ${env:shell} = "${{ matrix.shell }}"
+        if("${env:shell}" -eq ""){${env:shell} = "notset"}
+        Set-EnvVar "shell=${env:shell}"
+
+        echo "shell: ${env:shell}"
+
+        ${env:shellEnv} = "${{ matrix.shellEnv }}"
+        if("${env:shellEnv}" -eq ""){${env:shellEnv} = "notset"}
+        Set-EnvVar "shellEnv=${env:shellEnv}"
+
+        echo "shellEnv: ${env:shellEnv}"
+
+        # "CLANG32" - not supported by Github Action msys2/setup-msys2@v2"
+        if("${env:compilerEnv}" -in "MING64", "MINGW32", "UCRT64", "CLANG64", "CLANGARM64") {
+          ${env:compilerClass} = "Mingw"
+        }
+        if("${env:compilerEnv}" -eq "Cygwin") {
+          ${env:compilerClass} = "Cygwin"
+        }
+        Set-EnvVar "compilerClass=${env:compilerClass}"
+
+        echo "compilerClass: ${env:compilerClass}"
+
+        ${env:compilerExe} = "notset"
+        if ( "${{ matrix.compilerEnv }}" -eq "MINGW64"    ) { ${env:compilerExe} = "gcc" }
+        if ( "${{ matrix.compilerEnv }}" -eq "MINGW32"    ) { ${env:compilerExe} = "gcc" }
+        if ( "${{ matrix.compilerEnv }}" -eq "UCRT64"     ) { ${env:compilerExe} = "gcc" }
+        # "CLANG32" - not supported by Github Action msys2/setup-msys2@v2"
+        # if ( "${{ matrix.compilerEnv }}" -eq "CLANG32"    ) { ${env:compilerExe} = "clang" }
+        if ( "${{ matrix.compilerEnv }}" -eq "CLANG64"    ) { ${env:compilerExe} = "clang" }
+        if ( "${{ matrix.compilerEnv }}" -eq "CLANGARM64" ) { ${env:compilerExe} = "clang" }
+        if("${env:compilerExe}" -eq ""){${env:compilerExe} = "notset"}
+        Set-EnvVar "compilerExe=${env:compilerExe}"
+
+        echo "compilerExe: ${env:compilerExe}"
+
+        ${env:mingw_env} = "notset"
+        if ( "${{ matrix.compilerEnv }}" -eq "MINGW64"    ) { ${env:mingw_env} = "x86_64" }
+        if ( "${{ matrix.compilerEnv }}" -eq "MINGW32"    ) { ${env:mingw_env} = "i686" }
+        if ( "${{ matrix.compilerEnv }}" -eq "UCRT64"     ) { ${env:mingw_env} = "ucrt-x86_64" }
+        # "CLANG32" - not supported by Github Action msys2/setup-msys2@v2"
+        # if ( "${{ matrix.compilerEnv }}" -eq "CLANG32"    ) { ${env:mingw_env} = "clang-i686" }
+        if ( "${{ matrix.compilerEnv }}" -eq "CLANG64"    ) { ${env:mingw_env} = "clang-x86_64" }
+        if ( "${{ matrix.compilerEnv }}" -eq "CLANGARM64" ) { ${env:mingw_env} = "clang-aarch64" }
+        if ( "${{ matrix.compilerEnv }}" -eq "notset"     ) { ${env:mingw_env} = "notset" }
+        Set-EnvVar "mingw_env=${env:mingw_env}"
+
+        echo "mingw_env: ${env:mingw_env}"
+
+        ${env:MINGW_PACKAGE_PREFIX} = "notset"
+        if ("${{ env.mingw_env }}" -ne "notset") { ${env:MINGW_PACKAGE_PREFIX} = "mingw-w64-${env:mingw_env}" }
+        if ("${{ env.mingw_env }}" -eq "notset") { ${env:MINGW_PACKAGE_PREFIX} = "notset" }
+        Set-EnvVar "MINGW_PACKAGE_PREFIX=${env:MINGW_PACKAGE_PREFIX}"
+
+        echo "MINGW_PACKAGE_PREFIX: ${env:MINGW_PACKAGE_PREFIX}"
+
+        # SPECIFIC TO THIS APPLICATION
+
+        # only used for job name, archive name, and release name
+        ${env:provider} = "${{ matrix.provider }}"
+        if("${env:provider}" -eq ""){${env:provider} = "notset"}
+        Set-EnvVar "provider=${env:provider}"
+
+        echo "provider: ${env:provider}"
+
+        ${env:provider_altarchive_url} = "${{ matrix.provider_altarchive_url }}"
+        if("${env:provider_altarchive_url}" -eq ""){${env:provider_altarchive_url} = "notset"}
+        Set-EnvVar "provider_altarchive_url=${env:provider_altarchive_url}"
+
+        echo "provider_altarchive_url: ${env:provider_altarchive_url}"
+
+        echo "END   General Shell Environment Variables for widows-latest using Powershell"
+
+
+    - name: Configure Apt packages
+      if: ${{ env.compilerEnv == 'Ubuntu' }}
+      run: |
+        sudo apt-get update
+        sudo apt-get install inxi -y
+        set -x -v -e
+        sudo inxi -Fxz
+        set +x +v +e
+        sudo apt-get install autoconf libtool git build-essential libargtable2-dev libavformat-dev libswscale-dev libsdl1.2-dev -y
+
+
+    - name: Configure Brew packages ${{ matrix.compilerEnv }} ffmpeg ${{ matrix.ffmpeg_version }} via link
+      if: ${{ env.compilerEnv == 'MacOS' && env.brewMethod == 'link' }}
+      run: |
+        system_profiler SPSoftwareDataType SPHardwareDataType
+        brew install autoconf automake libtool pkgconf argtable ffmpeg@${{ env.ffmpeg_version }} sdl2
+        brew link ffmpeg@${{ env.ffmpeg_version }}
+
+
+    - name: Configure Brew packages ${{ matrix.compilerEnv }} ffmpeg ${{ matrix.ffmpeg_version }} via make
+      if: ${{ env.compilerEnv == 'MacOS' && env.brewMethod == 'make' }}
+      run: |
+        system_profiler SPSoftwareDataType SPHardwareDataType
+        brew install autoconf automake libtool pkgconf argtable ffmpeg@${{ env.ffmpeg_version }} sdl2
+
+
+    #  Add the Mingw package "zip" to create a distribution release
+    #  Add the Mingw package "unzip" to extract shared FFmpeg files from github.com/BtbN
+    - name: Setup for Mingw
+      id: mingw_install
+      if: ${{ env.compilerClass == 'Mingw' }}
+      uses: msys2/setup-msys2@v2
+      with:
+        update: true
+        path-type: strict
+        msystem: ${{ env.compilerEnv }}
+        install: >-
+          ${{ env.MINGW_PACKAGE_PREFIX }}-gcc
+          ${{ env.MINGW_PACKAGE_PREFIX }}-make
+          ${{ env.MINGW_PACKAGE_PREFIX }}-autotools
+          ${{ env.MINGW_PACKAGE_PREFIX }}-libtool
+          ${{ env.MINGW_PACKAGE_PREFIX }}-pkg-config
+          ${{ env.MINGW_PACKAGE_PREFIX }}-yasm
+          ${{ env.MINGW_PACKAGE_PREFIX }}-argtable
+          ${{ env.MINGW_PACKAGE_PREFIX }}-SDL2
+          ${{ env.MINGW_PACKAGE_PREFIX }}-SDL2_image
+          ${{ env.MINGW_PACKAGE_PREFIX }}-SDL2_mixer
+          ${{ env.MINGW_PACKAGE_PREFIX }}-SDL2_pango
+          ${{ env.MINGW_PACKAGE_PREFIX }}-SDL2_sound
+          ${{ env.provider_altarchive_url == 'notset' && env.MINGW_PACKAGE_PREFIX || '' }}${{ env.provider_altarchive_url == 'notset' && '-ffmpeg' || '' }}
+          zip
+          unzip
+
+
+    - name: Set up for Cygwin
+      # In Mingw, package autotools is the Cygwin package autoconf.
+      # In Mingw, package gcc is the Cygwin package gcc-core.
+      # In Cygwin, no package "argtable2-13" or similar exists
+      # Add the Cygwin package, "curl" to download the "argtable2-13" source contents (no longer using)
+      # Add the Cygwin package, "tar" to extract the "argtable2-13" source contents
+      # Add the Cygwin package "zip" to create a release bundle
+      # Therefore, see the configure, build, and install in step far below
+      if: ${{ env.compilerClass == 'Cygwin' }}
+      uses: Cygwin/Cygwin-install-action@v6
+      with:
+        # x86 or x86_64
+        #         GitHub offers ternary operator like behaviour that you can use in expressions
+        platform: ${{ ( env.Platform == 'notset' || env.Platform == 'x64' ) && 'x86_64' || 'x86' }}
+        install-dir: 'C:\Cygwin'
+        # REQUIRED default true - otherwise the default install MING64 "bash" will be found
+        # add-to-path: true
+        work-vol: 'C:'
+        packages: >-
+          gcc-core
+          make
+          autoconf
+          libtool
+          pkg-config
+          yasm
+          tar
+          ffmpeg
+          curl
+          automake
+          libavformat62
+          libavformat-devel
+          libavcodec62
+          libavcodec-devel
+          libswscale9
+          libswscale-devel
+          libavutil60
+          libavutil-devel
+          libswresample6
+          libswresample-devel
+          libSDL2-devel
+          libSDL2_2.0_0
+          libSDL2_image-devel
+          libSDL2_image2.0_0
+          libSDL2_mixer-devel
+          libSDL2_mixer2.0_0
+          libSDL2_net-devel
+          libSDL2_net2.0_0
+          libSDL2_ttf-devel
+          libSDL2_ttf2.0_0
+          zip
+          mpeg2dec
+
+
+    - name: Determine Mingw or Cygwin Operating System
+      if: ${{ env.compilerClass == 'Mingw' || env.compilerClass == 'Cygwin' }}
+      env:
+        # Cygwin OS variables
+        SHELLOPTS: igncr
+        CHERE_INVOKING: 1
+        # Mingw OS variable
+        msystem: ${{ env.compilerEnv }}
+        MSYS2_LOCATION: ${{ steps.mingw_install.outputs.msys2-location }}
+      run: |
+        echo "Determine Mingw or Cygwin Operating System"
+        set -x -v -e
+        export OperatingSystem=$(uname -o)
+        if [ "${OperatingSystem}" == "Msys" ]; then export OperatingSystem="Mingw"; fi
+        echo "OperatingSystem=${OperatingSystem}" >> ${GITHUB_ENV}
+
+        echo "OperatingSystem: ${OperatingSystem}"
+
+
+    - name: Determine non-Mingw and non-Cygwin Operating System
+      if: ${{ env.compilerClass != 'Mingw' && env.compilerClass != 'Cygwin' }}
+      run: |
+        echo "Determine non-Mingw and non-Cygwin Operating System"
+        set -x -v -e
+        echo "Determine non-"Mingw or Cygwin" Operating System"
+        export OperatingSystem=$(uname -o)
+        echo "OperatingSystem=${OperatingSystem}" >> ${GITHUB_ENV}
+
+        echo "OperatingSystem: ${OperatingSystem}"
+
+
+    - name: Download, Quick Check, save version FFMPEGVERSION and FFMPEGSHORTVERSION of, ffmpeg from the ${{ matrix.provider_altarchive_url }}
+      if: ${{ env.compilerClass == 'Mingw' || env.compilerClass == 'Cygwin' }}
+      env:
+        # Cygwin OS variables
+        SHELLOPTS: igncr
+        CHERE_INVOKING: 1
+        # Mingw OS variable
+        msystem: ${{ env.compilerEnv }}
+        MSYS2_LOCATION: ${{ steps.mingw_install.outputs.msys2-location }}
+      run: |
+        echo "BEGIN Download, Quick Check, save version FFMPEGVERSION and FFMPEGSHORTVERSION of, ffmpeg from the ${{ matrix.provider_altarchive_url }}"
+        set -x -v -e
+
+        if [ "${OperatingSystem}" == "Cygwin" ]
+        then
+          # because I set CHERE_INVOKING to be 1
+          export PATH=/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin
+        fi
+        echo "uname -a"
+        uname -a
+
+        if [ "${OperatingSystem}" == "Mingw" ]
+        then
+          echo "Place of MSYS2_LOCATION true Windows location"
+          echo "$(cygpath -wl "${MSYS2_LOCATION}")"
+        fi
+
+        # SEEN MAY 2026
+        # shared FFmpeg full versions only please
+        #
+        # FFmpeg ... Builds
+        # https://github.com/BtbN/FFmpeg-Builds/blob/7b5dc8c88b43af71a7284f7f8919d1e6b004ebc1/README.md
+        #
+        # Builds run daily at 12:00 UTC (or GitHubs idea of that time) and are automatically released on success.
+        # Release Retention Policy
+        # The last build of each month is kept for two years.
+        # The last 14 daily builds are kept.
+        # The special "latest" build floats and provides consistent URLs always pointing to the latest build.
+        #
+        # A Laster - 5.0
+        # https://github.com/GyanD/codexffmpeg/releases/download/5.0.1/ffmpeg-5.0.1-full_build-shared.7z
+        # https://github.com/erikkaashoek/Comskip/blob/a140b6ac8bc8f596729e9052819affc779c3b377/appveyor.yml
+        # The Last - 5.1
+        # https://github.com/BtbN/FFmpeg-Builds/releases/download/autobuild-2025-01-31-12-58/ffmpeg-n5.1.6-16-g6e63e49496-win64-gpl-shared-5.1.zip
+        #
+        # The Last - 6.1
+        # https://github.com/BtbN/FFmpeg-Builds/releases/download/autobuild-2025-08-31-13-00/ffmpeg-n6.1.3-win64-gpl-shared-6.1.zip
+        #
+        # The 2nd Last - 7.1 (USE THIS)
+        # https://github.com/BtbN/FFmpeg-Builds/releases/download/autobuild-2026-07-31-14-10/ffmpeg-n7.1.5-12-g1fdbca85aa-win64-gpl-shared-7.1.zip
+        #
+        # # STRANGELY REMOVED
+        # # The Last - 7.1
+        # # https://github.com/BtbN/FFmpeg-Builds/releases/download/autobuild-2026-08-16-13-00/ffmpeg-n7.1.5-16-g9a4bb2c579-win64-gpl-shared-7.1.zip
+        #
+        # Latest - 8.1 - https://github.com/FFmpeg/FFmpeg/tree/release/8.1
+        # https://github.com/BtbN/FFmpeg-Builds/releases/download/latest/ffmpeg-n8.1-latest-win64-gpl-shared-8.1.zip
+        #
+        # Latest - 9.0 - https://github.com/FFmpeg/FFmpeg/tree/release/9.0
+        # https://github.com/BtbN/FFmpeg-Builds/releases/download/latest/ffmpeg-n9.0-latest-win64-gpl-shared-9.0.zip
+        #
+        # Latest - master - https://github.com/FFmpeg/FFmpeg/tree/master
+        # https://github.com/BtbN/FFmpeg-Builds/releases/download/latest/ffmpeg-master-latest-win64-gpl-shared.zip
+        #
+        # from an alterarchive
+        echo "In Mingw Attempt to Install an FFmpeg Different or Older: ${provider_altarchive_url}"
+        if  [ "${OperatingSystem}" == "Mingw" ] && [ "${provider_altarchive_url}" != "notset" ]
+        then  # assuming the previous version requires the same dependents
+          echo "Install the Mingw altarchive version."
+          # https://packages.msys2.org/packages/mingw-w64-ucrt-x86_64-ffmpeg
+          # https://linuxcommandlibrary.com/man/pacman-upgrade
+          # https://wiki.archlinux.org/title/Pacman
+          if [ $(echo "${provider_altarchive_url}" | grep -q "msys2.org/packages" && echo 0) ]
+          then
+            echo "Start installing the alternate archive version."
+            pacman -U           --verbose --noconfirm --needed "${provider_altarchive_url}"
+            echo "Finish installing the alternate archive version."
+            echo "See the Older Package version of ffmpeg from msys2.org/packages"
+            pacman -Q --verbose ${MINGW_PACKAGE_PREFIX}-ffmpeg
+            which ffmpeg
+            ffmpeg -version
+          fi
+          if [ $(echo "${provider_altarchive_url}" | grep -q "github.com/BtbN" && echo 0) ]
+          then
+            curl  --verbose -L -o win-gpl-shared.zip "${provider_altarchive_url}"
+            unzip                 win-gpl-shared.zip
+            ls -alrt ffmpeg-*
+            mv       ffmpeg-*     win-gpl-shared
+            rm                    win-gpl-shared.zip
+            export PATH=$(echo "$(pwd)"/win-gpl-shared/bin):"${PATH}"
+            which ffmpeg
+            ffmpeg -version
+          fi
+        fi
+        # not from an altarchvie
+        echo "See the final installed ffmpeg package."
+        if [ "${OperatingSystem}" == "Mingw" ] && [ "${provider_altarchive_url}" == "notset" ]
+        then
+          pacman -Q --verbose ${MINGW_PACKAGE_PREFIX}-ffmpeg
+          which ffmpeg
+          ffmpeg -version
+        fi
+        # never from an altarchive
+        if [ "${OperatingSystem}" == "Cygwin" ]
+        then
+          cygcheck -c --verbose ffmpeg
+          which ffmpeg
+          ffmpeg -version
+        fi
+
+        # How to read an ffmpeg version string
+        #
+        # + ffmpeg -version
+        # ffmpeg version n8.1.1-7-g3728de467d-20260519 Copyright (c) 2000-2026 the FFmpeg developers
+        #
+        # + ffmpeg -version
+        # ffmpeg version N-124549-g1572784128-20260519 Copyright (c) 2000-2026 the FFmpeg developers
+        #
+        # 1. Release Builds (Stable)
+        # MAJOR.MINOR.PATCH
+        #
+        # 2. Nightly/Git Builds (Development)
+        # N-100221-g18befac5da
+        #
+        # N-XXXXX: The "N" indicates a nightly build.
+        # The number is typically a sequential build or commit count.
+        # g[hash]: The "g" stands for Git, followed by the Git commit hash
+        #
+        # 3. Library Versions
+        # (at the bottom of the output)
+
+        echo "Gather the ffmpeg version into the shell variable FFMPEGVERSION"
+        export FFMPEGVERSION=$(ffmpeg -version | head -1 | grep -oP '(?<=version ).*(?= Copyright)' | head -1)
+        echo "FFMPEGVERSION: ${FFMPEGVERSION}"
+        # test
+        echo "Perform a Quick Check of ffmpeg"
+        if [ "${FFMPEGVERSION}" == "" ]
+        then
+          echo "ffmpeg executable at this version does not work.  Please, stop trying this ffmpeg version." >&2
+          exit 1
+        fi
+        echo "FFMPEGVERSION=${FFMPEGVERSION}" >> ${GITHUB_ENV}
+        echo "FFMPEGVERSION: ${FFMPEGVERSION}"
+
+        export FFMPEGSHORTVERSION=$(echo ${FFMPEGVERSION} | sed -E 's/^([nN]*[0-9]+[.][0-9]+[.][0-9]+).*/\1/')
+        echo "FFMPEGSHORTVERSION=${FFMPEGSHORTVERSION}"  >> ${GITHUB_ENV}
+        echo "FFMPEGSHORTVERSION: ${FFMPEGSHORTVERSION}"
+
+        echo "END   Download, Quick Check, save version FFMPEGVERSION and FFMPEGSHORTVERSION of, ffmpeg from the ${{ matrix.provider_altarchive_url }}"
+
+
+    - name: Pre Build - Cache ArgTable Source Code from Sourceforge for Cygwin
+      id: cacheArgTableSourceCode
+      if: ${{ env.compilerClass == 'Cygwin' }}
+      uses: actions/cache@v6
+      with:
+        path: argtable2-13.tar.gz
+        key:  argtable2-13.tar.gz
+      env:
+        SEGMENT_DOWNLOAD_TIMEOUT_MINS: 1
+
+
+      # Argtable is an ANSI C command line parser.
+      # https://argtable.sourceforge.io/
+      # Dockerfile (from the Github Comskip README.md file)
+      #   wget http://prdownloads.sourceforge.net/argtable/argtable2-13.tar.gz
+      #
+    - name: Pre Build - Download ArgTable Source Code from Sourceforge for Cygwin
+      id: downloadArgTableSourceCode
+      if: ${{ env.compilerClass == 'Cygwin' && steps.cacheArgTableSourceCode.outputs.cache-hit != 'true' }}
+      uses: suisei-cn/actions-download-file@v1.6.1
+      with:
+        retry-times: 1
+        url: http://prdownloads.sourceforge.net/argtable/argtable2-13.tar.gz
+
+
+    - name: Pre Build - Cache ArgTable config.guess for Cygwin
+      id: cacheConfigGuess
+      if: ${{ env.compilerClass == 'Cygwin' }}
+      uses: actions/cache@v6
+      with:
+        path: config.guess
+        key:  config.guess
+      env:
+        SEGMENT_DOWNLOAD_TIMEOUT_MINS: 1
+
+
+    - name: Pre Build - Download ArgTable config.guess for Cygwin
+      id: downloadConfigGuess
+      continue-on-error: true
+      if: ${{ env.compilerClass == 'Cygwin' && steps.cacheConfigGuess.outputs.cache-hit != 'true' }}
+      uses: suisei-cn/actions-download-file@v1.6.1
+      with:
+        retry-times: 1
+        url: https://cgit.git.savannah.gnu.org/cgit/config.git/plain/config.guess
+
+
+    - name: Pre Build - Exchange to a newer ArgTable config.guess for Cygwin
+      id: exchangeNewerConfigGuessforCygwin
+      if: ${{ env.compilerClass == 'Cygwin' && steps.downloadConfigGuess.outcome == 'failure' }}
+      env:
+        # Cygwin OS variables
+        SHELLOPTS: igncr
+        CHERE_INVOKING: 1
+        # Mingw OS variable
+        msystem: ${{ env.compilerEnv }}
+      run: |
+        echo "BEGIN Pre Build - Exchange to a newer ArgTable config.guess for Cygwin"
+        set -x -v -e
+        export PATH=/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin
+        if [ ! -f "config.guess" ]; then mv timestamp_2026-05-17_config.guess config.guess ; fi
+        echo "END Pre Build - Exchange to a newer ArgTable config.guess for Cygwin"
+
+
+    - name: Pre Build - Cache ArgTable config.sub for Cygwin
+      id: cacheConfigSub
+      if: ${{ env.compilerClass == 'Cygwin' }}
+      uses: actions/cache@v6
+      with:
+        path: config.sub
+        key:  config.sub
+      env:
+        SEGMENT_DOWNLOAD_TIMEOUT_MINS: 1
+
+
+    - name: Pre Build - Download ArgTable config.sub for Cygwin
+      id: downloadConfigSub
+      continue-on-error: true
+      if: ${{ env.compilerClass == 'Cygwin' && steps.cacheConfigSub.outputs.cache-hit != 'true' }}
+      uses: suisei-cn/actions-download-file@v1.6.1
+      with:
+        retry-times: 1
+        url: https://cgit.git.savannah.gnu.org/cgit/config.git/plain/config.sub
+
+
+    - name: Pre Build - Exchange to a newer ArgTable config.sub for Cygwin
+      id: exchangeNewerConfigSubforCygwin
+      if: ${{ env.compilerClass == 'Cygwin' && steps.downloadConfigSub.outcome == 'failure' }}
+      env:
+        # Cygwin OS variables
+        SHELLOPTS: igncr
+        CHERE_INVOKING: 1
+        # Mingw OS variable
+        msystem: ${{ env.compilerEnv }}
+      run: |
+        echo "BEGIN Pre Build - Exchange to a newer ArgTable config.sub for Cygwin"
+        set -x -v -e
+        export PATH=/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin
+        if [ ! -f "config.sub" ]; then mv timestamp_2026-05-17_config.sub config.sub ; fi
+        echo "END Pre Build - Exchange to a newer ArgTable config.sub for Cygwin"
+
+
+    - name: Configure, Build, and Install argtable2-13 for Cygwin
+      if: ${{ env.compilerClass == 'Cygwin' }}
+      env:
+        # Cygwin OS variables
+        SHELLOPTS: igncr
+        CHERE_INVOKING: 1
+        # Mingw OS variable
+        msystem: ${{ env.compilerEnv }}
+        MSYS2_LOCATION: ${{ steps.mingw_install.outputs.msys2-location }}
+      run: |
+        echo "BEGIN Configure, Build, and Install argtable2-13 for Cygwin"
+        set -x -v -e
+        # because I set CHERE_INVOKING to be 1
+        export PATH=/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin
+        echo "uname -a"
+        uname -a
+
+        # Argtable is an ANSI C command line parser.
+        # https://argtable.sourceforge.io/
+        #
+        # Dockerfile in
+        #   wget http://prdownloads.sourceforge.net/argtable/argtable2-13.tar.gz
+        #   tar xzf argtable2-13.tar.gz
+        #   cd argtable2-13/ && ./configure && make && make install
+        #
+        # https://cgit.git.savannah.gnu.org/cgit/config.git/
+        # https://www.gnu.org/software/gettext/manual/html_node/config_002eguess.html
+        # https://github.com/jemalloc/jemalloc/issues/2814
+        # https://man7.org/linux/man-pages/man1/curl.1.html
+        tar xzf argtable2-13.tar.gz
+        pushd argtable2-13
+          echo "New current directory: $(pwd)"
+          # replace the old files
+          # curl --verbose -L -O https://git.savannah.gnu.org/cgit/config.git/plain/config.guess
+          rm config.guess
+          cp ../config.guess .
+          echo "Age of the file config.guess"
+          ls -alrt config.guess
+          # curl --verbose -L -O https://git.savannah.gnu.org/cgit/config.git/plain/config.sub
+          rm config.sub
+          cp ../config.sub .
+          echo "Age of the file config.sub"
+          ls -alrt config.sub
+          ./config.guess --version
+          ./config.sub   --version
+          set +x +v +e
+          #
+          # SEEN AUG 20 2026
+          # From gcc 13 to gcc 14, how have implicit function declaration handline changed ?
+          # ...
+          # Gemini AI answer ...
+          # In GCC 14, implicit function declarations are treated as a hard compile-time error
+          # (-Werror=implicit-function-declaration) instead of just generating a warning as they did
+          # in GCC 13 and prior versions.
+          #
+          #   arg_int.c:89:8: warning: implicit declaration of function 'toupper' [-Wimplicit-function-declaration]
+          #   arg_int.c:89:8: note: include '<ctype.h>' or provide a declaration of 'toupper
+          #
+          # Calling a function without a prior prototype or definition is no longer permitted by default.
+          #
+          # 13.4.0-1  x86_64  ...  2025-07-23 05:27
+          # 14.4.0-1  x86_64  ...  2026-07-01 18:52
+          # https://www.Cygwin.com/packages/summary/mingw64-i686-gcc-core.html
+          #
+          # solution 1 - patch (BETTER)
+          # https://github.com/msys2/MINGW-packages/blob/master/mingw-w64-argtable/001-missing-ctype.patch
+          # Add missing ctype.h and enable aarch64 builds
+          # https://github.com/msys2/MINGW-packages/commit/8d64ae169b4d04b551022916c3dafbc54da8a2ee
+          #
+          # solution 2 (TEMPORARY)
+          #
+          # What C flag is used to turn
+          # back the behavior "error: implicit declaration of function"
+          # back to "warning: implicit declaration of function" ?
+          #
+          # Gemini AI answer ...
+          # -Wno-error=implicit-function-declaration
+          #
+          # Therefore, now do ...
+          # from
+          # ./configure
+          # to
+          # CFLAGS="-Wno-error=implicit-function-declaration" ./configure
+          #
+          CFLAGS="-Wno-error=implicit-function-declaration" ./configure
+          set -x -v -e
+          # argtable2-13/INSTALL file of instructions
+          make
+          make install
+          popd # from argtable2-13
+        echo "New current directory: $(pwd)"
+        echo "END   Configure, Build, and Install argtable2-13 for Cygwin"
+
+
+    - name: Post Build - Exchange to an older ArgTable config.guess for Cygwin
+      id: exchangeOlderConfigGuessforCygwin
+      if: ${{ env.compilerClass == 'Cygwin' && steps.exchangeNewerConfigGuessforCygwin.outcome == 'success' }}
+      env:
+        # Cygwin OS variables
+        SHELLOPTS: igncr
+        CHERE_INVOKING: 1
+        # Mingw OS variable
+        msystem: ${{ env.compilerEnv }}
+      run: |
+        echo "BEGIN Post Build - Exchange to an older ArgTable config.guess for Cygwin"
+        set -x -v -e
+        export PATH=/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin
+        echo "reverting to prevent CACHE-ING of config.guess"
+        if [ ! -f "config.guess" ]; then mv config.guess timestamp_2026-05-17_config.guess ; fi
+        echo "END   Post Build - Exchange to an older ArgTable config.guess for Cygwin"
+
+
+    - name: Post Build - Exchange to an older ArgTable config.sub for Cygwin
+      id: exchangeOlderConfigSubforCygwin
+      if: ${{ env.compilerClass == 'Cygwin' && steps.exchangeNewerConfigSubforCygwin.outcome == 'success' }}
+      env:
+        # Cygwin OS variables
+        SHELLOPTS: igncr
+        CHERE_INVOKING: 1
+        # Mingw OS variable
+        msystem: ${{ env.compilerEnv }}
+      run: |
+        echo "BEGIN Post Build - Exchange to an older ArgTable config.sub for Cygwin"
+        set -x -v -e
+        export PATH=/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin
+        echo "reverting to prevent CACHE-ING of config.sub"
+        if [ ! -f "config.sub" ]; then mv config.sub timestamp_2026-05-17_config.sub.guess ; fi
+        echo "END   Post Build - Exchange to an older ArgTable config.sub for Cygwin"
+
+
+    - name: Autogen, Configure, Build comskip for ${{ matrix.compilerEnv }}
+      if: ${{ env.compilerClass == 'Mingw' || env.compilerClass == 'Cygwin' }}
+      env:
+        # Cygwin OS variables
+        SHELLOPTS: igncr
+        CHERE_INVOKING: 1
+        # Mingw OS variable
+        msystem: ${{ env.compilerEnv }}
+        MSYS2_LOCATION: ${{ steps.mingw_install.outputs.msys2-location }}
+      run: |
+        echo "BEGIN Autogen, Configure, Build comskip for ${{ matrix.compilerEnv }}"
+        set -x -v -e
+
+        if [ "${OperatingSystem}" == "Cygwin" ]
+        then
+          # because I set CHERE_INVOKING to be 1
+          export PATH=/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin
+        fi
+        echo "uname -a"
+        uname -a
+
+        # pkg-config files (ending in .pc) are metadata files used by the
+        #   pkg-config tool to provide the necessary compiler and linker flags
+        #     for using installed libraries.
+        # https://unix.stackexchange.com/questions/241887/building-code-from-source-and-adding-them-to-your-path
+        # useful after "make install" of argtable2-13
+
+          # Furthermore,
+          # comskip, if using argtable2-13 -
+          # (1) argtable2-13 is not in a/the respository
+          # (2) using PKG_CONFIG_PATH  to find the .pc file
+          # (3) make
+
+          # erikkaashoek authored on Dec 30, 2023
+          # erikkaashoek
+          # ffmpeg build moved to github
+          # https://github.com/erikkaashoek/Comskip/blob/a140b6ac8bc8f596729e9052819affc779c3b377/appveyor.yml#L21
+          # # argtable2-13
+          # ./configure --build=x86_64-w64-mingw32
+          # make
+          # autogen.sh
+          # NOTE, -lswresample SEEMS now required
+          # # comskip beginning-of-line inputs to ./configure
+          #     argtable2_CFLAGS='-Iargtable2-13/src' argtable2_LIBS='-Largtable2-13/src/.libs -largtable2'
+          #     ffmpeg_CFLAGS='-Iffmpeg-5.0.1-full_build-shared/include'
+          #     ffmpeg_LIBS='-Lffmpeg-5.0.1-full_build-shared/lib -lavutil -lavformat -lavcodec -lswscale'
+          # ./configure
+          # # comskip build
+          # make
+          #
+
+        if [ "${OperatingSystem}" == "Cygwin" ]
+        then
+          if [ "${PKG_CONFIG_PATH}" == "" ]; then export PKG_CONFIG_PATH=/usr/local/lib/pkgconfig ; fi
+          if [ "${PKG_CONFIG_PATH}" != "" ]; then export PKG_CONFIG_PATH="/usr/local/lib/pkgconfig:${PKG_CONFIG_PATH}" ; fi
+          echo "PKG_CONFIG_PATH: ${PKG_CONFIG_PATH}"
+        fi
+
+        # Building from GitHub
+        # https://github.com/erikkaashoek/Comskip
+        # not "make install"
+        # https://stackoverflow.com/questions/5535548/make-error-1-error
+        # https://www.gnu.org/software/make/manual/make.html#Error-Messages
+        set +x +v +e
+        # I had set "SHELLOPTS: igncr"
+        # sed -i 's/\r$//' ./autogen.sh
+        #
+        # 3RD party shared FFmpeg  method
+        #
+        # See "... ./configure" at
+        # NOTE -lswresample SEEMS now required
+        # ffmpeg_CFLAGS='-Iwin-gpl-shared/include' ffmpeg_LIBS='-Lwin-gpl-shared/lib
+        # -lavutil -lavformat -lavcodec -lswscale' ./configure
+        # https://github.com/erikkaashoek/Comskip/blob/a140b6ac8bc8f596729e9052819affc779c3b377/appveyor.yml#L21
+        # https://ci.appveyor.com/project/erikkaashoek/comskip/builds/51910208
+        ./autogen.sh
+        if [ "${OperatingSystem}" == "Mingw" ] && [ -d "win-gpl-shared" ]
+        then
+          # -lswresample SEEMS now required
+          ffmpeg_CFLAGS='-Iwin-gpl-shared/include' ffmpeg_LIBS='-Lwin-gpl-shared/lib -lavutil -lavformat -lavcodec -lswscale -lswresample' ./configure
+        else
+          ./configure
+        fi
+
+        if [ "${OperatingSystem}" == "Mingw" ]
+        then
+          make
+          # comskip.exe
+          # comskip-gui.exe # needs the correct package support to produce comskip-gui.exe
+        fi
+        if [ "${OperatingSystem}" == "Cygwin" ]
+        then
+          # make
+          # make comskip_gui-mpeg2dec.o
+          # make: *** [Makefile:704: comskip_gui-mpeg2dec.o] Error 1
+          # make comskip_gui-mpeg2dec.obj
+          # make: *** [Makefile:704: comskip_gui-mpeg2dec.o] Error 1
+          # make comskip-gui.exe
+          # make: *** [Makefile:704: comskip_gui-mpeg2dec.o] Error 1
+          # The ES_CONTINUOUS error means your compiler is
+          #   trying to use the Windows API flag
+          #     for SetThreadExecutionState without first declaring or importing it.
+          #       include <windows.h>
+          # If you get a linker error after resolving the undeclared identifier,
+          #   make sure your project links against Kernel32.lib
+          # If you are translating this for a C# or Java (JNA) project,
+          #   ES_CONTINUOUS is a constant that you must define yourself.
+          #
+          #
+          # make: *** [Makefile:704: comskip_gui-mpeg2dec.o] Error 1
+          #
+          # just MAKE this
+          make comskip.exe
+          make comskip-gui.exe 2>&1 | tee make_comskip-gui.log > /dev/null && echo 0
+          echo Contents of make_comskip-gui.log ...
+          cat make_comskip-gui.log
+        fi
+        set -x -v -e
+
+        ls -alrt comskip
+
+        mkdir Export
+        if [ -f comskip     ]; then cp comskip        Export; fi
+        if [ -f comskip-gui ]; then cp comskip-gui    Export; fi
+
+        # if [ "${OperatingSystem}" == "Mingw" ]
+        # then
+        #   # NOT USEFUL
+        #   # 3rd party shared FFmpeg xor ...
+        #   # if [ $(ls win-gpl-shared/bin/avcodec*.*    > /dev/null 2>&1 && echo 0) ]; then cp win-gpl-shared/bin/avcodec*.*     Export; fi
+        #   # if [ $(ls win-gpl-shared/bin/avformat*.*   > /dev/null 2>&1 && echo 0) ]; then cp win-gpl-shared/bin/avformat*.*    Export; fi
+        #   # if [ $(ls win-gpl-shared/bin/swscale*.*    > /dev/null 2>&1 && echo 0) ]; then cp win-gpl-shared/bin/swscale*.*     Export; fi
+        #   # if [ $(ls win-gpl-shared/bin/avutil*.*     > /dev/null 2>&1 && echo 0) ]; then cp win-gpl-shared/bin/avutil*.*      Export; fi
+        #   # if [ $(ls win-gpl-shared/bin/swresample*.* > /dev/null 2>&1 && echo 0) ]; then cp win-gpl-shared/bin/swresample*.*  Export; fi
+        #
+        #   # NOT USEFUL
+        #   # Mingw files from the Mingw FFmpeg package xor (previous) set above ...
+        #   # if [ $(ls ${MSYSTEM_PREFIX}/bin/avcodec*.*    > /dev/null 2>&1 && echo 0) ]; then cp ${MSYSTEM_PREFIX}/bin/avcodec*.*     Export; fi
+        #   # if [ $(ls ${MSYSTEM_PREFIX}/bin/avformat*.*   > /dev/null 2>&1 && echo 0) ]; then cp ${MSYSTEM_PREFIX}/bin/avformat*.*    Export; fi
+        #   # if [ $(ls ${MSYSTEM_PREFIX}/bin/swscale*.*    > /dev/null 2>&1 && echo 0) ]; then cp ${MSYSTEM_PREFIX}/bin/swscale*.*     Export; fi
+        #   # if [ $(ls ${MSYSTEM_PREFIX}/bin/avutil*.*     > /dev/null 2>&1 && echo 0) ]; then cp ${MSYSTEM_PREFIX}/bin/avutil*.*      Export; fi
+        #   # if [ $(ls ${MSYSTEM_PREFIX}/bin/swresample*.* > /dev/null 2>&1 && echo 0) ]; then cp ${MSYSTEM_PREFIX}/bin/swresample*.*  Export; fi
+        # fi
+
+
+    # Save (before the test)
+    # to use to see if the comskip executable works OUTSIDE the Github Actions environment
+    - name: For Export Upload Artifact of matid-${{ matrix.matid }}-comskip-${{ matrix.compilerEnv == 'notset' && 'native'  || matrix.compilerEnv }}-arch-${{ matrix.Platform }}-${{ github.ref_type }}-${{ github.ref_name }}-${{ matrix.provider }}
+      if: ${{ env.compilerClass == 'Mingw' || env.compilerClass == 'Cygwin' }}
+      uses: actions/upload-artifact@v7
+      with:
+        name: matid-${{ env.matid }}-comskip-${{ env.HEAD7_GITHUB_SHA }}-${{ env.compilerEnv == 'notset' && 'native'  || env.compilerEnv }}-arch-${{ matrix.Platform }}-${{ github.ref_type }}-${{ github.ref_name }}-${{ env.provider }}-ffmpeg-${{ env.FFMPEGVERSION }}-built-${{ env.TODAYSDATETIME }}
+        # default
+        # if-no-files-found: warn
+        path: |
+          Export/
+
+
+    - name: Pre Test compskip for ${{ matrix.compilerEnv }} - Cache Test Video
+      id: cacheTestVideo
+      if: ${{ env.compilerClass == 'Mingw' || env.compilerClass == 'Cygwin' }}
+      uses: actions/cache@v5
+      with:
+        path: ten-copy.mkv
+        key:  ten-copy.mkv
+      env:
+        SEGMENT_DOWNLOAD_TIMEOUT_MINS: 1
+
+
+    - name: Pre Test compskip for ${{ matrix.compilerEnv }} - Download Test Video
+      id: downloadTestVideo
+      if: ${{ ( env.compilerClass == 'Mingw' || env.compilerClass == 'Cygwin' ) && steps.cacheTestVideo.outputs.cache-hit != 'true' }}
+      uses: suisei-cn/actions-download-file@v1.6.1
+      with:
+        retry-times: 1
+        url: https://s3.amazonaws.com/tmm1/ten-copy.mkv
+
+
+    # DO NOT TEST Cygwin HERE IN GITHUB ACTIONS
+    # DO NOT TEST Cygwin HERE IN GITHUB ACTIONS
+    # DO NOT TEST Cygwin HERE IN GITHUB ACTIONS
+    # Here in Github Actions "./comskip --scf ten-copy.mkv" ALWAYS FAILS (for some unknown reason)
+    # Outside of Github Actions, I tested "compskip."  It works just fine!
+    - name: Test compskip for Mingw
+      if: ${{ env.compilerClass == 'Mingw' }}
+      env:
+        # Cygwin OS variables
+        SHELLOPTS: igncr
+        CHERE_INVOKING: 1
+        # Mingw OS variable
+        msystem: ${{ env.compilerEnv }}
+        MSYS2_LOCATION: ${{ steps.mingw_install.outputs.msys2-location }}
+      run: |
+        echo "BEGIN Test compskip for ${{ matrix.compilerEnv }}"
+        set -x -v -e
+
+        if [ "${OperatingSystem}" == "Cygwin" ]
+        then
+          # because I set CHERE_INVOKING to be 1
+          export PATH=/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin
+        fi
+        echo "uname -a"
+        uname -a
+
+        ls -alrt comskip
+        # comskip --help" always returns "$?" == "2"
+        # Quick Test
+        # Using ( "time" instead of "true", becuase "time" gives Github Actions output)
+        ./comskip --help || time
+
+        # See "test_script" at
+        # https://github.com/erikkaashoek/Comskip/blob/a140b6ac8bc8f596729e9052819affc779c3b377/appveyor.yml#L27
+        # https://ci.appveyor.com/project/erikkaashoek/comskip/builds/51910208
+
+        # curl --verbose -L -O https://s3.amazonaws.com/tmm1/ten-copy.mkv
+        ls -alrt ten-copy.mkv
+
+        if [ -d "win-gpl-shared" ]
+        then
+          export PATH=$(echo "$(pwd)"/win-gpl-shared/bin):"${PATH}"
+        fi
+
+        ./comskip --scf ten-copy.mkv || time
+        cat             ten-copy.txt
+        ls -alrt        ten-copy.txt
+        cat             ten-copy.scf
+        ls -alrt        ten-copy.scf
+
+        if [ ! $(grep -q "Commercial starts" ten-copy.scf && echo 0) ]
+        then
+          echo "compskip failed Test compskip for ${{ matrix.compilerEnv }}" >&2
+          exit 1
+        fi
+
+        echo "END   Test compskip for ${{ matrix.compilerEnv }}"
+
+
+    - name: Prep Artifact for Distribution Release
+      if: ${{ github.ref_type == 'tag' && ( env.compilerClass == 'Mingw' || env.compilerClass == 'Cygwin' ) }}
+      env:
+        # Cygwin OS variables
+        SHELLOPTS: igncr
+        CHERE_INVOKING: 1
+        # Mingw OS variable
+        msystem: ${{ env.compilerEnv }}
+      run: |
+        echo "BEGIN Autogen, Configure, Build, and Quick Test, compskip for ${{ matrix.compilerEnv }}"
+        set -x -v -e
+        if [ "${OperatingSystem}" == "Cygwin" ]
+        then
+          # because I set CHERE_INVOKING to be 1
+          export PATH=/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin
+        fi
+        echo "uname -a"
+        uname -a
+        pushd Export
+        zip "${GITHUB_WORKSPACE}/comskip-${{ github.ref_name }}-${{ env.compilerEnv == 'notset' && 'native'  || env.compilerEnv }}-ffmpeg-${{ env.FFMPEGSHORTVERSION }}.zip" *
+        popd # from Export
+
+
+    # Common github.event_name Values
+    #
+    # push                    - Triggered by code being pushed to a branch or a tag creation.
+    # pull_request            - Triggered by pull request activity
+    #                           (e.g., opened, synchronized, closed).workflow_dispatch
+    #                         - Triggered manually by a user in the GitHub UI or via API.
+    # schedule                - Triggered by a cron expression.
+    # repository_dispatch     - Triggered by a custom webhook API call.
+    # issues or issue_comment - Triggered by activities happening on GitHub Issues
+    #
+    # Common Values github.ref_type Values
+    #
+    # branch     - The event was triggered by a branch (e.g., a push to a branch).
+    # tag        - The event was triggered by a Git tag
+    #              (e.g., creating a new release tag).
+    # repository - Occurs in specific contexts like a CreateEvent
+    #              when an entire repository is created.
+    #
+    # The github.ref_name context variable evaluates to the
+    # short name of the branch or tag that triggered a GitHub Actions workflow run.
+    #
+    # Its value depends entirely on the event that triggered the pipeline
+    #
+    # Branches      - Returns the branch name (e.g., main, development, feature-branch-1).
+    # Tags          - Returns the release or tag name (e.g., v1.2.3).
+    # Pull Requests - Returns a string combining the PR number and merge state,
+    #                 such as 26/merge instead of the actual branch name
+    #
+    # Note, ncipollo/release-action requires a tag
+    - name: For Distribution Release Artifacts of matid-${{ matrix.matid }}-comskip-${{ matrix.compilerEnv == 'notset' && 'native'  || matrix.compilerEnv }}-arch-${{ matrix.Platform }}-${{ github.ref_type }}-${{ github.ref_name }}-${{ matrix.provider }}
+      # POSSIBLE FUTURE -- use the "gh" command explicitly in the build.yml file
+      # See https://github.com/BtbN/FFmpeg-Builds/blob/master/.github/workflows/build.yml#L328C11-L328C27
+      #   gh release create
+      # See
+      #   Allowing GitHub Actions to Write to Repos
+      #   Anas Dev Scribbles
+      #   2025
+      #   https://www.youtube.com/watch?v=5SlMS9A41II
+      #
+      if: ${{ github.ref_type == 'tag' && ( env.compilerClass == 'Mingw' || env.compilerClass == 'Cygwin' ) }}
+      uses: ncipollo/release-action@v1
+      with:
+        body: "## Comskip ${{ github.ref_name }} Release  \nBuilt at the UTC date-time of ${{ env.TODAYSDATETIME }}.  \n### Windows\nIf you are using Windows (without Cygwin), then you just need:  \n1. FFmpeg `shared` distribution ( https://github.com/BtbN/FFmpeg-Builds/releases )  \n1. Mingw installation ( https://www.msys2.org ), and the  \n1. `comskip.exe` and `comskip-gui.exe` files.  These files exist in the release `.zip` file (seen below).  \n\nPut in the Windows PATH, the following directories ...  \n1. FFmpeg shared `\\lib` directory  \n1. FFmpeg shared `\\bin` directory  \n1. Mingw `msys64\\usr\\bin` directory  \n\n\n### Cygwin\nIf you are using Cygwin, then you need the following ...  \n1. Cygwin on Windows installation ( https://www.Cygwin.com ) Download `setup-x86_64.exe`    \n2. Cygwin packages installed (use `setup-x86_64.exe` to install): `libavformat62 libavcodec62 libswscale9 libavutil60 libswresample6`\n3. `comskip.exe` file; this single file is located in the release `.zip` file (seen below)"
+        omitBodyDuringUpdate: true
+        tag: ${{ github.ref_name }}
+        allowUpdates: true
+        replacesArtifacts: true
+        artifacts: |
+          comskip-${{ github.ref_name }}-${{ env.compilerEnv == 'notset' && 'native'  || env.compilerEnv }}-ffmpeg-${{ env.FFMPEGSHORTVERSION }}.zip
+        token: ${{ secrets.GITHUB_TOKEN }}
