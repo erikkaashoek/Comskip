@@ -1251,6 +1251,13 @@ extern char					mpegfilename[];
 
 
 
+static double get_frame_delay(VideoState *is)
+{
+    if (is->dec_ctx->framerate.num && is->dec_ctx->framerate.den)
+        return 1 / av_q2d(is->dec_ctx->framerate);
+    return 1 / is->fps;
+}
+
 int video_packet_process(VideoState *is,AVPacket *packet)
 {
     double frame_delay;
@@ -1322,14 +1329,7 @@ static int    prev_strange_framenum = 0;
             is->pFrame = newframe;
         }
 
-        if(is->dec_ctx->framerate.den && is->dec_ctx->framerate.num)
-        {
-            frame_delay = (1/ av_q2d(is->dec_ctx->framerate) ) /* * is->dec_ctx->ticks_per_frame */ ;
-        }
-        else
-        {
-           frame_delay = av_q2d(is->dec_ctx->time_base) * get_ticks_per_frame(is->dec_ctx) ;
-        }
+        frame_delay = get_frame_delay(is);
 
 //        frame_delay = av_q2d(is->dec_ctx->time_base) * is->dec_ctx->ticks_per_frame ;
         repeat = av_stream_get_parser(is->video_st) ? av_stream_get_parser(is->video_st)->repeat_pict: 4;
@@ -2096,7 +2096,7 @@ again:
         else
         {
             Debug(10, "Warning, no stream frame rate, deriving from codec\n");
-            is->fps = 1/(av_q2d(is->dec_ctx->time_base) * get_ticks_per_frame(is->dec_ctx) );
+            is->fps = av_q2d(av_guess_frame_rate(is->pFormatCtx, is->video_st, NULL));
         }
         set_fps( 1.0 / is->fps);
 //        Debug(1, "Stream frame rate is %5.3f f/s\n", is->fps);
@@ -2470,7 +2470,7 @@ nextpacket:
 
                     if ((live_tv && retries < live_tv_retries) /* || (selftest == 3 && retries == 0) */)
                     {
-                        double frame_delay = av_q2d(is->dec_ctx->time_base) * get_ticks_per_frame(is->dec_ctx);
+                        double frame_delay = get_frame_delay(is);
 //                    uint64_t retry_target;
                         if (retries == 0)
                         {
