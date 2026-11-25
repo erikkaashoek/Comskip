@@ -1202,19 +1202,6 @@ nextpacket:
                     av_packet_unref(packet);
                     break;
                 }
-/*
-                double frame_delay = av_q2d(is->dec_ctxpar->time_base)* is->dec_ctxpar->ticks_per_frame;         // <------------------------ frame delay is the time in seconds till the next frame
-                if (is->video_clock - is->seek_pts > -frame_delay / 2.0)
-                {
-                    av_packet_unref(packet);
-                    break;
-                }
-                if (is->video_clock + (pack_duration * av_q2d(is->video_st->time_base)) >= is->seek_pts)
-                {
-                    av_packet_unref(packet);
-                    break;
-                }
- */
             }
         }
         else if(packet->stream_index == is->audioStream)
@@ -1331,7 +1318,6 @@ static int    prev_strange_framenum = 0;
 
         frame_delay = get_frame_delay(is);
 
-//        frame_delay = av_q2d(is->dec_ctx->time_base) * is->dec_ctx->ticks_per_frame ;
         repeat = av_stream_get_parser(is->video_st) ? av_stream_get_parser(is->video_st)->repeat_pict: 4;
 
  //       if (prev_frame_delay != 0.0 && frame_delay != prev_frame_delay)
@@ -1455,8 +1441,6 @@ static int    prev_strange_framenum = 0;
         }
         else
             do_audio_repair = 0;
-
-//		Debug(0 ,"pst[%3d] = %12.3f, inter = %d, ticks = %d\n", framenum, pts/frame_delay, is->pFrame->interlaced_frame, is->dec_ctxpar->ticks_per_frame);
 
         pts = real_pts + pts_offset;
 
