@@ -15,7 +15,12 @@
 // Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
 #include "platform.h"
 #include "vo.h"
+#ifdef HAVE_argtable3
+#include <argtable3.h>
+#endif
+#ifdef HAVE_argtable2
 #include <argtable2.h>
+#endif
 #include <pthread.h>
 
 

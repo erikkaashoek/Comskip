@@ -48,7 +48,12 @@ AM_CONDITIONAL([ENABLE_DEBUG], [test "x${enable_debug}" = "xyes"])
 
 PKG_PROG_PKG_CONFIG
 AS_IF([test "x${enable_static}" = "xyes"], PKG_CONFIG="$PKG_CONFIG --static")
-PKG_CHECK_MODULES(argtable2, [argtable2 >= 2.12])
+PKG_CHECK_MODULES(argtable3, [argtable3 >= 3.3.0],
+   [AC_DEFINE([HAVE_argtable3], [1], [Use argtable3])],
+   [PKG_CHECK_MODULES(argtable2, [argtable2 >= 2.12],
+       [AC_DEFINE([HAVE_argtable2], [1], [Use argtable2])
+    ])
+])
 PKG_CHECK_MODULES(ffmpeg, [libavutil >= 54.7 libavformat >= 57.33.100 libavcodec >= 57.37.100 libswscale >= 5.0])
 
 AS_IF([test "x${enable_gui}" = "xno"], [
